@@ -10,7 +10,7 @@
     <div class="app-container">
         <!-- Header -->
         <header class="app-header">
-            <h1>🏃‍♂️ Running Group</h1>
+            <h1>🏃‍♂️ Noida Extension Runners 🏃‍♂️🏃‍♂️</h1>
             <p>Track your runs and stay motivated!</p>
         </header>
 
@@ -24,7 +24,7 @@
                 <table id="activitiesTable">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>ActivityName</th>
                             <th>Date</th>
                             <th>Distance (km)</th>
                             <th>Time (mins)</th>
@@ -55,7 +55,7 @@
                     const tbody = document.querySelector('#activitiesTable tbody');
                     tbody.innerHTML = data.map(activity => `
                         <tr>
-                            <td>${activity.athlete.firstname} ${activity.athlete.lastname}</td>
+                            <td>${activity.name}</td>
                             <td>${new Date(activity.start_date).toLocaleDateString()}</td>
                             <td>${(activity.distance / 1000).toFixed(2)}</td>
                             <td>${(activity.moving_time / 60).toFixed(2)}</td>
