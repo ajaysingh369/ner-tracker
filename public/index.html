@@ -4,26 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Running Group Dashboard</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Running Group Dashboard</h1>
-    <button id="authButton">Authorize with Strava</button>
-    <table id="activitiesTable">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Date</th>
-                <th>Distance (km)</th>
-                <th>Time (mins)</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>🏃‍♂️ Running Group</h1>
+            <p>Track your runs and stay motivated!</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <button id="authButton" class="auth-button">Authorize with Strava</button>
+
+            <!-- Activities Table -->
+            <div class="activities-container">
+                <h2>Your Activities</h2>
+                <table id="activitiesTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Date</th>
+                            <th>Distance (km)</th>
+                            <th>Time (mins)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Made with ❤️ by Your Running Group</p>
+        </footer>
+    </div>
 
     <script>
         const athleteId = new URLSearchParams(window.location.search).get('athleteId');

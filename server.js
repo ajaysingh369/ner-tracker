@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (like dashboard.html)
+// Serve static files (including index.html)
 app.use(express.static(path.join(__dirname, 'public')));
 
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -35,7 +35,7 @@ app.get('/auth/strava/callback', async (req, res) => {
         const accessToken = tokenResponse.data.access_token;
         const athleteId = tokenResponse.data.athlete.id;
         tokens[athleteId] = accessToken; // Store token
-        res.redirect(`/dashboard.html?athleteId=${athleteId}`);
+        res.redirect(`/?athleteId=${athleteId}`); // Redirect to root URL
     } catch (error) {
         res.status(500).send('Error fetching access token');
     }
