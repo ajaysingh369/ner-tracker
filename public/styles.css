@@ -7,9 +7,30 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background: #f8f9fa;
-    color: #333;
+    background: var(--background-color);
+    color: var(--text-color);
     line-height: 1.6;
+}
+body[data-theme="dark"] {
+    background: #1a1a1a;
+    color: #f8f9fa;
+}
+
+/* Dark Mode Variables */
+:root {
+    --background-color: #fff;
+    --text-color: #333;
+    --primary-color: #007bff;
+    --secondary-color: #f1f3f5;
+    --border-color: #ddd;
+}
+
+[data-theme="dark"] {
+    --background-color: #1a1a1a;
+    --text-color: #f8f9fa;
+    --primary-color: #0d6efd;
+    --secondary-color: #2d2d2d;
+    --border-color: #444;
 }
 
 /* App Container */
@@ -17,7 +38,7 @@ body {
     max-width: 1200px;
     margin: 20px auto;
     padding: 20px;
-    background: #fff;
+    background: var(--background-color);
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -26,25 +47,81 @@ body {
 .app-header {
     text-align: center;
     margin-bottom: 20px;
+    position: relative;
 }
 
 .app-header h1 {
     font-size: 2.5rem;
-    color: #333;
+    color: var(--text-color);
     font-weight: 700;
 }
 
 .app-header p {
     font-size: 1.1rem;
-    color: #666;
+    color: var(--text-color);
 }
+
+[data-theme="dark"] .app-header h1 {
+    color: #ffcc00; /* Brighter text */
+}
+
+[data-theme="dark"] .app-header p {
+    color: #f8f9fa;
+}
+
+
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.theme-toggle label {
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.theme-toggle input {
+    appearance: none;
+    width: 40px;
+    height: 20px;
+    background: var(--border-color);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.theme-toggle input:checked {
+    background: var(--primary-color);
+}
+
+.theme-toggle input::before {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    top: 50%;
+    left: 2px;
+    transform: translateY(-50%);
+    transition: left 0.3s ease;
+}
+
+.theme-toggle input:checked::before {
+    left: 22px;
+}
+
 
 /* Auth Button */
 .auth-button {
     display: block;
     width: 100%;
     padding: 15px;
-    background: #007bff;
+    background: var(--primary-color);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -67,21 +144,22 @@ body {
 .month-selector label {
     font-size: 1.1rem;
     margin-right: 10px;
-    color: #555;
+    color: var(--text-color);
 }
 
 .month-selector select {
     padding: 8px 12px;
     font-size: 1rem;
     border-radius: 8px;
-    border: 1px solid #ddd;
-    background: #fff;
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-color);
     cursor: pointer;
     transition: border-color 0.3s ease;
 }
 
 .month-selector select:hover {
-    border-color: #007bff;
+    border-color: var(--primary-color);
 }
 
 /* Loader */
@@ -90,7 +168,7 @@ body {
     text-align: center;
     font-size: 1.2rem;
     margin: 20px 0;
-    color: #007bff;
+    color: var(--primary-color);
 }
 
 /* Medals Section */
@@ -102,7 +180,7 @@ body {
 .medals-container h2 {
     font-size: 1.8rem;
     margin-bottom: 10px;
-    color: #333;
+    color: var(--text-color);
 }
 
 .medals-grid {
@@ -113,16 +191,19 @@ body {
 }
 
 .medals-grid p {
-    background: #f1f3f5;
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 1.1rem;
+    background: linear-gradient(135deg, #ffd700, #ffcc00);
     color: #333;
-    transition: transform 0.2s ease;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .medals-grid p:hover {
-    transform: translateY(-2px);
+    transform: scale(1.05);
+    box-shadow: 4px 8px 16px rgba(0, 0, 0, 0.3);
 }
 
 /* Calendar Table */
@@ -140,32 +221,68 @@ body {
 #calendarTable th, #calendarTable td {
     padding: 12px;
     text-align: center;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color);
 }
 
 #calendarTable th {
-    background: #007bff;
+    background: var(--primary-color);
     color: #fff;
     font-weight: 600;
 }
-
 #calendarTable td {
     cursor: pointer;
-    transition: background 0.3s ease;
+    border-color: var(--border-color);
+    transition: background 0.3s ease, transform 0.2s ease;
 }
 
 #calendarTable td:hover {
-    background: #f1f3f5;
+    background: rgba(0, 123, 255, 0.2);
+    transform: scale(1.05);
+}
+
+
+.athlete-name {
+    cursor: pointer;
+    color: var(--primary-color);
+    text-decoration: underline;
 }
 
 /* Profile Photos */
-.profile-photo {
-    width: 30px;
-    height: 30px;
+.profile-photo-large {
+    width: 150px;
+    height: 150px;
     border-radius: 50%;
-    margin-right: 10px;
-    border: 2px solid #007bff;
+    margin-bottom: 10px;
 }
+
+.profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.profile-card {
+    background: var(--secondary-color);
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.profile-card img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    border: 3px solid var(--primary-color);
+}
+
 
 /* Popup */
 .popup {
@@ -182,27 +299,27 @@ body {
 }
 
 .popup-content {
-    background: #fff;
+    background: var(--background-color);
+    color: var(--text-color);
     padding: 20px;
     border-radius: 12px;
     width: 90%;
     max-width: 400px;
     text-align: center;
     position: relative;
-    top:30%;
-    left:40%;
 }
+
 
 .popup-content h3 {
     font-size: 1.5rem;
     margin-bottom: 10px;
-    color: #333;
+    color: var(--text-color);
 }
 
 .popup-content p {
     font-size: 1.1rem;
     margin: 5px 0;
-    color: #555;
+    color: var(--text-color);
 }
 
 .close {
@@ -211,33 +328,35 @@ body {
     right: 10px;
     font-size: 1.5rem;
     cursor: pointer;
-    color: #333;
-    transition: color 0.3s ease;
 }
 
-.close:hover {
-    color: #007bff;
+/* Profile Popup */
+
+
+.big-profile-photo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    border: 3px solid var(--primary-color);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .app-container {
-        padding: 10px;
-    }
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 15px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 8px;
+}
 
-    .app-header h1 {
-        font-size: 2rem;
-    }
+.social-links a {
+    margin: 0 10px;
+    color: white;
+    font-size: 1.5rem;
+    transition: transform 0.2s ease;
+}
 
-    .auth-button {
-        font-size: 1rem;
-    }
-
-    .medals-grid {
-        grid-template-columns: 1fr;
-    }
-
-    #calendarTable th, #calendarTable td {
-        padding: 8px;
-    }
+.social-links a:hover {
+    transform: scale(1.1);
 }

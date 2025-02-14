@@ -6,6 +6,7 @@
     <title>Noida Extension Runners</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
@@ -13,6 +14,11 @@
         <header class="app-header">
             <h1>🏃‍♂️ Noida Extension Runners</h1>
             <p>Track your runs and stay motivated!</p>
+            <!-- Dark Mode Toggle -->
+            <div class="theme-toggle">
+                <label for="theme">Dark Mode:</label>
+                <input type="checkbox" id="theme">
+            </div>
         </header>
 
         <!-- Main Content -->
@@ -61,7 +67,12 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>Made with ❤️ by Noida Extension Runners</p>
+            <div class="social-links">
+                <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
+                <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
+                <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
+            </div>
+            <p>&copy; 2023 Noida Extension Runners. All rights reserved.</p>
         </footer>
     </div>
 
@@ -74,7 +85,27 @@
         </div>
     </div>
 
+    <!-- Athlete Profile Popup -->
+    <div id="profilePopup" class="popup">
+        <div class="popup-content">
+            <span id="closeProfilePopup" class="close">&times;</span>
+            <h3>Athlete Profile</h3>
+            <div id="profileDetails">
+                <img id="profilePhoto" src="https://via.placeholder.com/150" alt="Profile Photo" class="profile-photo-large">
+                <p id="profileName"></p>
+                <p id="profileActivities"></p>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Load dark mode setting
+        document.addEventListener("DOMContentLoaded", () => {
+            const darkModeEnabled = localStorage.getItem("darkMode") === "true";
+            themeToggle.checked = darkModeEnabled;
+            document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
+        });
+
         const authButton = document.getElementById('authButton');
         const loader = document.getElementById('loader');
         const calendarHeader = document.getElementById('calendarHeader');
@@ -82,7 +113,20 @@
         const activityPopup = document.getElementById('activityPopup');
         const activityDetails = document.getElementById('activityDetails');
         const closePopup = document.getElementById('closePopup');
+        const profilePopup = document.getElementById('profilePopup');
+        const closeProfilePopup = document.getElementById('closeProfilePopup');
+        const profilePhoto = document.getElementById('profilePhoto');
+        const profileName = document.getElementById('profileName');
+        const profileActivities = document.getElementById('profileActivities');
         const monthSelector = document.getElementById('month');
+        const themeToggle = document.getElementById('theme');
+
+        // Toggle dark mode and save setting
+        themeToggle.addEventListener("change", () => {
+            const isDarkMode = themeToggle.checked;
+            document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+            localStorage.setItem("darkMode", isDarkMode);
+        });
 
         // Check if the user is already authorized
         const checkAuthorization = async () => {
@@ -98,13 +142,42 @@
 
         // Fetch activities and display them in the calendar
         const fetchActivities = async (month = 'current') => {
-            loader.style.display = 'block'; // Show loader
+            let loaderTimeout = setTimeout(() => loader.style.display = 'block', 500); // Only show if it takes longer than 500ms
+
+            //loader.style.display = 'block'; // Show loader
             calendarHeader.innerHTML = '';
             calendarBody.innerHTML = '';
 
             try {
                 const response = await fetch(`/activities?month=${month}`);
                 const { activities, medals } = await response.json();
+                clearTimeout(loaderTimeout);
+                loader.style.display = 'none'; // Hide loader
+                
+
+                // Group activities by athlete
+                const athletes = {};
+                activities.forEach(activity => {
+                    const athleteId = activity.athlete.id;
+                    if (!athletes[athleteId]) {
+                        athletes[athleteId] = {
+                            name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
+                            profile: activity.athlete.profile || 'https://via.placeholder.com/150', // Default photo
+                            activities: {}
+                        };
+                    }
+
+                    const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN');
+                    athletes[athleteId].activities[activityDate] = activity;
+                });
+
+                // Display medals
+                const medalsContainer = document.getElementById('medals');
+                medalsContainer.innerHTML = `
+                    <p>🥇 Gold: ${medals.gold ? athletes[medals.gold].name : 'N/A'}</p>
+                    <p>🥈 Silver: ${medals.silver ? athletes[medals.silver].name : 'N/A'}</p>
+                    <p>🥉 Bronze: ${medals.bronze ? athletes[medals.bronze].name : 'N/A'}</p>
+                `;
 
                 // Generate calendar header (dates)
                 const currentDate = new Date();
@@ -122,46 +195,26 @@
 
                 calendarHeader.appendChild(headerRow);
 
-                // Group activities by athlete
-                const athletes = {};
-                activities.forEach(activity => {
-                    const athleteId = activity.athlete.id;
-                    if (!athletes[athleteId]) {
-                        athletes[athleteId] = {
-                            name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
-                            profile: activity.athlete.profile,
-                            activities: {}
-                        };
-                    }
-
-                    const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN');
-                    athletes[athleteId].activities[activityDate] = activity;
-                });
-
-                // Display medals
-                const medalsContainer = document.getElementById('medals');
-                medalsContainer.innerHTML = `
-                    <p>🥇 Gold: ${medals.gold ? athletes[medals.gold].name : 'N/A'}</p>
-                    <p>🥈 Silver: ${medals.silver ? athletes[medals.silver].name : 'N/A'}</p>
-                    <p>🥉 Bronze: ${medals.bronze ? athletes[medals.bronze].name : 'N/A'}</p>
-                `;
-
                 // Generate calendar body
                 Object.values(athletes).forEach(athlete => {
                     const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>
-                            <img src="${athlete.profile || 'profile.png'}" alt="${athlete.name}" class="profile-photo">
-                            ${athlete.name}
-                        </td>
-                    `; // First column for athlete name and profile photo
+                    const athleteCell = document.createElement('td');
+                    athleteCell.innerHTML = `
+                        <span class="athlete-name" data-athlete-id="${athlete.name}">${athlete.name}</span>
+                    `;
+                    athleteCell.addEventListener('click', () => showProfilePopup(athlete));
+                    row.appendChild(athleteCell);
 
                     for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
                         const activityDate = date.toLocaleDateString('en-IN');
                         const activity = athlete.activities[activityDate];
 
                         const cell = document.createElement('td');
-                        if (date > currentDate && month === 'current') {
+                        const todays = new Date().toLocaleDateString('en-IN');
+                        if (activityDate === todays) {
+                            cell.style.border = "2px solid blue";
+                            cell.style.fontWeight = "bold";
+                        } else if (date > currentDate && month === 'current') {
                             // Skip future dates for the current month
                             cell.textContent = '';
                             cell.style.backgroundColor = 'transparent';
@@ -180,6 +233,8 @@
                     calendarBody.appendChild(row);
                 });
             } catch (error) {
+                clearTimeout(loaderTimeout);
+                loader.style.display = 'none'; // Hide loader
                 console.error('Error fetching activities:', error);
             } finally {
                 loader.style.display = 'none'; // Hide loader
@@ -188,6 +243,8 @@
 
         // Show activity details in a popup
         const showActivityDetails = (activity) => {
+            activityDetails.innerHTML = ''; // Clear previous content
+
             activityDetails.innerHTML = `
                 <p><strong>Athlete:</strong> ${activity.athlete.firstname} ${activity.athlete.lastname}</p>
                 <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
@@ -198,15 +255,30 @@
             activityPopup.style.display = 'block';
         };
 
-        // Close the popup
+        // Show athlete profile in a popup
+        const showProfilePopup = (athlete) => {
+            profilePhoto.src = athlete.profile;
+            profileName.textContent = athlete.name;
+            profileActivities.textContent = `Total Activities: ${Object.keys(athlete.activities).length}`;
+            profilePopup.style.display = 'block';
+        };
+
+        // Close the popups
         closePopup.addEventListener('click', () => {
             activityPopup.style.display = 'none';
         });
 
+        closeProfilePopup.addEventListener('click', () => {
+            profilePopup.style.display = 'none';
+        });
+
         // Handle month selection
+        let debounceTimer;
         monthSelector.addEventListener('change', (event) => {
-            const selectedMonth = event.target.value;
-            fetchActivities(selectedMonth);
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchActivities(event.target.value);
+            }, 500);
         });
 
         // Event listener for the "Authorize with Strava" button

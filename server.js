@@ -33,6 +33,28 @@ const athleteSchema = new mongoose.Schema({
 
 const Athlete = mongoose.model('Athlete', athleteSchema);
 
+const refreshAccessToken = async (athlete) => {
+    try {
+        const response = await axios.post('https://www.strava.com/oauth/token', {
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET,
+            refresh_token: athlete.refreshToken, // Store refreshToken in DB
+            grant_type: 'refresh_token'
+        });
+
+        // Update token in DB
+        await Athlete.findOneAndUpdate(
+            { athleteId: athlete.athleteId },
+            { accessToken: response.data.access_token, refreshToken: response.data.refresh_token }
+        );
+
+        return response.data.access_token;
+    } catch (error) {
+        console.error(`Failed to refresh token for athlete ${athlete.athleteId}:`, error.message);
+        return null;
+    }
+};
+
 // Redirect users to Strava for authorization
 app.get('/auth/strava', (req, res) => {
     const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all`;
