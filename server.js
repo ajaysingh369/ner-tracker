@@ -26,6 +26,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 const athleteSchema = new mongoose.Schema({
     athleteId: { type: String, required: true, unique: true },
     accessToken: { type: String, required: true },
+    refreshToken: { type: String, required: true },
     firstname: { type: String },
     lastname: { type: String },
     profile: { type: String } // Profile photo URL
@@ -57,7 +58,8 @@ const refreshAccessToken = async (athlete) => {
 
 // Redirect users to Strava for authorization
 app.get('/auth/strava', (req, res) => {
-    const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all`;
+    const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,read_all`;
+    //const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all`;
     res.redirect(url);
 });
 
@@ -129,7 +131,24 @@ app.get('/activities', async (req, res) => {
 
                 allActivities.push(...activitiesWithAthlete);
             } catch (error) {
-                console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.response ? error.response.data : error.message);
+                if (error.response && error.response.status === 401) {  // Token expired
+                    console.log(`Access token expired for athlete ${athlete.athleteId}, refreshing...`);
+                    token = await refreshAccessToken(athlete);
+
+                    if (token) {
+                        const retryResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+                            headers: { Authorization: `Bearer ${token}` },
+                            params: {
+                                after: Math.floor(startOfMonth.getTime() / 1000), // Convert to Unix timestamp
+                                before: Math.floor(endOfMonth.getTime() / 1000)
+                            }
+                        });
+                        allActivities.push(...retryResponse.data);
+                    }
+                } else {
+                    console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
+                }
+                //console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.response ? error.response.data : error.message);
             }
         }
 

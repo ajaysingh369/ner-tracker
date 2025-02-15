@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
     <div class="app-container">
@@ -82,6 +84,7 @@
             <span id="closePopup" class="close">&times;</span>
             <h3>Activity Details</h3>
             <div id="activityDetails"></div>
+            <div id="activityMap" style="height: 200px; margin-top: 10px;"></div>
         </div>
     </div>
 
@@ -91,16 +94,19 @@
             <span id="closeProfilePopup" class="close">&times;</span>
             <h3>Athlete Profile</h3>
             <div id="profileDetails">
-                <img id="profilePhoto" src="https://via.placeholder.com/150" alt="Profile Photo" class="profile-photo-large">
+                <img id="profilePhoto" src="https://placehold.co/150" alt="Profile Photo" class="profile-photo-large">
                 <p id="profileName"></p>
                 <p id="profileActivities"></p>
             </div>
         </div>
     </div>
-
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://unpkg.com/@mapbox/polyline@1.2.1/src/polyline.js"></script>
     <script>
         // Load dark mode setting
         document.addEventListener("DOMContentLoaded", () => {
+            console.log("Polyline loaded:", typeof Polyline);
             const darkModeEnabled = localStorage.getItem("darkMode") === "true";
             themeToggle.checked = darkModeEnabled;
             document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
@@ -132,7 +138,9 @@
         const checkAuthorization = async () => {
             try {
                 const response = await fetch('/activities');
-                if (response.ok) {
+                console.log("Hello::", JSON.stringify(response))
+                if (response && response.ok) {
+                    console.log("Hello2::", JSON.stringify(response))
                     authButton.style.display = 'none'; // Hide the button if authorized
                 }
             } catch (error) {
@@ -162,7 +170,7 @@
                     if (!athletes[athleteId]) {
                         athletes[athleteId] = {
                             name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
-                            profile: activity.athlete.profile || 'https://via.placeholder.com/150', // Default photo
+                            profile: activity.athlete.profile || 'https://placehold.co/150', // Default photo
                             activities: {}
                         };
                     }
@@ -211,10 +219,7 @@
 
                         const cell = document.createElement('td');
                         const todays = new Date().toLocaleDateString('en-IN');
-                        if (activityDate === todays) {
-                            cell.style.border = "2px solid blue";
-                            cell.style.fontWeight = "bold";
-                        } else if (date > currentDate && month === 'current') {
+                        if (date > currentDate && month === 'current') {
                             // Skip future dates for the current month
                             cell.textContent = '';
                             cell.style.backgroundColor = 'transparent';
@@ -225,6 +230,10 @@
                         } else {
                             cell.textContent = 'Absent';
                             cell.style.backgroundColor = 'lightcoral';
+                        }
+                        if (activityDate === todays) {
+                            cell.style.border = "2px solid blue";
+                            cell.style.fontWeight = "bold";
                         }
 
                         row.appendChild(cell);
@@ -243,7 +252,6 @@
 
         // Show activity details in a popup
         const showActivityDetails = (activity) => {
-            activityDetails.innerHTML = ''; // Clear previous content
 
             activityDetails.innerHTML = `
                 <p><strong>Athlete:</strong> ${activity.athlete.firstname} ${activity.athlete.lastname}</p>
@@ -252,6 +260,47 @@
                 <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
                 <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
             `;
+
+            // Clear previous map if it exists
+            const mapContainer = document.getElementById('activityMap');
+            mapContainer.innerHTML = ''; // Clear the container
+
+            // Display map if GPS data is available
+            console.log("map1");
+            if (activity.map && activity.map.summary_polyline) {
+                console.log("map2");
+                 // Clear existing route if needed
+            if (window.currentRoute) {
+                map.removeLayer(window.currentRoute);
+            }
+            if (!window.map) {
+                window.map = L.map('activityMap').setView([51.505, -0.09], 13); // Default view
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+            } else {
+                if (window.currentRoute) {
+               window.map.removeLayer(window.currentRoute);
+            }  
+            }
+              
+            
+                console.log("map3");
+                // Decode the polyline and add it to the map
+                const decodedPath = polyline.decode(activity.map.summary_polyline);
+                //const decodedPath = Polyline.decode(activity.map.summary_polyline); // Decode polyline
+                const latLngs = decodedPath.map(coord => [coord[0], coord[1]]); // Convert to Leaflet format
+                console.log("map4", latLngs);
+                // Create a new polyline and add to the map
+                window.currentRoute = L.polyline(latLngs, { color: 'blue', weight: 4 }).addTo(map);
+
+                // Fit the map to the new route
+                map.fitBounds(window.currentRoute.getBounds());
+
+                //const polyline = L.Polyline.fromEncoded(activity.map.summary_polyline).addTo(map);
+                //map.fitBounds(polyline.getBounds());
+            }
+
             activityPopup.style.display = 'block';
         };
 
