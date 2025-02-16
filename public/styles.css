@@ -48,39 +48,46 @@ body[data-theme="dark"] {
     text-align: center;
     margin-bottom: 20px;
     position: relative;
+    padding: 15px 10px;
+    background: var(--background-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.app-header h1 {
-    font-size: 2.5rem;
+.header-content {
+    display: flex;
+    flex-direction: column; /* Stack items vertically on mobile */
+    align-items: center;
+    gap: 15px; /* Space between title and toggle */
+    padding: 0 10px;
+}
+
+.header-text h1 {
+    font-size: 2rem; /* Smaller font size for mobile */
     color: var(--text-color);
     font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
 }
 
-.app-header p {
-    font-size: 1.1rem;
+.header-text p {
+    font-size: 1rem; /* Smaller font size for mobile */
     color: var(--text-color);
+    opacity: 0.8;
+    font-weight: 500;
 }
 
-[data-theme="dark"] .app-header h1 {
-    color: #ffcc00; /* Brighter text */
-}
-
-[data-theme="dark"] .app-header p {
-    color: #f8f9fa;
-}
-
-
+/* Dark Mode Toggle */
 .theme-toggle {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
-    margin-top: 20px;
 }
 
 .theme-toggle label {
-    font-size: 1rem;
+    font-size: 0.9rem; /* Smaller font size for mobile */
     color: var(--text-color);
+    font-weight: 500;
 }
 
 .theme-toggle input {
@@ -113,6 +120,55 @@ body[data-theme="dark"] {
 
 .theme-toggle input:checked::before {
     left: 22px;
+}
+
+/* Header Divider */
+.header-divider {
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-color), transparent);
+    margin-top: 15px;
+    opacity: 0.3;
+}
+
+/* Dark Mode Adjustments */
+[data-theme="dark"] .app-header {
+    background: #2d2d2d;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .header-text h1 {
+    color: #ffcc00;
+}
+
+[data-theme="dark"] .header-text p {
+    color: #f8f9fa;
+    opacity: 0.9;
+}
+
+[data-theme="dark"] .header-divider {
+    background: linear-gradient(90deg, var(--primary-color), transparent);
+}
+
+/* Media Queries for Responsiveness */
+@media (min-width: 768px) {
+    .header-content {
+        flex-direction: row; /* Align items horizontally on desktop */
+        justify-content: space-between;
+        align-items: center;
+        gap: 0;
+    }
+
+    .header-text h1 {
+        font-size: 2.5rem; /* Larger font size for desktop */
+    }
+
+    .header-text p {
+        font-size: 1.1rem; /* Larger font size for desktop */
+    }
+
+    .theme-toggle label {
+        font-size: 1rem; /* Larger font size for desktop */
+    }
 }
 
 
@@ -221,6 +277,13 @@ body[data-theme="dark"] {
     margin-top: 20px;
 }
 
+#calendarTable thead th {
+    position: sticky;
+    top: 0;
+    background: var(--primary-color);
+    z-index: 1;
+}
+
 #calendarTable th, #calendarTable td {
     padding: 12px;
     text-align: center;
@@ -243,7 +306,9 @@ body[data-theme="dark"] {
     transform: scale(1.05);
 }
 
-
+#calendarTable tbody tr:nth-child(odd) {
+    background: rgba(0, 123, 255, 0.05);
+}
 .athlete-name {
     cursor: pointer;
     color: var(--primary-color);
@@ -371,3 +436,7 @@ body[data-theme="dark"] {
     height: 200px; /* Adjust this based on your requirement */
     border-radius: 10px;
 }
+.strava-badge- { display: inline-block; height: 24px; }
+  .strava-badge- img { visibility: hidden; height: 24px; }
+  .strava-badge-:hover { background-position: 0 -37px; }
+  .strava-badge-follow { height: 24px; width: 24px; background: url(//badges.strava.com/echelon-sprite-24.png) no-repeat 0 0; }
