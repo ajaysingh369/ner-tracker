@@ -77,8 +77,9 @@ app.get('/auth/strava/callback', async (req, res) => {
             code: code,
             grant_type: 'authorization_code'
         });
-
+        //console.log("token::", tokenResponse);
         const accessToken = tokenResponse.data.access_token;
+        const refreshToken =  tokenResponse.data.refresh_token;
         const athleteId = tokenResponse.data.athlete.id;
         const firstname = tokenResponse.data.athlete.firstname;
         const lastname = tokenResponse.data.athlete.lastname;
@@ -87,7 +88,7 @@ app.get('/auth/strava/callback', async (req, res) => {
         // Save or update athlete token in the database
         await Athlete.findOneAndUpdate(
             { athleteId },
-            { accessToken, firstname, lastname, profile },
+            { accessToken, refreshToken, firstname, lastname, profile },
             { upsert: true, new: true }
         );
 
