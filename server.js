@@ -153,13 +153,36 @@ app.get('/activities', async (req, res) => {
             }
         }
 
+        // Step 1: Use a Map to track the highest moving_time for each athlete.id and start_date
+        const activityMap = new Map();
+
+        for (const activity of allActivities) {
+        // Skip activities with moving_time < 3000
+        if (activity.moving_time < 3000) continue;
+
+        const key = `${activity.athlete.id}-${activity.start_date}`;
+        const existingActivity = activityMap.get(key);
+
+        // If no existing activity or current activity has higher moving_time, update the Map
+        if (!existingActivity || existingActivity.moving_time < activity.moving_time) {
+            activityMap.set(key, activity);
+        }
+        }
+
+        // Step 2: Convert the Map values back to an array
+        const optimizedActivities = Array.from(activityMap.values());
+
+        // Update the allActivities object
+        allActivities.activities = optimizedActivities;
+
         // Calculate medals
         const athleteActivityCount = {};
-        allActivities.forEach(activity => {
+       // console.log("AJAY::", JSON.stringify(allActivities));
+       optimizedActivities.forEach(activity => {
             const athleteId = activity.athlete.id;
             athleteActivityCount[athleteId] = (athleteActivityCount[athleteId] || 0) + 1;
         });
-
+        console.log("AJAY::", JSON.stringify(athleteActivityCount));
         const sortedAthletes = Object.entries(athleteActivityCount)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3); // Top 3 athletes
@@ -170,7 +193,7 @@ app.get('/activities', async (req, res) => {
             bronze: sortedAthletes[2] ? sortedAthletes[2][0] : null
         };
 
-        res.json({ activities: allActivities, medals });
+        res.json({ activities: optimizedActivities, medals });
     } catch (error) {
         console.error('Error fetching activities:', error.response ? error.response.data : error.message);
         res.status(500).send('Error fetching activities');

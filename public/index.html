@@ -31,7 +31,7 @@
             <!-- Auth Button -->
             <button id="authButton" class="auth-button">
                 <span>Authorize with Strava</span>
-                <span class="auth-subtext">*if your name is missing from the list</span>
+                <p class="auth-subtext">*if your name is missing from the list</p>
             </button>
 
             <!-- Month Selector -->
@@ -78,10 +78,10 @@
             <div class="social-links">
                 <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
                 <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
-                <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
+                <a href="https://www.instagram.com/noidaextensionrunners/#" target="_blank"><i class="fab fa-instagram"></i></a>
                 <a href="https://strava.com/athletes/123859756" class="strava-badge- strava-badge-follow" target="_blank"><img src="//badges.strava.com/echelon-sprite-24.png" alt="Strava" /></a>
             </div>
-            <div>&copy; 2023 Noida Extension Runners. All rights reserved.</div>
+            <div>&copy; 2025 Noida Extension Runners. All rights reserved.</div>
         </footer>
     </div>
 
@@ -194,9 +194,9 @@
                 // Display medals
                 const medalsContainer = document.getElementById('medals');
                 medalsContainer.innerHTML = `
-                    <p>🥇 Gold: ${medals.gold ? athletes[medals.gold].name : 'N/A'}</p>
-                    <p>🥈 Silver: ${medals.silver ? athletes[medals.silver].name : 'N/A'}</p>
-                    <p>🥉 Bronze: ${medals.bronze ? athletes[medals.bronze].name : 'N/A'}</p>
+                    <p>🥇 ${medals.gold ? athletes[medals.gold].name : 'N/A'}</p>
+                    <p>🥈 ${medals.silver ? athletes[medals.silver].name : 'N/A'}</p>
+                    <p>🥉 ${medals.bronze ? athletes[medals.bronze].name : 'N/A'}</p>
                 `;
 
                 // Generate calendar header (dates)
@@ -220,7 +220,9 @@
                     const row = document.createElement('tr');
                     const athleteCell = document.createElement('td');
                     athleteCell.innerHTML = `
-                        <span class="athlete-name" data-athlete-id="${athlete.name}">${athlete.name}</span>
+                        <span class="athlete-name" data-athlete-id="${athlete.name}">
+                            <img class="profile-photo-list" src="${athlete.profile}" />
+                            <br>${athlete.name}</span>
                     `;
                     athleteCell.addEventListener('click', () => showProfilePopup(athlete));
                     row.appendChild(athleteCell);
