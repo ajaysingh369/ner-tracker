@@ -191,6 +191,9 @@ body[data-theme="dark"] {
     background: #fc5200;
     transform: translateY(-2px);
 }
+.auth-subtext {
+    font-size: small;
+}
 
 /* Month Selector */
 .month-selector {
