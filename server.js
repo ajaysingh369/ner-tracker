@@ -104,101 +104,163 @@ app.get('/activities', async (req, res) => {
     try {
         const { month } = req.query;
         const currentDate = new Date();
-        const startOfMonth = month === 'current' ? new Date(currentDate.getFullYear(), currentDate.getMonth(), 1) : new Date(currentDate.getFullYear(), month, 1);
-        const endOfMonth = month === 'current' ? new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0) : new Date(currentDate.getFullYear(), month + 1, 0);
+        const startOfMonth = month === 'current' 
+            ? new Date(currentDate.getFullYear(), currentDate.getMonth(), 1) 
+            : new Date(currentDate.getFullYear(), month, 1);
+
+        const endOfMonth = month === 'current' 
+            ? new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0) 
+            : new Date(currentDate.getFullYear(), month + 1, 0);
+
+        const startTimestamp = Math.floor(startOfMonth.getTime() / 1000);
+        const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
 
         const athletes = await Athlete.find({});
-        const allActivities = [];
+        
+        console.time("Total Execution Time"); // Start execution time tracking
 
-        for (const athlete of athletes) {
-            try {
-                const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-                    headers: { Authorization: `Bearer ${athlete.accessToken}` },
-                    params: {
-                        after: Math.floor(startOfMonth.getTime() / 1000), // Convert to Unix timestamp
-                        before: Math.floor(endOfMonth.getTime() / 1000)
-                    }
-                });
+        // Fetch activities for all athletes in parallel
+        const activitiesResults = await Promise.all(
+            athletes.map(athlete => fetchAthleteActivities(athlete, startTimestamp, endTimestamp, 0))
+        );
 
-                const activitiesWithAthlete = activitiesResponse.data.map(activity => ({
-                    ...activity,
-                    athlete: {
-                        id: athlete.athleteId,
-                        firstname: athlete.firstname,
-                        lastname: athlete.lastname,
-                        profile: athlete.profile
-                    }
-                }));
+        // Flatten array of results and remove null values
+        const allActivities = activitiesResults.flat().filter(activity => activity !== null);
 
-                allActivities.push(...activitiesWithAthlete);
-            } catch (error) {
-                if (error.response && error.response.status === 401) {  // Token expired
-                    console.log(`Access token expired for athlete ${athlete.athleteId}, refreshing...`);
-                    token = await refreshAccessToken(athlete);
+        console.log(`✅ Total activities fetched: ${allActivities.length}`);
+        
+        // Optimize activities to keep the longest moving_time per athlete per day
+        const optimizedActivities = optimizeActivities(allActivities);
 
-                    if (token) {
-                        const retryResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-                            headers: { Authorization: `Bearer ${token}` },
-                            params: {
-                                after: Math.floor(startOfMonth.getTime() / 1000), // Convert to Unix timestamp
-                                before: Math.floor(endOfMonth.getTime() / 1000)
-                            }
-                        });
-                        allActivities.push(...retryResponse.data);
-                    }
-                } else {
-                    console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
-                }
-                //console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.response ? error.response.data : error.message);
-            }
-        }
+        // Calculate medals (Top 3 athletes by activity count)
+        const medals = calculateMedals(optimizedActivities);
 
-        // Step 1: Use a Map to track the highest moving_time for each athlete.id and start_date
-        const activityMap = new Map();
-
-        for (const activity of allActivities) {
-        // Skip activities with moving_time < 3000
-        if (activity.moving_time < 3000) continue;
-
-        const key = `${activity.athlete.id}-${activity.start_date}`;
-        const existingActivity = activityMap.get(key);
-
-        // If no existing activity or current activity has higher moving_time, update the Map
-        if (!existingActivity || existingActivity.moving_time < activity.moving_time) {
-            activityMap.set(key, activity);
-        }
-        }
-
-        // Step 2: Convert the Map values back to an array
-        const optimizedActivities = Array.from(activityMap.values());
-
-        // Update the allActivities object
-        allActivities.activities = optimizedActivities;
-
-        // Calculate medals
-        const athleteActivityCount = {};
-       // console.log("AJAY::", JSON.stringify(allActivities));
-       optimizedActivities.forEach(activity => {
-            const athleteId = activity.athlete.id;
-            athleteActivityCount[athleteId] = (athleteActivityCount[athleteId] || 0) + 1;
-        });
-        console.log("AJAY::", JSON.stringify(athleteActivityCount));
-        const sortedAthletes = Object.entries(athleteActivityCount)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3); // Top 3 athletes
-
-        const medals = {
-            gold: sortedAthletes[0] ? sortedAthletes[0][0] : null,
-            silver: sortedAthletes[1] ? sortedAthletes[1][0] : null,
-            bronze: sortedAthletes[2] ? sortedAthletes[2][0] : null
-        };
-
+        console.timeEnd("Total Execution Time"); // Log execution time
         res.json({ activities: optimizedActivities, medals });
     } catch (error) {
-        console.error('Error fetching activities:', error.response ? error.response.data : error.message);
+        console.error('Error fetching activities:', error.message);
         res.status(500).send('Error fetching activities');
     }
 });
+
+/**
+ * Fetches paginated activities for an athlete (Handles API Pagination Efficiently)
+ */
+async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, retryCount) {
+    let activities = [];
+    let page = 1;
+    const perPage = 100;
+    const MAX_RETRIES = 2;
+
+    while (true) {
+        try {
+            console.log(`Fetching page ${page} for athlete ${athlete.athleteId}`);
+            
+            const response = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+                headers: { Authorization: `Bearer ${athlete.accessToken}` },
+                params: { after: startTimestamp, before: endTimestamp, per_page: perPage, page }
+            });
+
+            if (response.data.length === 0) break; // No more data
+
+            // Extract only the necessary fields
+            const filteredActivities = response.data.map(activity => ({
+                id: activity.id,
+                name: activity.name,
+                distance: activity.distance,
+                moving_time: activity.moving_time,
+                elapsed_time: activity.elapsed_time,
+                start_date: activity.start_date,
+                type: activity.type,
+                athlete: {
+                    id: athlete.athleteId,
+                    firstname: athlete.firstname,
+                    lastname: athlete.lastname,
+                    profile: athlete.profile
+                }
+            }));
+
+            activities.push(...filteredActivities);
+            page++; // Move to next page
+
+        } catch (error) {
+            if (error.response && error.response.status === 401) {
+                if (retryCount < MAX_RETRIES) {
+                    console.log(`⚠ Token expired for ${athlete.athleteId}, refreshing...`);
+                    const token = await refreshAccessToken(athlete);
+                    if (token) {
+                        return fetchAthleteActivities(athlete, startTimestamp, endTimestamp, retryCount + 1);
+                    }
+                }
+                console.error(`❌ Token refresh failed for athlete ${athlete.athleteId}, skipping.`);
+            }
+            break;
+        }
+    }
+
+    console.log(`✅ Total activities fetched for athlete ${athlete.athleteId}: ${activities.length}`);
+    return activities;
+}
+
+/**
+ * Keeps only the longest moving_time per athlete per day
+ */
+function optimizeActivities(activities) {
+    const activityMap = new Map();
+
+    for (const activity of activities) {
+        if (activity.elapsed_time < 3000) continue; // Ignore activities shorter than ~50 min
+
+        const key = `${activity.athlete.id}-${activity.start_date.split('T')[0]}`;
+        const existingActivity = activityMap.get(key);
+
+        if (!existingActivity || existingActivity.elapsed_time < activity.elapsed_time) {
+            activityMap.set(key, activity);
+        }
+    }
+
+    return Array.from(activityMap.values());
+}
+
+/**
+ * Calculates medals for top 3 athletes based on activity count.
+ */
+function calculateMedals(activities) {
+    const athleteActivityCount = activities.reduce((acc, activity) => {
+        acc[activity.athlete.id] = (acc[activity.athlete.id] || 0) + 1;
+        return acc;
+    }, {});
+
+    const sortedAthletes = Object.entries(athleteActivityCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    return {
+        gold: sortedAthletes[0] ? sortedAthletes[0][0] : null,
+        silver: sortedAthletes[1] ? sortedAthletes[1][0] : null,
+        bronze: sortedAthletes[2] ? sortedAthletes[2][0] : null
+    };
+}
+
+async function refreshAccessToken2(athlete) {
+    try {
+        const response = await axios.post('https://www.strava.com/api/v3/oauth/token', {
+            client_id: process.env.STRAVA_CLIENT_ID,
+            client_secret: process.env.STRAVA_CLIENT_SECRET,
+            refresh_token: athlete.refreshToken,
+            grant_type: 'refresh_token'
+        });
+
+        const newAccessToken = response.data.access_token;
+        athlete.accessToken = newAccessToken;
+        await athlete.save(); // Update in DB
+
+        return newAccessToken;
+    } catch (error) {
+        console.error(`Failed to refresh token for athlete ${athlete.athleteId}:`, error.message);
+        return null;
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -274,10 +274,11 @@
 
             activityDetails.innerHTML = `
                 <p><strong>Athlete:</strong> ${activity.athlete.firstname} ${activity.athlete.lastname}</p>
+                <p><strong>Title:</strong> ${activity.name}</p>
                 <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
                 <p><strong>Type:</strong> ${activity.type}</p>
                 <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
-                <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
+                <p><strong>Time:</strong> ${(activity.elapsed_time / 60).toFixed(2)} mins</p>
             `;
 
             // Clear previous map if it exists
