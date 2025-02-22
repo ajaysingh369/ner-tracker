@@ -160,6 +160,11 @@
             }
         };
         
+        function formatMedalWinners(medalWinners, athletes) {
+            if (!medalWinners || medalWinners.length === 0) return 'N/A';
+            return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join(', ');
+        }
+
         // Fetch activities and display them in the calendar
         const fetchActivities = async (month = 'current') => {
             let loaderTimeout = setTimeout(() => loader.style.display = 'block', 500); // Only show if it takes longer than 500ms
@@ -193,10 +198,11 @@
 
                 // Display medals
                 const medalsContainer = document.getElementById('medals');
+
                 medalsContainer.innerHTML = `
-                    <p>🥇 ${medals.gold ? athletes[medals.gold].name : 'N/A'}</p>
-                    <p>🥈 ${medals.silver ? athletes[medals.silver].name : 'N/A'}</p>
-                    <p>🥉 ${medals.bronze ? athletes[medals.bronze].name : 'N/A'}</p>
+                    <p>🥇 ${formatMedalWinners(medals.gold, athletes)}</p>
+                    <p>🥈 ${formatMedalWinners(medals.silver, athletes)}</p>
+                    <p>🥉 ${formatMedalWinners(medals.bronze, athletes)}</p>
                 `;
 
                 // Generate calendar header (dates)

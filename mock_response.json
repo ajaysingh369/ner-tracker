@@ -9430,4 +9430,8 @@
 89664528: Hema
 46433223: Mukesh
 
+curl -X GET "https://www.strava.com/api/v3/athlete/activities?after=1738368000&before=1740096000&per_page=200&page=1" \
+     -H "Authorization: Bearer c48a38b196aea3926bd86e85866309c6542b223f"
+
+
 */
