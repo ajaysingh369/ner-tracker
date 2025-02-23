@@ -15,15 +15,16 @@
         <header class="app-header">
             <div class="header-content">
                 <div class="header-text">
-                    <h1>🏃‍♂️ Noida Extension Runners</h1>
+                    <h1>Noida Extension Runners</h1>
                     <p>Track your runs and stay motivated!</p>
                 </div>
-                <div class="theme-toggle">
-                    <label for="theme">Dark Mode:</label>
-                    <input type="checkbox" id="theme">
-                </div>
+                
             </div>
-            <div class="header-divider"></div>
+            <div class="theme-toggle">
+                <!-- <label for="theme">Dark Mode:</label> -->
+                <input type="checkbox" id="theme">
+            </div>
+            <!-- <div class="header-divider"></div> -->
         </header>
 
         <!-- Main Content -->
@@ -55,12 +56,20 @@
             </div>
 
             <!-- Loader -->
-            <div id="loader" class="loader">Loading...</div>
+            <!-- <div id="loader" class="loader">Loading...</div> -->
+            <div id="loader" class="loader">
+                <span class="running-emoji">🏃‍♂️</span>
+                <span class="loading-text">Loading</span>
+            </div>
 
             <!-- Medals Section -->
             <div class="medals-container" id="medallist">
                 <h2>🏅 Top Performers</h2>
-                <div id="medals" class="medals-grid"></div>
+                <div id="medals" class="medals-grid">
+                    <p></p>
+                    <p></p>
+                    <p></p>
+                </div>
             </div>
 
             <!-- Calendar Table -->
@@ -108,8 +117,8 @@
         </div>
     </div>
     <!-- Leaflet JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
-    <script src="https://unpkg.com/@mapbox/polyline@1.2.1/src/polyline.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script> -->
+    <!-- <script src="https://unpkg.com/@mapbox/polyline@1.2.1/src/polyline.js"></script> -->
     <script>
         function getDayName(dateString) {
             const date = new Date(dateString);
@@ -150,11 +159,6 @@
         const checkAuthorization = async () => {
             try {
                 const response = await fetch('/activities');
-                console.log("Hello::", JSON.stringify(response))
-                // if (response && response.ok) {
-                //     console.log("Hello2::", JSON.stringify(response))
-                //     authButton.style.display = 'none'; // Hide the button if authorized
-                // }
             } catch (error) {
                 console.error('Error checking authorization:', error);
             }
@@ -162,12 +166,12 @@
         
         function formatMedalWinners(medalWinners, athletes) {
             if (!medalWinners || medalWinners.length === 0) return 'N/A';
-            return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join(', ');
+            return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join('<br> ');
         }
 
         // Fetch activities and display them in the calendar
         const fetchActivities = async (month = 'current') => {
-            let loaderTimeout = setTimeout(() => loader.style.display = 'block', 500); // Only show if it takes longer than 500ms
+            let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
 
             //loader.style.display = 'block'; // Show loader
             calendarHeader.innerHTML = '';

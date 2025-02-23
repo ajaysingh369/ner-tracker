@@ -45,34 +45,56 @@ body[data-theme="dark"] {
 
 /* Header */
 .app-header {
+    position: relative;
     text-align: center;
     margin-bottom: 20px;
-    position: relative;
     padding: 15px 5px;
-    background: var(--background-color);
+    background: url('bg_new.jpg') center/cover no-repeat;
+    /* height: 280px; Adjust based on preference */
+    height: 10rem; /* Adjust based on preference */
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    /* display: flex; */
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+/* Dark overlay for text readability */
+.app-header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7); /* Adjust opacity as needed */
+    border-radius: 12px;
+    z-index: 1;
 }
 
 .header-content {
     display: flex;
     flex-direction: column; /* Stack items vertically on mobile */
     align-items: center;
-    gap: 15px; /* Space between title and toggle */
+    gap: 10px; /* Space between title and toggle */
     padding: 0 10px;
+    position: relative;
+    z-index: 2;
 }
 
 .header-text h1 {
-    font-size: 1.4rem; /* Smaller font size for mobile */
+    font-size: 1.6rem; /* Smaller font size for mobile */
     color: #fc5200;
     font-weight: 700;
     margin-bottom: 8px;
     letter-spacing: -0.8px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .header-text p {
-    font-size: 0.8rem; /* Smaller font size for mobile */
-    color: var(--text-color);
+    font-size: 1rem; /* Smaller font size for mobile */
+    /* color: var(--text-color); */
+    color: #f8f9fa;
     opacity: 0.8;
     font-weight: 500;
 }
@@ -82,11 +104,18 @@ body[data-theme="dark"] {
     display: flex;
     align-items: center;
     gap: 10px;
+    z-index:2;
+    position: absolute;
+    justify-content: end;
+    margin-top: 30px;
+    right: 0.2rem;
+    bottom: 0.2rem;
 }
 
 .theme-toggle label {
     font-size: 0.9rem; /* Smaller font size for mobile */
-    color: var(--text-color);
+    /* color: var(--text-color); */
+    color: #f8f9fa;
     font-weight: 500;
 }
 
@@ -106,7 +135,7 @@ body[data-theme="dark"] {
 }
 
 .theme-toggle input::before {
-    content: "";
+    content: "💡";
     position: absolute;
     width: 16px;
     height: 16px;
@@ -132,8 +161,12 @@ body[data-theme="dark"] {
 
 /* Dark Mode Adjustments */
 [data-theme="dark"] .app-header {
-    background: #2d2d2d;
+    /* background: #2d2d2d; */
+    background: url('bg_new.jpg') center/cover no-repeat;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .app-header::before {
+    background: rgba(0, 0, 0, 0.7);
 }
 
 [data-theme="dark"] .header-text h1 {
@@ -225,11 +258,49 @@ body[data-theme="dark"] {
 /* Loader */
 .loader {
     display: none;
-    text-align: center;
-    font-size: 1.2rem;
-    margin: 20px 0;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: auto;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
     color: var(--primary-color);
+    font-size: 1.2rem;
+    font-weight: bold;
+    z-index: 9999;
 }
+/* Running Man Emoji Animation */
+.running-emoji {
+    display: inline-block;
+    animation: run-animation 0.8s infinite alternate ease-in-out;
+}
+
+/* Loading Dots Animation */
+.loading-text::after {
+    content: "";
+    display: inline-block;
+    animation: dots-animation 1.5s infinite steps(3);
+}
+
+/* Running Animation */
+@keyframes run-animation {
+    from { transform: translateX(0); }
+    to { transform: translateX(10px); } /* Small bouncing effect */
+}
+
+/* Loading Dots Animation */
+@keyframes dots-animation {
+    0% { content: "."; }
+    33% { content: ".."; }
+    66% { content: "..."; }
+    100% { content: ""; }
+}
+
 
 /* Medals Section */
 .medals-container {

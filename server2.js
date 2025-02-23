@@ -77,7 +77,7 @@ app.get('/auth/strava/callback', async (req, res) => {
             code: code,
             grant_type: 'authorization_code'
         });
-        //console.log("token::", tokenResponse);
+        
         const accessToken = tokenResponse.data.access_token;
         const refreshToken =  tokenResponse.data.refresh_token;
         const athleteId = tokenResponse.data.athlete.id;
@@ -100,107 +100,6 @@ app.get('/auth/strava/callback', async (req, res) => {
 });
 
 // Fetch activities for all authorized athletes
-app.get('/activities_old', async (req, res) => {
-    try {
-        const { month } = req.query;
-        const currentDate = new Date();
-        const startOfMonth = month === 'current' ? new Date(currentDate.getFullYear(), currentDate.getMonth(), 1) : new Date(currentDate.getFullYear(), month, 1);
-        const endOfMonth = month === 'current' ? new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0) : new Date(currentDate.getFullYear(), month + 1, 0);
-
-        const athletes = await Athlete.find({});
-        const allActivities = [];
-
-        for (const athlete of athletes) {
-            try {
-                const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-                    headers: { Authorization: `Bearer ${athlete.accessToken}` },
-                    params: {
-                        after: Math.floor(startOfMonth.getTime() / 1000), // Convert to Unix timestamp
-                        before: Math.floor(endOfMonth.getTime() / 1000)
-                    }
-                });
-
-                const activitiesWithAthlete = activitiesResponse.data.map(activity => ({
-                    ...activity,
-                    athlete: {
-                        id: athlete.athleteId,
-                        firstname: athlete.firstname,
-                        lastname: athlete.lastname,
-                        profile: athlete.profile
-                    }
-                }));
-
-                allActivities.push(...activitiesWithAthlete);
-            } catch (error) {
-                if (error.response && error.response.status === 401) {  // Token expired
-                    console.log(`Access token expired for athlete ${athlete.athleteId}, refreshing...`);
-                    token = await refreshAccessToken(athlete);
-
-                    if (token) {
-                        const retryResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-                            headers: { Authorization: `Bearer ${token}` },
-                            params: {
-                                after: Math.floor(startOfMonth.getTime() / 1000), // Convert to Unix timestamp
-                                before: Math.floor(endOfMonth.getTime() / 1000)
-                            }
-                        });
-                        allActivities.push(...retryResponse.data);
-                    }
-                } else {
-                    console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
-                }
-                //console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.response ? error.response.data : error.message);
-            }
-        }
-
-        // Step 1: Use a Map to track the highest elapsed_time for each athlete.id and start_date
-        const activityMap = new Map();
-
-        for (const activity of allActivities) {
-        // Skip activities with elapsed_time < 3000
-        if (activity.elapsed_time < 3000) continue;
-
-        const key = `${activity.athlete.id}-${activity.start_date}`;
-        const existingActivity = activityMap.get(key);
-
-        // If no existing activity or current activity has higher elapsed_time, update the Map
-        if (!existingActivity || existingActivity.elapsed_time < activity.elapsed_time) {
-            activityMap.set(key, activity);
-        }
-        }
-
-        // Step 2: Convert the Map values back to an array
-        const optimizedActivities = Array.from(activityMap.values());
-
-        // Update the allActivities object
-        allActivities.activities = optimizedActivities;
-
-        // Calculate medals
-        const athleteActivityCount = {};
-       // console.log("AJAY::", JSON.stringify(allActivities));
-       optimizedActivities.forEach(activity => {
-            const athleteId = activity.athlete.id;
-            athleteActivityCount[athleteId] = (athleteActivityCount[athleteId] || 0) + 1;
-        });
-        console.log("AJAY::", JSON.stringify(athleteActivityCount));
-        const sortedAthletes = Object.entries(athleteActivityCount)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3); // Top 3 athletes
-
-        const medals = {
-            gold: sortedAthletes[0] ? sortedAthletes[0][0] : null,
-            silver: sortedAthletes[1] ? sortedAthletes[1][0] : null,
-            bronze: sortedAthletes[2] ? sortedAthletes[2][0] : null
-        };
-
-        res.json({ activities: optimizedActivities, medals });
-    } catch (error) {
-        console.error('Error fetching activities:', error.response ? error.response.data : error.message);
-        res.status(500).send('Error fetching activities');
-    }
-});
-
-
 app.get('/activities', async (req, res) => {
     try {
         const { month } = req.query;
@@ -217,38 +116,24 @@ app.get('/activities', async (req, res) => {
         const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
 
         const athletes = await Athlete.find({});
-        let allActivities = [];
+        
+        console.time("Total Execution Time"); // Start execution time tracking
 
-        for (const athlete of athletes) {
-            try {
-                const activities = await fetchAthleteActivities(athlete, startTimestamp, endTimestamp);
-                const filteredActivities = activities.map(activity => ({
-                    id: activity.id,
-                    name: activity.name,
-                    distance: activity.distance,
-                    elapsed_time: activity.elapsed_time,
-                    start_date: activity.start_date,
-                    type: activity.type,
-                    athlete: {
-                        id: athlete.athleteId,
-                        firstname: athlete.firstname,
-                        lastname: athlete.lastname,
-                        profile: athlete.profile
-                    }
-                }));
+        // Fetch activities for all athletes in parallel
+        const activitiesResults = await Promise.all(
+            athletes.map(athlete => fetchAthleteActivities(athlete, startTimestamp, endTimestamp, 0))
+        );
 
-                allActivities.push(...filteredActivities);
-            } catch (error) {
-                console.error(`Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
-            }
-        }
+        // Flatten array of results and remove null values
+        const allActivities = activitiesResults.flat().filter(activity => activity !== null);
 
-        // Deduplicate & Optimize Activities (Retain longest elapsed_time per athlete per day)
+        // Optimize activities to keep the longest moving_time per athlete per day
         const optimizedActivities = optimizeActivities(allActivities);
 
         // Calculate medals (Top 3 athletes by activity count)
         const medals = calculateMedals(optimizedActivities);
 
+        console.timeEnd("Total Execution Time"); // Log execution time
         res.json({ activities: optimizedActivities, medals });
     } catch (error) {
         console.error('Error fetching activities:', error.message);
@@ -257,120 +142,143 @@ app.get('/activities', async (req, res) => {
 });
 
 /**
- * Fetches paginated activities for an athlete.
+ * Fetches paginated activities for an athlete (Handles API Pagination Efficiently)
  */
 async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, retryCount) {
     let activities = [];
     let page = 1;
-    const perPage = 50;
+    const perPage = 100;
     const MAX_RETRIES = 2;
 
     while (true) {
         try {
-            if(athlete.athleteId == 112972100) {
-                console.log(`Fetching activities for athlete ${athlete.athleteId}, Page: ${page}`);
-            }
+            //console.log(`Fetching page ${page} for athlete ${athlete.athleteId}`);
             
             const response = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
                 headers: { Authorization: `Bearer ${athlete.accessToken}` },
                 params: { after: startTimestamp, before: endTimestamp, per_page: perPage, page }
             });
-            // if(athlete.athleteId == 112972100) {
-            //     console.log(`Response received for athlete ${athlete.athleteId}, Page: ${page}, Activities: ${response.data.length}`);
-            //     const filteredActivities = response.data.map(activity => ({
-            //         id: activity.id,
-            //         name: activity.name,
-            //         distance: activity.distance,
-            //         moving_time: activity.moving_time,
-            //         elapsed_time: activity.elapsed_time,
-            //         start_date: activity.start_date,
-            //         type: activity.type,
-            //         athlete: {
-            //             id: athlete.athleteId,
-            //             firstname: athlete.firstname,
-            //             lastname: athlete.lastname,
-            //             profile: athlete.profile
-            //         }
-            //     }));
-            //     console.log(JSON.stringify(filteredActivities));
-            // }
+
             if (response.data.length === 0) break; // No more data
 
-            activities.push(...response.data);
-            if (response.data.length < perPage) break; // No more data
-            page++; // Fetch next page
+            // Extract only the necessary fields
+            const filteredActivities = response.data.map(activity => ({
+                id: activity.id,
+                name: activity?.name,
+                distance: activity.distance,
+                moving_time: activity.moving_time,
+                elapsed_time: activity.elapsed_time,
+                start_date: activity.start_date,
+                type: activity.type,
+                athlete: {
+                    id: athlete.athleteId,
+                    firstname: athlete.firstname,
+                    lastname: athlete.lastname,
+                    profile: athlete.profile
+                }
+            }));
+
+            activities.push(...filteredActivities);
+            if (response.data.length < perPage) break;
+            page++; // Move to next page
+
         } catch (error) {
             if (error.response && error.response.status === 401) {
                 if (retryCount < MAX_RETRIES) {
-                    console.log(`Access token expired for athlete ${athlete.athleteId}, refreshing... (Attempt ${retryCount + 1})`);
+                    console.log(`⚠ Token expired for ${athlete.athleteId}, refreshing...`);
                     const token = await refreshAccessToken(athlete);
                     if (token) {
                         return fetchAthleteActivities(athlete, startTimestamp, endTimestamp, retryCount + 1);
                     }
                 }
-                console.error(`Failed to refresh token for athlete ${athlete.athleteId}, skipping further attempts.`);
+                console.error(`❌ Token refresh failed for athlete ${athlete.athleteId}, skipping.`);
             }
-            break; // Stop infinite loop if failure occurs
+            break;
         }
     }
-    // if(athlete.athleteId == 112972100) {
-    //  console.log(`Total activities fetched for athlete ${athlete.athleteId}: ${activities.length}`);
-    //  console.log(startTimestamp, endTimestamp, athlete.accessToken);
-    // }
+
     return activities;
 }
 
+function convertToIST(utcDateStr) {
+    const utcDate = new Date(utcDateStr);
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC +5:30
+    const istDate = new Date(utcDate.getTime() + istOffset);
 
+    return istDate.toISOString().split("T")[0]; // Returns "YYYY-MM-DD"
+}
 /**
- * Optimizes activities by keeping the longest elapsed_time per athlete per day.
+ * Keeps only the longest moving_time per athlete per day
  */
 function optimizeActivities(activities) {
     const activityMap = new Map();
+    let removedCount = 0;
 
     for (const activity of activities) {
-        if (activity.elapsed_time < 3000) {
-            if(activity.athlete.athleteId == 112972100) {
-            console.log("Ignored::", JSON.stringify(activity));
-            }
-            continue; // Ignore activities shorter than ~30 min
+        if (activity.moving_time < 1800) {
+            removedCount++;
+            continue;
         }
 
-        const key = `${activity.athlete.id}-${activity.start_date.split('T')[0]}`;
+        // Convert UTC to IST before using it as a key
+        const istDate = convertToIST(activity.start_date);
+        const key = `${activity.athlete.id}-${istDate}`;
         const existingActivity = activityMap.get(key);
 
-        if(activity.athlete.athleteId == 112972100 && existingActivity) {
-            console.log("Key::", key);
-            console.log("existing::", JSON.stringify(existingActivity));
-            console.log("new::", JSON.stringify(activity));
-        }
-
-        if (!existingActivity || existingActivity.elapsed_time < activity.elapsed_time) {
+        // Only replace if the new activity has a longer moving_time
+        if (!existingActivity || existingActivity.moving_time < activity.moving_time) {
             activityMap.set(key, activity);
         }
     }
 
-    return Array.from(activityMap.values());
+    const optimizedActivities = Array.from(activityMap.values());
+
+    return optimizedActivities;
 }
 
 /**
  * Calculates medals for top 3 athletes based on activity count.
  */
 function calculateMedals(activities) {
-    const athleteActivityCount = activities.reduce((acc, activity) => {
-        acc[activity.athlete.id] = (acc[activity.athlete.id] || 0) + 1;
-        return acc;
-    }, {});
+    const athleteActivityCount = {};
 
+    // Count activities per athlete
+    activities.forEach(activity => {
+        const athleteId = activity.athlete.id;
+        athleteActivityCount[athleteId] = (athleteActivityCount[athleteId] || 0) + 1;
+    });
+
+    //console.log(`📊 Athlete Activity Counts:`, athleteActivityCount);
+
+    // Sort athletes by activity count in descending order
     const sortedAthletes = Object.entries(athleteActivityCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3);
+        .sort((a, b) => b[1] - a[1]); // Sorting by count
 
-    return {
-        gold: sortedAthletes[0] ? sortedAthletes[0][0] : null,
-        silver: sortedAthletes[1] ? sortedAthletes[1][0] : null,
-        bronze: sortedAthletes[2] ? sortedAthletes[2][0] : null
-    };
+    if (sortedAthletes.length === 0) return { gold: [], silver: [], bronze: [] };
+
+    // Identify activity counts for each medal level
+    let goldCount = sortedAthletes[0][1];
+    let silverCount = null;
+    let bronzeCount = null;
+
+    const medals = { gold: [], silver: [], bronze: [] };
+
+    sortedAthletes.forEach(([athleteId, count]) => {
+        if (count === goldCount) {
+            medals.gold.push(athleteId);
+        } else if (!silverCount || count === silverCount) {
+            silverCount = count;
+            medals.silver.push(athleteId);
+        } else if (!bronzeCount || count === bronzeCount) {
+            bronzeCount = count;
+            medals.bronze.push(athleteId);
+        }
+    });
+
+    return medals;
 }
+
+
 
 async function refreshAccessToken2(athlete) {
     try {
@@ -394,3 +302,9 @@ async function refreshAccessToken2(athlete) {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+/*
+curl -X GET "https://www.strava.com/api/v3/athlete/activities?after=1704067200&before=1706745600&per_page=200&page=1" \
+     -H "Authorization: Bearer b9d7a1a67dc6fbe2e0c198a49629f780da491f78"
+*/
