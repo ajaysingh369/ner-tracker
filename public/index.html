@@ -114,6 +114,34 @@
                 <p id="profileName"></p>
                 <p id="profileActivities"></p>
             </div>
+            <input id="athlete-id" type="hidden" value="" />
+            <h3>Select Your Rest Day</h3>
+            <div class="rest-day-options">
+                <input type="radio" id="monday" name="rest-day" value="Monday" checked>
+                <label for="monday">Monday</label>
+
+                <input type="radio" id="tuesday" name="rest-day" value="Tuesday">
+                <label for="tuesday">Tuesday</label>
+
+                <input type="radio" id="wednesday" name="rest-day" value="Wednesday">
+                <label for="wednesday">Wednesday</label>
+
+                <input type="radio" id="thursday" name="rest-day" value="Thursday">
+                <label for="thursday">Thursday</label>
+
+                <input type="radio" id="friday" name="rest-day" value="Friday">
+                <label for="friday">Friday</label>
+
+                <input type="radio" id="saturday" name="rest-day" value="Saturday">
+                <label for="saturday">Saturday</label>
+
+                <input type="radio" id="sunday" name="rest-day" value="Sunday">
+                <label for="sunday">Sunday</label>
+            </div>   
+
+            <button id="save-rest-day">Save</button>
+            <p id="rest-day-status" class="status-message"></p>
+            
         </div>
     </div>
     <!-- Leaflet JS -->
@@ -127,10 +155,37 @@
         }
         // Load dark mode setting
         document.addEventListener("DOMContentLoaded", () => {
-            console.log("Polyline loaded:", typeof Polyline);
+            // console.log("Polyline loaded:", typeof Polyline);
             const darkModeEnabled = localStorage.getItem("darkMode") === "true";
             themeToggle.checked = darkModeEnabled;
             document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
+
+            const saveRestDayButton = document.getElementById("save-rest-day");
+            const statusMessage = document.getElementById("rest-day-status");
+            const restDayOptions = document.querySelectorAll('input[name="rest-day"]');
+
+            // Save the selected rest day when clicking "Save"
+            saveRestDayButton.addEventListener("click", () => {
+                const athleteId = document.getElementById("athlete-id").value;
+                const selectedRestDay = document.querySelector('input[name="rest-day"]:checked').value;
+
+                fetch(`/athlete/rest-day/${athleteId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ restDay: selectedRestDay })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    statusMessage.textContent = data.message;
+                    statusMessage.style.color = "green";
+                })
+                .catch(error => {
+                    statusMessage.textContent = "Error updating rest day.";
+                    statusMessage.style.color = "red";
+                    console.error("❌ Error updating rest day:", error);
+                });
+            });
+
         });
 
         const authButton = document.getElementById('authButton');
@@ -157,11 +212,11 @@
 
         // Check if the user is already authorized
         const checkAuthorization = async () => {
-            try {
-                const response = await fetch('/activities');
-            } catch (error) {
-                console.error('Error checking authorization:', error);
-            }
+            // try {
+            //     const response = await fetch('/activities');
+            // } catch (error) {
+            //     console.error('Error checking authorization:', error);
+            // }
         };
         
         function formatMedalWinners(medalWinners, athletes) {
@@ -183,13 +238,15 @@
                 clearTimeout(loaderTimeout);
                 loader.style.display = 'none'; // Hide loader
                 
-
+                console.log(activities);
                 // Group activities by athlete
                 const athletes = {};
                 activities.forEach(activity => {
                     const athleteId = activity.athlete.id;
                     if (!athletes[athleteId]) {
                         athletes[athleteId] = {
+                            athleteId: athleteId,
+                            restDay: activity.athlete.restDay,
                             name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
                             profile: activity.athlete.profile || 'https://placehold.co/150', // Default photo
                             activities: {}
@@ -260,7 +317,7 @@
                             cell.style.border = "2px solid blue";
                             cell.style.fontWeight = "bold";
                         }
-                        if(dayName == "Monday") {
+                        if(dayName == athlete.restDay) {
                             cell.style.backgroundColor = '#80d9ff';
                             if (!activity) cell.textContent = 'Rest !!!';
                         }
@@ -290,7 +347,7 @@
                 <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
                 <p><strong>Time:</strong> ${(activity.elapsed_time / 60).toFixed(2)} mins</p>
             `;
-
+            /*
             // Clear previous map if it exists
             const mapContainer = document.getElementById('activityMap');
             mapContainer.innerHTML = ''; // Clear the container
@@ -330,15 +387,21 @@
                 //const polyline = L.Polyline.fromEncoded(activity.map.summary_polyline).addTo(map);
                 //map.fitBounds(polyline.getBounds());
             }
-
+            */
             activityPopup.style.display = 'block';
         };
 
         // Show athlete profile in a popup
         const showProfilePopup = (athlete) => {
+            console.log("PROFILE::", JSON.stringify(athlete));
             profilePhoto.src = athlete.profile;
             profileName.textContent = athlete.name;
-            profileActivities.textContent = `Total Activities: ${Object.keys(athlete.activities).length}`;
+            profileActivities.textContent = `Total Activities of the month: ${Object.keys(athlete.activities).length}`;
+            
+            const selectedDay = athlete.restDay || "Monday";
+            document.querySelector(`input[name="rest-day"][value="${selectedDay}"]`).checked = true;
+            document.getElementById('athlete-id').value = athlete.athleteId;
+            console.log("PROFILE::",  document.getElementById('athlete-id').value);
             profilePopup.style.display = 'block';
         };
 

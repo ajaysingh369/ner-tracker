@@ -524,3 +524,74 @@ body[data-theme="dark"] {
   .strava-badge- img { visibility: hidden; height: 24px; }
   .strava-badge-:hover { background-position: 0 -37px; }
   .strava-badge-follow { height: 24px; width: 24px; background: url(//badges.strava.com/echelon-sprite-24.png) no-repeat 0 0; }
+
+  /* Rest Day Selection Container */
+.rest-day-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+/* Stylish Button-like Radio Inputs */
+.rest-day-options label {
+    background-color: #f3f3f3;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+/* Hover Effect */
+.rest-day-options label:hover {
+    background-color: #e0e0e0;
+}
+
+/* Hide Default Radio Inputs */
+.rest-day-options input {
+    display: none;
+}
+
+/* Active Selection Effect */
+.rest-day-options input:checked + label {
+    background-color: #007bff;
+    color: white;
+    border: 2px solid #0056b3;
+}
+
+/* Dark Mode Adjustments */
+[data-theme="dark"] .rest-day-options label {
+    background-color: #444;
+    color: #ddd;
+}
+
+[data-theme="dark"] .rest-day-options label:hover {
+    background-color: #555;
+}
+
+[data-theme="dark"] .rest-day-options input:checked + label {
+    background-color: #1a73e8;
+    border-color: #0d47a1;
+}
+
+/* Save Button Styling */
+#save-rest-day {
+    margin-top: 15px;
+    background-color: #28a745;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#save-rest-day:hover {
+    background-color: #218838;
+}
