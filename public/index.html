@@ -71,10 +71,16 @@
                     <p></p>
                 </div>
             </div>
-
+            
             <!-- Calendar Table -->
-            <div class="calendar-container" id="actlist">
+             <div class="activity-table">
                 <h2>Team Activities</h2>
+                <p class="points-info">
+                    <strong>5 mins activity rewards:</strong> 🏃 Run - <b>0.9</b>, 🧘 Yoga/Strength - <b>1</b>
+                </p>
+                <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
+             </div>
+            <div class="calendar-container" id="actlist">
                 <table id="calendarTable">
                     <thead id="calendarHeader"></thead>
                     <tbody id="calendarBody"></tbody>
@@ -109,7 +115,7 @@
         <div class="popup-content">
             <span id="closeProfilePopup" class="close">&times;</span>
             <h3>Athlete Profile</h3>
-            <div id="profileDetails">
+            <div id="profileDetails" class="profile-popup-divider">
                 <img id="profilePhoto" src="https://placehold.co/150" alt="Profile Photo" class="profile-photo-large">
                 <p id="profileName"></p>
                 <p id="profileActivities"></p>
@@ -159,6 +165,9 @@
             const darkModeEnabled = localStorage.getItem("darkMode") === "true";
             themeToggle.checked = darkModeEnabled;
             document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
+
+            // Attach search event listener
+            document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
 
             const saveRestDayButton = document.getElementById("save-rest-day");
             const statusMessage = document.getElementById("rest-day-status");
@@ -238,7 +247,7 @@
                 clearTimeout(loaderTimeout);
                 loader.style.display = 'none'; // Hide loader
                 
-                console.log(activities);
+                //console.log(activities);
                 // Group activities by athlete
                 const athletes = {};
                 activities.forEach(activity => {
@@ -310,8 +319,8 @@
                             cell.style.backgroundColor = 'lightgreen';
                             cell.addEventListener('click', () => showActivityDetails(activity));
                         } else {
-                            cell.textContent = 'Absent';
-                            cell.style.backgroundColor = 'lightcoral';
+                            cell.textContent = 'No Workout';
+                            cell.style.backgroundColor = '#c49beb';
                         }
                         if (activityDate === todays) {
                             cell.style.border = "2px solid blue";
@@ -335,6 +344,21 @@
                 loader.style.display = 'none'; // Hide loader
             }
         };
+
+        // Function to filter athletes by name
+        function filterAthletes() {
+            const searchValue = document.getElementById('searchAthlete').value.toLowerCase();
+            const athleteRows = document.querySelectorAll('#calendarBody tr');
+
+            athleteRows.forEach(row => {
+                const athleteName = row.querySelector('.athlete-name')?.textContent.toLowerCase();
+                if (athleteName && athleteName.includes(searchValue)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        }
 
         // Show activity details in a popup
         const showActivityDetails = (activity) => {
@@ -396,7 +420,20 @@
             console.log("PROFILE::", JSON.stringify(athlete));
             profilePhoto.src = athlete.profile;
             profileName.textContent = athlete.name;
-            profileActivities.textContent = `Total Activities of the month: ${Object.keys(athlete.activities).length}`;
+            //profileActivities.textContent = `Total Activities of the month: ${Object.keys(athlete.activities).length}`;
+            
+            // Count different activity types
+            const activityCounts = {};
+            Object.values(athlete.activities).forEach(activity => {
+                activityCounts[activity.type] = (activityCounts[activity.type] || 0) + 1;
+            });
+
+            // Generate formatted activity count text
+            const activityText = Object.entries(activityCounts)
+                .map(([type, count]) => `${type}: <b>${count}</b>`)
+                .join(', ');
+
+            profileActivities.innerHTML = `Activity Count: ${activityText || 'No Activities'}`;
             
             const selectedDay = athlete.restDay || "Monday";
             document.querySelector(`input[name="rest-day"][value="${selectedDay}"]`).checked = true;

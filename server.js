@@ -143,10 +143,11 @@ app.get('/activities', async (req, res) => {
 });
 
 // Fetch Activities for an Athlete
-async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp) {
+async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, retry = true) {
     let activities = [];
     let page = 1;
     const perPage = 100;
+    const MAX_RETRIES = 2;
 
     try {
         while (true) {
@@ -182,6 +183,23 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp) {
             page++;
         }
     } catch (error) {
+        // 🛑 If error is 401, refresh token
+        if (error.response && error.response.status === 401) {
+            console.log(`🔄 Access token expired for athlete ${athlete.athleteId}, refreshing...`);
+
+            if (!retry) {
+                console.error(`❌ Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
+                return [];
+            }
+            accessToken = await refreshAccessToken(athlete); // Refresh token
+
+            if (accessToken) {
+                console.log(`✅ Token refreshed successfully for athlete ${athlete.athleteId}`);
+                return fetchAthleteActivities(athlete, startTimestamp, endTimestamp, false); // Retry with new token
+            } else {
+                console.error(`❌ Token refresh failed for athlete ${athlete.athleteId}`);
+            }
+        }
         console.error(`❌ Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
     }
 
@@ -190,42 +208,55 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp) {
 
 
 // Calculate Medals
+// Calculate Medals using Points System
 function calculateMedals(activities) {
-    const athleteActivityCount = {};
+    const athletePoints = {};
 
-    // Count activities per athlete
+    // Calculate points for each athlete based on activity type
     activities.forEach(activity => {
         const athleteId = activity.athlete.id;
-        athleteActivityCount[athleteId] = (athleteActivityCount[athleteId] || 0) + 1;
+        const minutes = activity.moving_time / 60;
+        let points = 0;
+
+        if (activity.type.toLowerCase() === "run") {
+            points = (minutes / 5) * 0.9;
+        } else if (activity.type.toLowerCase() === "walk") {
+            points = (minutes / 5) * 0.7;
+        } else if (["yoga", "workout", "weighttraining"].includes(activity.type.toLowerCase())) {
+            points = (minutes / 5) * 1;
+        }
+
+        athletePoints[athleteId] = (athletePoints[athleteId] || 0) + points;
     });
 
-    // Sort athletes by activity count (Descending)
-    const sortedAthletes = Object.entries(athleteActivityCount)
+    // Sort athletes by total points (Descending)
+    const sortedAthletes = Object.entries(athletePoints)
         .sort((a, b) => b[1] - a[1]);
 
     let medals = { gold: [], silver: [], bronze: [] };
-    let lastCount = null;
+    let lastPoints = null;
     let medalType = "gold"; // Start with gold
 
-    sortedAthletes.forEach(([athleteId, count], index) => {
+    sortedAthletes.forEach(([athleteId, points], index) => {
         if (index === 0) {
             medals.gold.push(athleteId);
-            lastCount = count;
-        } else if (count === lastCount) {
+            lastPoints = points;
+        } else if (points === lastPoints) {
             medals[medalType].push(athleteId);
         } else if (medalType === "gold") {
             medals.silver.push(athleteId);
-            lastCount = count;
+            lastPoints = points;
             medalType = "silver";
         } else if (medalType === "silver") {
             medals.bronze.push(athleteId);
-            lastCount = count;
+            lastPoints = points;
             medalType = "bronze";
         }
     });
 
     return medals;
 }
+
 
 
 // Optimize Activities
