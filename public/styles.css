@@ -379,6 +379,7 @@ body[data-theme="dark"] {
     cursor: pointer;
     border-color: var(--border-color);
     transition: background 0.3s ease, transform 0.2s ease;
+    min-width: 4rem;
 }
 
 #calendarTable td:hover {
@@ -392,7 +393,9 @@ body[data-theme="dark"] {
 .athlete-name {
     cursor: pointer;
     color: var(--primary-color);
-    /* text-decoration: underline; */
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: capitalize;
 }
 
 /* Profile Photos */
@@ -616,4 +619,27 @@ body[data-theme="dark"] {
     border: 1px solid #ccc;
     border-radius: 5px;
 }
+.activity-cell {
+    
+}
 
+.activity-text {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    /* background: rgba(255, 255, 255, 0.7); Light background for readability */
+    padding: 2px 5px;
+    border-radius: 3px;
+    position: relative;
+    z-index: 1;
+}
+
+.activity-points {
+    font-size: 12px;
+    color: #555;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 5px;
+    border-radius: 3px;
+    position: relative;
+    z-index: 1;
+}

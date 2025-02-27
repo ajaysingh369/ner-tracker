@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Noida Extension Runners</title>
+    <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -76,7 +77,7 @@
              <div class="activity-table">
                 <h2>Team Activities</h2>
                 <p class="points-info">
-                    <strong>5 mins activity rewards:</strong> 🏃 Run - <b>0.9</b>, 🧘 Yoga/Strength - <b>1</b>
+                    <strong>5 mins activity rewards:</strong> 🏃 Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b>
                 </p>
                 <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
              </div>
@@ -306,6 +307,9 @@
                     for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
                         const activityDate = date.toLocaleDateString('en-IN');
                         const activity = athlete.activities[activityDate];
+                        // Set text content with activity type & points
+                        let points = 0;
+                        let emoji = "";
 
                         const cell = document.createElement('td');
                         const todays = new Date().toLocaleDateString('en-IN');
@@ -314,12 +318,50 @@
                             // Skip future dates for the current month
                             cell.textContent = '';
                             cell.style.backgroundColor = 'transparent';
+
                         } else if (activity) {
-                            cell.textContent = activity.type;
+                            switch (activity.type.toLowerCase()) {
+                                case "run":
+                                    points = ((activity.moving_time / 300) * 0.9).toFixed(1);
+                                    emoji = "🏃‍♂️";
+                                    break;
+                                case "walk":
+                                    points = ((activity.moving_time / 300) * 0.7).toFixed(1);
+                                    emoji = "🚶‍♀️";
+                                    break;
+                                case "cycling":
+                                    points = ((activity.moving_time / 300) * 0.8).toFixed(1);
+                                    emoji = "🚴‍♂️";
+                                    break;
+                                case "yoga":
+                                    points = ((activity.moving_time / 300) * 1.0).toFixed(1);
+                                    emoji = "🧘‍♀️";
+                                    break;
+                                case "workout":
+                                case "weighttraining":
+                                    points = ((activity.moving_time / 300) * 1.0).toFixed(1);
+                                    emoji = "💪";
+                                    break;
+                                default:
+                                    points = 0;
+                                    emoji = "❔";
+                            }
+
+
+                            //cell.textContent = activity.type;
                             cell.style.backgroundColor = 'lightgreen';
+                            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>`;
+                            cell.style.backgroundSize = "contain";
+                            cell.style.backgroundRepeat = "no-repeat";
+                            cell.style.backgroundPosition = "top center";
+                            // Set content for activity type & points
+                            cell.innerHTML = `<span class="activity-text"></span><br>
+                                                <span class="activity-points">${points} pts</span>`;
+
                             cell.addEventListener('click', () => showActivityDetails(activity));
                         } else {
                             cell.textContent = 'No Workout';
+                            cell.innerHTML = `<span class="activity-text">No Workout</span>`;
                             cell.style.backgroundColor = '#c49beb';
                         }
                         if (activityDate === todays) {
@@ -328,7 +370,7 @@
                         }
                         if(dayName == athlete.restDay) {
                             cell.style.backgroundColor = '#80d9ff';
-                            if (!activity) cell.textContent = 'Rest !!!';
+                            if (!activity) cell.innerHTML = `<span class="activity-text">Rest !!</span>`;
                         }
 
                         row.appendChild(cell);
@@ -468,6 +510,13 @@
         // Initial load
         checkAuthorization();
         fetchActivities();
+
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("/service-worker.js")
+                .then(() => console.log("✅ Service Worker Registered!"))
+                .catch(error => console.log("❌ Service Worker Registration Failed:", error));
+        }
+
     </script>
 </body>
 </html>
