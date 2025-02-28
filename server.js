@@ -148,12 +148,13 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
     let page = 1;
     const perPage = 100;
     const MAX_RETRIES = 2;
+    const adjustEndTimeStamp = endTimestamp+86400;
 
     try {
         while (true) {
             const response = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
                 headers: { Authorization: `Bearer ${athlete.accessToken}` },
-                params: { after: startTimestamp, before: endTimestamp, per_page: perPage, page }
+                params: { after: startTimestamp, before: adjustEndTimeStamp, per_page: perPage, page }
             });
 
             if (response.data.length === 0) break;

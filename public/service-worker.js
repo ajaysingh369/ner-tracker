@@ -1,4 +1,4 @@
-const CACHE_NAME = "runner-tracker-cache-v4"; // Update version to clear old cache
+const CACHE_NAME = "runner-tracker-cache-v5"; // Update version to clear old cache
 const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 
 const urlsToCache = [
