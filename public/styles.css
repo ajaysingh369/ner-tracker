@@ -379,7 +379,7 @@ body[data-theme="dark"] {
     cursor: pointer;
     border-color: var(--border-color);
     transition: background 0.3s ease, transform 0.2s ease;
-    min-width: 4rem;
+    min-width: 4.6rem;
 }
 
 #calendarTable td:hover {

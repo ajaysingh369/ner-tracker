@@ -234,6 +234,20 @@
             return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join('<br> ');
         }
 
+        // Function to format date as "1st Feb", "2nd Feb", "3rd Feb"
+        function formatDateHeader(date) {
+            const day = date.getDate();
+            const month = date.toLocaleString("en-US", { month: "short" }); // "Feb"
+            
+            // Add suffix (st, nd, rd, th)
+            let suffix = "th";
+            if (day === 1 || day === 21 || day === 31) suffix = "st";
+            else if (day === 2 || day === 22) suffix = "nd";
+            else if (day === 3 || day === 23) suffix = "rd";
+
+            return `${day}<sup>${suffix}</sup> ${month}`; // Example: "1st Feb"
+        }
+
         // Fetch activities and display them in the calendar
         const fetchActivities = async (month = 'current') => {
             let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
@@ -262,11 +276,11 @@
                             activities: {}
                         };
                     }
-
-                    const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN');
+                    //console.log("Dates::", activity.start_date, new Date(activity.start_date).toLocaleDateString('en-IN', { timeZone: 'UTC' }));
+                    const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN', { timeZone: 'UTC' });
                     athletes[athleteId].activities[activityDate] = activity;
                 });
-
+                //console.log("Final Activities::", athletes);
                 // Display medals
                 const medalsContainer = document.getElementById('medals');
 
@@ -286,7 +300,9 @@
 
                 for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
                     const dateCell = document.createElement('th');
-                    dateCell.textContent = date.toLocaleDateString('en-IN', { day: 'numeric' });
+                    //dateCell.textContent = date.toLocaleDateString('en-IN', { day: 'numeric' });
+                    //headerRow.appendChild(dateCell);
+                    dateCell.innerHTML = formatDateHeader(date);
                     headerRow.appendChild(dateCell);
                 }
 
@@ -322,24 +338,25 @@
                         } else if (activity) {
                             switch (activity.type.toLowerCase()) {
                                 case "run":
-                                    points = ((activity.moving_time / 300) * 0.9).toFixed(1);
+                                    points = Math.floor((activity.moving_time / 300) * 0.9);
                                     emoji = "🏃‍♂️";
                                     break;
                                 case "walk":
-                                    points = ((activity.moving_time / 300) * 0.7).toFixed(1);
+                                    points = Math.floor((activity.moving_time / 300) * 0.7);
                                     emoji = "🚶‍♀️";
                                     break;
                                 case "cycling":
-                                    points = ((activity.moving_time / 300) * 0.8).toFixed(1);
+                                case "ride":
+                                    points = Math.floor((activity.moving_time / 300) * 0.8);
                                     emoji = "🚴‍♂️";
                                     break;
                                 case "yoga":
-                                    points = ((activity.moving_time / 300) * 1.0).toFixed(1);
+                                    points = Math.floor((activity.moving_time / 300) * 1.0);
                                     emoji = "🧘‍♀️";
                                     break;
                                 case "workout":
                                 case "weighttraining":
-                                    points = ((activity.moving_time / 300) * 1.0).toFixed(1);
+                                    points = Math.floor((activity.moving_time / 300) * 1.0);
                                     emoji = "💪";
                                     break;
                                 default:

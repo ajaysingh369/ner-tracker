@@ -126,7 +126,7 @@ app.get('/activities', async (req, res) => {
         const startTimestamp = Math.floor(startOfMonth.getTime() / 1000);
         const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
 
-        const athletes = await Athlete.find({});
+        const athletes = await Athlete.find({});   //athleteId: "89664528"
         const activitiesResults = await Promise.all(
             athletes.map(athlete => fetchAthleteActivities(athlete, startTimestamp, endTimestamp))
         );
@@ -163,7 +163,8 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
                 .map(activity => {
                     const utcDate = new Date(activity.start_date);
                     const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
-
+                    //console.log("AJAY::", activity.start_date_local, istDate.toISOString());
+                    // start_date: istDate.toISOString(), // Store in IST format
                     return {
                         ...activity,
                         start_date: istDate.toISOString(), // Store in IST format
@@ -209,24 +210,45 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
 
 // Calculate Medals
 // Calculate Medals using Points System
+// Calculate Medals considering only the Top 22 activities per athlete
 function calculateMedals(activities) {
-    const athletePoints = {};
+    const athleteActivities = {};
 
-    // Calculate points for each athlete based on activity type
+    // Group activities by athlete
     activities.forEach(activity => {
         const athleteId = activity.athlete.id;
-        const minutes = activity.moving_time / 60;
-        let points = 0;
-
-        if (activity.type.toLowerCase() === "run") {
-            points = (minutes / 5) * 0.9;
-        } else if (activity.type.toLowerCase() === "walk") {
-            points = (minutes / 5) * 0.7;
-        } else if (["yoga", "workout", "weighttraining"].includes(activity.type.toLowerCase())) {
-            points = (minutes / 5) * 1;
+        if (!athleteActivities[athleteId]) {
+            athleteActivities[athleteId] = [];
         }
+        athleteActivities[athleteId].push(activity);
+    });
 
-        athletePoints[athleteId] = (athletePoints[athleteId] || 0) + points;
+    // Sort and select top 22 activities per athlete
+    Object.keys(athleteActivities).forEach(athleteId => {
+        athleteActivities[athleteId].sort((a, b) => {
+            return ((b.moving_time / 60) * 5) - ((a.moving_time / 60) * 5); // Sort by highest points
+        });
+        athleteActivities[athleteId] = athleteActivities[athleteId].slice(0, 22); // Keep only top 22
+    });
+
+    const athletePoints = {};
+
+    // Calculate points based on the selected top 22 activities per athlete
+    Object.keys(athleteActivities).forEach(athleteId => {
+        athletePoints[athleteId] = athleteActivities[athleteId].reduce((total, activity) => {
+            const minutes = activity.moving_time / 60;
+            let points = 0;
+
+            if (activity.type.toLowerCase() === "run") {
+                points = (minutes * 5) * 0.9;
+            } else if (activity.type.toLowerCase() === "walk") {
+                points = (minutes * 5) * 0.7;
+            } else if (["yoga", "workout", "weighttraining"].includes(activity.type.toLowerCase())) {
+                points = (minutes * 5) * 1;
+            }
+
+            return total + points;
+        }, 0);
     });
 
     // Sort athletes by total points (Descending)
@@ -275,5 +297,5 @@ function optimizeActivities(activities) {
 }
 
 // Start Server
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
