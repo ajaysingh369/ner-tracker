@@ -28,6 +28,7 @@ const athleteSchema = new mongoose.Schema({
     firstname: { type: String },
     lastname: { type: String },
     profile: { type: String },
+    gender: { type: String },
     restDay: { type: String, default: "Monday" }
 });
 
@@ -142,6 +143,39 @@ app.get('/activities', async (req, res) => {
     }
 });
 
+function CalculatePoints(activityType, moving_time) {
+    let points = 0;
+    let emoji = "";
+    switch (activityType.toLowerCase()) {
+        case "run":
+            points = Math.floor((moving_time / 300) * 0.9);
+            emoji = "🏃‍♂️";
+            break;
+        case "walk":
+            points = Math.floor((moving_time / 300) * 0.7);
+            emoji = "🚶‍♀️";
+            break;
+        case "cycling":
+        case "ride":
+            points = Math.floor((moving_time / 300) * 0.8);
+            emoji = "🚴‍♂️";
+            break;
+        case "yoga":
+            points = Math.floor((moving_time / 300) * 1.0);
+            emoji = "🧘‍♀️";
+            break;
+        case "workout":
+        case "weighttraining":
+            points = Math.floor((moving_time / 300) * 1.0);
+            emoji = "💪";
+            break;
+        default:
+            points = 0;
+            emoji = "❔";
+    }
+    return [points, emoji];
+}
+
 // Fetch Activities for an Athlete
 async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, retry = true) {
     let activities = [];
@@ -161,24 +195,31 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
 
             // Process activities with athlete data
             const enrichedActivities = response.data
-                .map(activity => {
-                    const utcDate = new Date(activity.start_date);
-                    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
-                    //console.log("AJAY::", activity.start_date_local, istDate.toISOString());
-                    // start_date: istDate.toISOString(), // Store in IST format
-                    return {
-                        ...activity,
-                        start_date: istDate.toISOString(), // Store in IST format
-                        athlete: {
-                            id: athlete.athleteId,
-                            firstname: athlete.firstname,
-                            lastname: athlete.lastname,
-                            profile: athlete.profile,
-                            restDay: athlete.restDay || "Monday"
-                        }
-                    };
-                })
-                .filter(activity => activity.moving_time >= 1800); // Filter activities < 30 minutes
+            .filter(activity => activity.moving_time >= 1800) // ✅ Filter first to reduce unnecessary iterations
+            .map(({ id, name, distance, moving_time, start_date, type }) => {
+                const utcDate = new Date(start_date);
+                const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
+                const exts = CalculatePoints(type, moving_time);
+            
+                return {
+                    id, // Activity ID
+                    name, // Activity Name
+                    distance, // Distance covered
+                    moving_time, // Time in motion,
+                    start_date: istDate.toISOString(), // Store in IST format
+                    type,
+                    points: exts[0],
+                    emoji: exts[1], 
+                    athlete: {
+                        id: athlete.athleteId,
+                        firstname: athlete.firstname,
+                        lastname: athlete.lastname,
+                        profile: athlete.profile,
+                        gender: athlete.gender,
+                        restDay: athlete.restDay || "Monday"
+                    }
+                };
+            });
 
             activities.push(...enrichedActivities);
             if (response.data.length < perPage) break;
@@ -209,9 +250,7 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
 }
 
 
-// Calculate Medals
-// Calculate Medals using Points System
-// Calculate Medals considering only the Top 22 activities per athlete
+// Calculate Medals using Points System and considering only the Top 22 activities per athlete
 function calculateMedals(activities) {
     const athleteActivities = {};
 
@@ -227,7 +266,8 @@ function calculateMedals(activities) {
     // Sort and select top 22 activities per athlete
     Object.keys(athleteActivities).forEach(athleteId => {
         athleteActivities[athleteId].sort((a, b) => {
-            return ((b.moving_time / 60) * 5) - ((a.moving_time / 60) * 5); // Sort by highest points
+            //return ((b.moving_time / 60) * 5) - ((a.moving_time / 60) * 5); // Sort by highest points
+            return (b.points) - (a.points); // Sort by highest points
         });
         athleteActivities[athleteId] = athleteActivities[athleteId].slice(0, 22); // Keep only top 22
     });
@@ -237,18 +277,8 @@ function calculateMedals(activities) {
     // Calculate points based on the selected top 22 activities per athlete
     Object.keys(athleteActivities).forEach(athleteId => {
         athletePoints[athleteId] = athleteActivities[athleteId].reduce((total, activity) => {
-            const minutes = activity.moving_time / 60;
-            let points = 0;
-
-            if (activity.type.toLowerCase() === "run") {
-                points = (minutes * 5) * 0.9;
-            } else if (activity.type.toLowerCase() === "walk") {
-                points = (minutes * 5) * 0.7;
-            } else if (["yoga", "workout", "weighttraining"].includes(activity.type.toLowerCase())) {
-                points = (minutes * 5) * 1;
-            }
-
-            return total + points;
+            //const exts = CalculatePoints(type, moving_time);
+            return total + activity.points;
         }, 0);
     });
 
@@ -298,5 +328,5 @@ function optimizeActivities(activities) {
 }
 
 // Start Server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

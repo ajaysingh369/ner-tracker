@@ -252,7 +252,6 @@
         const fetchActivities = async (month = 'current') => {
             let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
 
-            //loader.style.display = 'block'; // Show loader
             calendarHeader.innerHTML = '';
             calendarBody.innerHTML = '';
 
@@ -271,17 +270,15 @@
                         athletes[athleteId] = {
                             athleteId: athleteId,
                             restDay: activity.athlete.restDay,
+                            gender: activity.athlete.gender,
                             name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
                             profile: activity.athlete.profile || 'https://placehold.co/150', // Default photo
                             activities: {}
                         };
                     }
-                    //console.log("Dates::", activity.start_date, new Date(activity.start_date).toLocaleDateString('en-IN', { timeZone: 'UTC' }));
                     const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN', { timeZone: 'UTC' });
                     athletes[athleteId].activities[activityDate] = activity;
                 });
-                //console.log("Final Activities::", athletes);
-                // Display medals
                 const medalsContainer = document.getElementById('medals');
 
                 medalsContainer.innerHTML = `
@@ -300,8 +297,6 @@
 
                 for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
                     const dateCell = document.createElement('th');
-                    //dateCell.textContent = date.toLocaleDateString('en-IN', { day: 'numeric' });
-                    //headerRow.appendChild(dateCell);
                     dateCell.innerHTML = formatDateHeader(date);
                     headerRow.appendChild(dateCell);
                 }
@@ -339,20 +334,24 @@
                             switch (activity.type.toLowerCase()) {
                                 case "run":
                                     points = Math.floor((activity.moving_time / 300) * 0.9);
-                                    emoji = "🏃‍♂️";
+                                    emoji = athlete.gender == "F" ? "🏃‍♀️" : "🏃‍♂️";
+                                    //emoji = "🏃‍♂️";
                                     break;
                                 case "walk":
                                     points = Math.floor((activity.moving_time / 300) * 0.7);
-                                    emoji = "🚶‍♀️";
+                                    emoji = athlete.gender == "F" ? "🚶‍♀️" : "🚶‍♂️";
+                                    //emoji = "🚶‍♀️";
                                     break;
                                 case "cycling":
                                 case "ride":
                                     points = Math.floor((activity.moving_time / 300) * 0.8);
-                                    emoji = "🚴‍♂️";
+                                    emoji = athlete.gender == "F" ? "🚴‍♀️" : "🚴‍♂️";
+                                    // emoji = "🚴‍♂️";
                                     break;
                                 case "yoga":
                                     points = Math.floor((activity.moving_time / 300) * 1.0);
-                                    emoji = "🧘‍♀️";
+                                    emoji = athlete.gender == "F" ? "🧘‍♀️" : "🧘‍♂️";
+                                    //emoji = "🧘‍♀️"; 
                                     break;
                                 case "workout":
                                 case "weighttraining":
@@ -377,9 +376,15 @@
 
                             cell.addEventListener('click', () => showActivityDetails(activity));
                         } else {
-                            cell.textContent = 'No Workout';
-                            cell.innerHTML = `<span class="activity-text">No Workout</span>`;
+                            //cell.textContent = 'No Workout';
+                            //cell.innerHTML = `<span class="activity-text">No Workout</span>`;
+                            cell.innerHTML = `<span class="activity-text"></span><br>
+                                                <span class="activity-points" style="font-size: 0.6rem;">No Workout</span>`;
                             cell.style.backgroundColor = '#c49beb';
+                            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>😞</text></svg>`;
+                            cell.style.backgroundSize = "contain";
+                            cell.style.backgroundRepeat = "no-repeat";
+                            cell.style.backgroundPosition = "top center";
                         }
                         if (activityDate === todays) {
                             cell.style.border = "2px solid blue";
@@ -387,7 +392,13 @@
                         }
                         if(dayName == athlete.restDay) {
                             cell.style.backgroundColor = '#80d9ff';
-                            if (!activity) cell.innerHTML = `<span class="activity-text">Rest !!</span>`;
+                            if (!activity) {
+                                cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>`;
+                                cell.style.backgroundSize = "contain";
+                                cell.style.backgroundRepeat = "no-repeat";
+                                cell.style.backgroundPosition = "top center";
+                                cell.innerHTML = `<span class="activity-text"></span><br><span class="activity-points">Rest !!</span>`;
+                            }
                         }
 
                         row.appendChild(cell);
@@ -428,7 +439,7 @@
                 <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
                 <p><strong>Type:</strong> ${activity.type}</p>
                 <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
-                <p><strong>Time:</strong> ${(activity.elapsed_time / 60).toFixed(2)} mins</p>
+                <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
             `;
             /*
             // Clear previous map if it exists

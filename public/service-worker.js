@@ -1,4 +1,4 @@
-const CACHE_NAME = "runner-tracker-cache-v5"; // Update version to clear old cache
+const CACHE_NAME = "runner-tracker-cache-v6"; // Update version to clear old cache
 const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 
 const urlsToCache = [
@@ -41,8 +41,36 @@ self.addEventListener("fetch", (event) => {
             }
 
             // 🌍 Fetch fresh from the network & update cache
+            // Ignore requests from "chrome-extension://" and invalid URLs
+            if (!event.request.url.startsWith("http")) {
+                return;
+            }
             return fetch(event.request)
                 .then((networkResponse) => {
+                    if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
+                        return networkResponse; // Only cache successful responses
+                    }
+
+                    // Skip caching if response is for /activities?month=xxx and has 0 activities
+                    if (event.request.url.includes("/activities?month=")) {
+                        const clonedResponse = networkResponse.clone();
+                        return clonedResponse.json().then((jsonResponse) => {
+                            if (jsonResponse.activities.length === 0) {
+                                console.log("🚫 Not caching empty activities response:", event.request.url);
+                                return networkResponse; // Don't cache this response
+                            }
+
+                            // ✅ Cache valid response
+                            cache.put(event.request, networkResponse.clone());
+                            cache.put(event.request.url + "-timestamp", new Response(now.toString()));
+                            return networkResponse;
+                        }).catch((err) => {
+                            console.error("❌ Error parsing JSON response:", err);
+                            return networkResponse; // If error occurs, just return the response
+                        });
+                    }
+
+
                     cache.put(event.request, networkResponse.clone());
                     cache.put(event.request.url + "-timestamp", new Response(now.toString())); // Save cache time
                     return networkResponse;
