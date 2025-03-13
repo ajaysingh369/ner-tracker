@@ -8,8 +8,6 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
     <div class="app-container">
@@ -18,22 +16,15 @@
                 <div class="header-text">
                     <h1>Noida Extension Runners</h1>
                     <p>Track your runs and stay motivated!</p>
-                </div>
-                
+                </div> 
             </div>
-            <div class="theme-toggle">
-                <!-- <label for="theme">Dark Mode:</label> -->
-                <input type="checkbox" id="theme">
-            </div>
-            <!-- <div class="header-divider"></div> -->
+            <div class="theme-toggle"><input type="checkbox" id="theme"></div>
         </header>
 
         <!-- Main Content -->
         <main class="app-main">
-            <!-- Auth Button -->
             <button id="authButton" class="auth-button">
-                <span>Authorize with Strava</span>
-                <p class="auth-subtext">*if your name is missing from the list</p>
+                <span>Authorize with Strava</span><p class="auth-subtext">*if your name is missing from the list</p>
             </button>
 
             <!-- Month Selector -->
@@ -57,28 +48,17 @@
             </div>
 
             <!-- Loader -->
-            <!-- <div id="loader" class="loader">Loading...</div> -->
-            <div id="loader" class="loader">
-                <span class="running-emoji">🏃‍♂️</span>
-                <span class="loading-text">Loading</span>
-            </div>
+            <div id="loader" class="loader"><span class="running-emoji">🏃‍♂️</span><span class="loading-text">Loading</span></div>
 
             <!-- Medals Section -->
             <div class="medals-container" id="medallist">
-                <h2>🏅 Top Performers</h2>
-                <div id="medals" class="medals-grid">
-                    <p></p>
-                    <p></p>
-                    <p></p>
-                </div>
+                <h2>🏅 Top Performers</h2><div id="medals" class="medals-grid"><p></p><p></p><p></p></div>
             </div>
             
             <!-- Calendar Table -->
              <div class="activity-table">
                 <h2>Team Activities</h2>
-                <p class="points-info">
-                    <strong>5 mins activity rewards:</strong> 🏃 Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b>
-                </p>
+                <p class="points-info"><strong>5 mins activity rewards:</strong> 🏃Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b></p>
                 <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
              </div>
             <div class="calendar-container" id="actlist">
@@ -107,7 +87,6 @@
             <span id="closePopup" class="close">&times;</span>
             <h3>Activity Details</h3>
             <div id="activityDetails"></div>
-            <div id="activityMap" style="height: 200px; margin-top: 10px;"></div>
         </div>
     </div>
 
@@ -148,12 +127,9 @@
 
             <button id="save-rest-day">Save</button>
             <p id="rest-day-status" class="status-message"></p>
-            
         </div>
     </div>
-    <!-- Leaflet JS -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script> -->
-    <!-- <script src="https://unpkg.com/@mapbox/polyline@1.2.1/src/polyline.js"></script> -->
+
     <script>
         function getDayName(dateString) {
             const date = new Date(dateString);
@@ -162,7 +138,6 @@
         }
         // Load dark mode setting
         document.addEventListener("DOMContentLoaded", () => {
-            // console.log("Polyline loaded:", typeof Polyline);
             const darkModeEnabled = localStorage.getItem("darkMode") === "true";
             themeToggle.checked = darkModeEnabled;
             document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
@@ -219,15 +194,6 @@
             document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
             localStorage.setItem("darkMode", isDarkMode);
         });
-
-        // Check if the user is already authorized
-        const checkAuthorization = async () => {
-            // try {
-            //     const response = await fetch('/activities');
-            // } catch (error) {
-            //     console.error('Error checking authorization:', error);
-            // }
-        };
         
         function formatMedalWinners(medalWinners, athletes) {
             if (!medalWinners || medalWinners.length === 0) return 'N/A';
@@ -261,8 +227,6 @@
                 clearTimeout(loaderTimeout);
                 loader.style.display = 'none'; // Hide loader
                 
-                //console.log(activities);
-                // Group activities by athlete
                 const athletes = {};
                 activities.forEach(activity => {
                     const athleteId = activity.athlete.id;
@@ -323,6 +287,9 @@
                         let emoji = "";
 
                         const cell = document.createElement('td');
+                        cell.style.backgroundSize = "contain";
+                        cell.style.backgroundRepeat = "no-repeat";
+                        cell.style.backgroundPosition = "top center";
                         const todays = new Date().toLocaleDateString('en-IN');
                         const dayName = getDayName(date);
                         if (date > currentDate && month === 'current') {
@@ -335,23 +302,19 @@
                                 case "run":
                                     points = Math.floor((activity.moving_time / 300) * 0.9);
                                     emoji = athlete.gender == "F" ? "🏃‍♀️" : "🏃‍♂️";
-                                    //emoji = "🏃‍♂️";
                                     break;
                                 case "walk":
                                     points = Math.floor((activity.moving_time / 300) * 0.7);
                                     emoji = athlete.gender == "F" ? "🚶‍♀️" : "🚶‍♂️";
-                                    //emoji = "🚶‍♀️";
                                     break;
                                 case "cycling":
                                 case "ride":
                                     points = Math.floor((activity.moving_time / 300) * 0.8);
                                     emoji = athlete.gender == "F" ? "🚴‍♀️" : "🚴‍♂️";
-                                    // emoji = "🚴‍♂️";
                                     break;
                                 case "yoga":
                                     points = Math.floor((activity.moving_time / 300) * 1.0);
                                     emoji = athlete.gender == "F" ? "🧘‍♀️" : "🧘‍♂️";
-                                    //emoji = "🧘‍♀️"; 
                                     break;
                                 case "workout":
                                 case "weighttraining":
@@ -363,13 +326,11 @@
                                     emoji = "❔";
                             }
 
-
-                            //cell.textContent = activity.type;
                             cell.style.backgroundColor = 'lightgreen';
                             cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>`;
-                            cell.style.backgroundSize = "contain";
-                            cell.style.backgroundRepeat = "no-repeat";
-                            cell.style.backgroundPosition = "top center";
+                            // cell.style.backgroundSize = "contain";
+                            // cell.style.backgroundRepeat = "no-repeat";
+                            // cell.style.backgroundPosition = "top center";
                             // Set content for activity type & points
                             cell.innerHTML = `<span class="activity-text"></span><br>
                                                 <span class="activity-points">${points} pts</span>`;
@@ -382,9 +343,9 @@
                                                 <span class="activity-points" style="font-size: 0.6rem;">No Workout</span>`;
                             cell.style.backgroundColor = '#c49beb';
                             cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>😞</text></svg>`;
-                            cell.style.backgroundSize = "contain";
-                            cell.style.backgroundRepeat = "no-repeat";
-                            cell.style.backgroundPosition = "top center";
+                            // cell.style.backgroundSize = "contain";
+                            // cell.style.backgroundRepeat = "no-repeat";
+                            // cell.style.backgroundPosition = "top center";
                         }
                         if (activityDate === todays) {
                             cell.style.border = "2px solid blue";
@@ -394,9 +355,9 @@
                             cell.style.backgroundColor = '#80d9ff';
                             if (!activity) {
                                 cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>`;
-                                cell.style.backgroundSize = "contain";
-                                cell.style.backgroundRepeat = "no-repeat";
-                                cell.style.backgroundPosition = "top center";
+                                // cell.style.backgroundSize = "contain";
+                                // cell.style.backgroundRepeat = "no-repeat";
+                                // cell.style.backgroundPosition = "top center";
                                 cell.innerHTML = `<span class="activity-text"></span><br><span class="activity-points">Rest !!</span>`;
                             }
                         }
@@ -441,47 +402,7 @@
                 <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
                 <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
             `;
-            /*
-            // Clear previous map if it exists
-            const mapContainer = document.getElementById('activityMap');
-            mapContainer.innerHTML = ''; // Clear the container
-
-            // Display map if GPS data is available
-            console.log("map1");
-            if (activity.map && activity.map.summary_polyline) {
-                console.log("map2");
-                 // Clear existing route if needed
-            if (window.currentRoute) {
-                map.removeLayer(window.currentRoute);
-            }
-            if (!window.map) {
-                window.map = L.map('activityMap').setView([51.505, -0.09], 13); // Default view
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-            } else {
-                if (window.currentRoute) {
-               window.map.removeLayer(window.currentRoute);
-            }  
-            }
-              
-            
-                console.log("map3");
-                // Decode the polyline and add it to the map
-                const decodedPath = polyline.decode(activity.map.summary_polyline);
-                //const decodedPath = Polyline.decode(activity.map.summary_polyline); // Decode polyline
-                const latLngs = decodedPath.map(coord => [coord[0], coord[1]]); // Convert to Leaflet format
-                console.log("map4", latLngs);
-                // Create a new polyline and add to the map
-                window.currentRoute = L.polyline(latLngs, { color: 'blue', weight: 4 }).addTo(map);
-
-                // Fit the map to the new route
-                map.fitBounds(window.currentRoute.getBounds());
-
-                //const polyline = L.Polyline.fromEncoded(activity.map.summary_polyline).addTo(map);
-                //map.fitBounds(polyline.getBounds());
-            }
-            */
+           
             activityPopup.style.display = 'block';
         };
 
@@ -490,9 +411,6 @@
             console.log("PROFILE::", JSON.stringify(athlete));
             profilePhoto.src = athlete.profile;
             profileName.textContent = athlete.name;
-            //profileActivities.textContent = `Total Activities of the month: ${Object.keys(athlete.activities).length}`;
-            
-            // Count different activity types
             const activityCounts = {};
             Object.values(athlete.activities).forEach(activity => {
                 activityCounts[activity.type] = (activityCounts[activity.type] || 0) + 1;
@@ -536,7 +454,6 @@
         });
 
         // Initial load
-        checkAuthorization();
         fetchActivities();
 
         if ("serviceWorker" in navigator) {
