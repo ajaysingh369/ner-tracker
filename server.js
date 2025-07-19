@@ -29,7 +29,8 @@ const athleteSchema = new mongoose.Schema({
     lastname: { type: String },
     profile: { type: String },
     gender: { type: String },
-    restDay: { type: String, default: "Monday" }
+    restDay: { type: String, default: "Monday" },
+    team: { type: String, default: "blue" },
 });
 
 const Athlete = mongoose.model('Athlete', athleteSchema);
@@ -216,7 +217,8 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
                         lastname: athlete.lastname,
                         profile: athlete.profile,
                         gender: athlete.gender,
-                        restDay: athlete.restDay || "Monday"
+                        restDay: athlete.restDay || "Monday",
+                        team: athlete.team || "blue"
                     }
                 };
             });
