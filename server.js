@@ -144,6 +144,34 @@ app.get('/activities', async (req, res) => {
     }
 });
 
+//Fetch event specific activities
+app.get('/activitiesByEvent', async (req, res) => {
+    try {
+        const { eventId, month } = req.query;
+        console.log("Req Params:", eventId, month);
+        const currentDate = new Date();
+        const startOfMonth = new Date(currentDate.getFullYear(), month === 'current' ? currentDate.getMonth() : month, 1);
+        const endOfMonth = new Date(currentDate.getFullYear(), month === 'current' ? currentDate.getMonth() + 1 : month + 1, 0);
+
+        const startTimestamp = Math.floor(startOfMonth.getTime() / 1000);
+        const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
+
+        const athletes = await Athlete.find({});   //athleteId: "89664528"
+        const activitiesResults = await Promise.all(
+            athletes.map(athlete => fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp))
+        );
+
+        const allActivities = activitiesResults.flat();
+        const optimizedActivities = optimizeActivities(allActivities);
+        const medals = calculateMedals(optimizedActivities);
+
+        res.json({ activities: optimizedActivities, medals });
+    } catch (error) {
+        console.error('❌ Error fetching activities:', error.message);
+        res.status(500).json({ error: "Error fetching activities" });
+    }
+});
+
 function CalculatePoints(activityType, moving_time) {
     let points = 0;
     let emoji = "";
@@ -206,6 +234,80 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
                     id, // Activity ID
                     name, // Activity Name
                     distance, // Distance covered
+                    moving_time, // Time in motion,
+                    start_date: istDate.toISOString(), // Store in IST format
+                    type,
+                    points: exts[0],
+                    emoji: exts[1], 
+                    athlete: {
+                        id: athlete.athleteId,
+                        firstname: athlete.firstname,
+                        lastname: athlete.lastname,
+                        profile: athlete.profile,
+                        gender: athlete.gender,
+                        restDay: athlete.restDay || "Monday",
+                        team: athlete.team || "blue"
+                    }
+                };
+            });
+
+            activities.push(...enrichedActivities);
+            if (response.data.length < perPage) break;
+            page++;
+        }
+    } catch (error) {
+        // 🛑 If error is 401, refresh token
+        if (error.response && error.response.status === 401) {
+            console.log(`🔄 Access token expired for athlete ${athlete.athleteId}, refreshing...`);
+
+            if (!retry) {
+                console.error(`❌ Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
+                return [];
+            }
+            accessToken = await refreshAccessToken(athlete); // Refresh token
+
+            if (accessToken) {
+                console.log(`✅ Token refreshed successfully for athlete ${athlete.athleteId}`);
+                return fetchAthleteActivities(athlete, startTimestamp, endTimestamp, false); // Retry with new token
+            } else {
+                console.error(`❌ Token refresh failed for athlete ${athlete.athleteId}`);
+            }
+        }
+        console.error(`❌ Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
+    }
+
+    return activities;
+}
+
+// Fetch Activities of event for an Athlete
+async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp, retry = true) {
+    let activities = [];
+    let page = 1;
+    const perPage = 100;
+    const MAX_RETRIES = 2;
+    const adjustEndTimeStamp = endTimestamp+86400;
+
+    try {
+        while (true) {
+            const response = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+                headers: { Authorization: `Bearer ${athlete.accessToken}` },
+                params: { after: startTimestamp, before: adjustEndTimeStamp, per_page: perPage, page }
+            });
+
+            if (response.data.length === 0) break;
+
+            // Process activities with athlete data
+            const enrichedActivities = response.data
+            .filter(activity => activity.distance >= 2000 && activity.type == "Run") // ✅ Filter first to reduce unnecessary iterations
+            .map(({ id, name, distance, moving_time, start_date, type }) => {
+                const utcDate = new Date(start_date);
+                const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
+                const exts = CalculatePoints(type, moving_time);
+            
+                return {
+                    id, // Activity ID
+                    name, // Activity Name
+                    distance: parseFloat((distance / 1000).toFixed(2)), // Distance covered
                     moving_time, // Time in motion,
                     start_date: istDate.toISOString(), // Store in IST format
                     type,
