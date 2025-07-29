@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Noida Extension Runners</title>
+    <title>Tej Kadam Foundation</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,8 +14,8 @@
         <header class="app-header">
             <div class="header-content">
                 <div class="header-text">
-                    <h1>Noida Extension Runners</h1>
-                    <p>Track your runs and stay motivated!</p>
+                    <h1>Tej Kadam Foundation</h1>
+                    <p>👣 Step Up. Stand Out. 👣</p>
                 </div> 
             </div>
             <div class="theme-toggle"><input type="checkbox" id="theme"></div>
@@ -23,49 +23,45 @@
 
         <!-- Main Content -->
         <main class="app-main">
-            <button id="authButton" class="auth-button">
-                <span>Authorize with Strava</span><p class="auth-subtext">*if your name is missing from the list</p>
-            </button>
-
-            <!-- Month Selector -->
-            <div class="month-selector">
-                <label for="month">Select Month:</label>
-                <select id="month">
-                    <option value="current">Current Month</option>
-                    <option value="0">January</option>
-                    <option value="1">February</option>
-                    <option value="2">March</option>
-                    <option value="3">April</option>
-                    <option value="4">May</option>
-                    <option value="5">June</option>
-                    <option value="6">July</option>
-                    <option value="7">August</option>
-                    <option value="8">September</option>
-                    <option value="9">October</option>
-                    <option value="10">November</option>
-                    <option value="11">December</option>
-                </select>
-            </div>
-
-            <!-- Loader -->
-            <div id="loader" class="loader"><span class="running-emoji">🏃‍♂️</span><span class="loading-text">Loading</span></div>
-
-            <!-- Medals Section -->
-            <div class="medals-container" id="medallist">
-                <h2>🏅 Top Performers</h2><div id="medals" class="medals-grid"><p></p><p></p><p></p></div>
+            <div class="challenges-container" id="challenges-container">
+                <h2>🏆 Ongoing Challenges</h2>
+                <ul class="challenge-list">
+                    <li>
+                        <a href="?id=tkfvr&start=2025-07-01&end=2025-07-31">
+                            <img src="virtual-run.jpeg" alt="Virtual Challenge" class="challenge-image">
+                            <br>
+                            ☀️ Virtual Run Challenge <span class="date-range">(1st Jul - 31st Jul)</span>
+                        </a>
+                    </li
+                </ul>
             </div>
             
-            <!-- Calendar Table -->
-             <div class="activity-table">
-                <h2>Team Activities</h2>
-                <p class="points-info"><strong>5 mins activity rewards:</strong> 🏃Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b></p>
-                <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
-             </div>
-            <div class="calendar-container" id="actlist">
-                <table id="calendarTable">
-                    <thead id="calendarHeader"></thead>
-                    <tbody id="calendarBody"></tbody>
-                </table>
+
+            <div id="leaderboard-container" style="display: none;">
+                <button id="authButton" class="auth-button">
+                    <span>Authorize with Strava</span><p class="auth-subtext">*if your name is missing from the list</p>
+                </button>
+                <!-- Loader -->
+                <div id="loader" class="loader"><span class="running-emoji">🏃‍♂️</span><span class="loading-text">Loading</span></div>
+
+                <!-- Medals Section -->
+                <div class="medals-container" id="medallist">
+                    <h2>🏅 Top Performers</h2><div id="medals" class="medals-grid"><p></p><p></p><p></p></div>
+                </div>
+            
+                <!-- Calendar Table -->
+                <div class="activity-table">
+                    <h2>Leaderboard</h2>
+                    <!-- <h2>Team Activities</h2> -->
+                    <!-- <p class="points-info"><strong>5 mins activity rewards:</strong> 🏃Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b></p> -->
+                    <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
+                </div>
+                <div class="calendar-container" id="actlist">
+                    <table id="calendarTable">
+                        <thead id="calendarHeader"></thead>
+                        <tbody id="calendarBody"></tbody>
+                    </table>
+                </div>
             </div>
         </main>
 
@@ -75,9 +71,9 @@
                 <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
                 <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
                 <a href="https://www.instagram.com/noidaextensionrunners/#" target="_blank"><i class="fab fa-instagram"></i></a>
-                <a href="https://strava.com/athletes/123859756" class="strava-badge- strava-badge-follow" target="_blank"><img src="//badges.strava.com/echelon-sprite-24.png" alt="Strava" /></a>
+                <a href="https://strava.com/athletes/123859756" class="strava-badge- strava-badge-follow" target="_blank"><img src="icons/echelon-sprite-24.png" alt="Strava" /></a>
             </div>
-            <div>&copy; 2025 Noida Extension Runners. All rights reserved.</div>
+            <div>&copy; 2025 Tej Kadam Foundation. All rights reserved.</div>
         </footer>
     </div>
 
@@ -100,37 +96,18 @@
                 <p id="profileName"></p>
                 <p id="profileActivities"></p>
             </div>
-            <input id="athlete-id" type="hidden" value="" />
-            <h3>Select Your Rest Day</h3>
-            <div class="rest-day-options">
-                <input type="radio" id="monday" name="rest-day" value="Monday" checked>
-                <label for="monday">Monday</label>
-
-                <input type="radio" id="tuesday" name="rest-day" value="Tuesday">
-                <label for="tuesday">Tuesday</label>
-
-                <input type="radio" id="wednesday" name="rest-day" value="Wednesday">
-                <label for="wednesday">Wednesday</label>
-
-                <input type="radio" id="thursday" name="rest-day" value="Thursday">
-                <label for="thursday">Thursday</label>
-
-                <input type="radio" id="friday" name="rest-day" value="Friday">
-                <label for="friday">Friday</label>
-
-                <input type="radio" id="saturday" name="rest-day" value="Saturday">
-                <label for="saturday">Saturday</label>
-
-                <input type="radio" id="sunday" name="rest-day" value="Sunday">
-                <label for="sunday">Sunday</label>
-            </div>   
-
-            <button id="save-rest-day">Save</button>
-            <p id="rest-day-status" class="status-message"></p>
         </div>
     </div>
 
     <script>
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                id: params.get("id"),
+                start: params.get("start"),
+                end: params.get("end")
+            };
+        }
         function getDayName(dateString) {
             const date = new Date(dateString);
             const options = { weekday: 'long' };
@@ -142,50 +119,45 @@
             themeToggle.checked = darkModeEnabled;
             document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
 
-            // Attach search event listener
-            document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
+            const challenge = getQueryParams();
+            const challengesContainerEl = document.getElementById("challenges-container");
+            const leaderboardContainerEl = document.getElementById("leaderboard-container");
 
-            const saveRestDayButton = document.getElementById("save-rest-day");
-            const statusMessage = document.getElementById("rest-day-status");
-            const restDayOptions = document.querySelectorAll('input[name="rest-day"]');
+            if (challenge.id) {
+                console.log("Selected Challenge:", challenge);
+                challengesContainerEl.style.display = "none";
+                leaderboardContainerEl.style.display = "block";
+                
+                const authButton = document.getElementById('authButton');
+                const loader = document.getElementById('loader');
+                const calendarHeader = document.getElementById('calendarHeader');
+                const calendarBody = document.getElementById('calendarBody');
+                const activityPopup = document.getElementById('activityPopup');
+                const activityDetails = document.getElementById('activityDetails');
+                const closePopup = document.getElementById('closePopup');
+                const profilePopup = document.getElementById('profilePopup');
+                const closeProfilePopup = document.getElementById('closeProfilePopup');
+                const profilePhoto = document.getElementById('profilePhoto');
+                const profileName = document.getElementById('profileName');
+                const profileActivities = document.getElementById('profileActivities');
+                
+                
+                // Attach search event listener
+                document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
 
-            // Save the selected rest day when clicking "Save"
-            saveRestDayButton.addEventListener("click", () => {
-                const athleteId = document.getElementById("athlete-id").value;
-                const selectedRestDay = document.querySelector('input[name="rest-day"]:checked').value;
+                const saveRestDayButton = document.getElementById("save-rest-day");
+                const statusMessage = document.getElementById("rest-day-status");
+                const restDayOptions = document.querySelectorAll('input[name="rest-day"]');
 
-                fetch(`/athlete/rest-day/${athleteId}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ restDay: selectedRestDay })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    statusMessage.textContent = data.message;
-                    statusMessage.style.color = "green";
-                })
-                .catch(error => {
-                    statusMessage.textContent = "Error updating rest day.";
-                    statusMessage.style.color = "red";
-                    console.error("❌ Error updating rest day:", error);
-                });
-            });
-
+            // Initial load
+            fetchActivities(challenge);
+            } else {
+                challengesContainerEl.style.display = "block";
+                leaderboardContainerEl.style.display = "none";
+            }
         });
 
-        const authButton = document.getElementById('authButton');
-        const loader = document.getElementById('loader');
-        const calendarHeader = document.getElementById('calendarHeader');
-        const calendarBody = document.getElementById('calendarBody');
-        const activityPopup = document.getElementById('activityPopup');
-        const activityDetails = document.getElementById('activityDetails');
-        const closePopup = document.getElementById('closePopup');
-        const profilePopup = document.getElementById('profilePopup');
-        const closeProfilePopup = document.getElementById('closeProfilePopup');
-        const profilePhoto = document.getElementById('profilePhoto');
-        const profileName = document.getElementById('profileName');
-        const profileActivities = document.getElementById('profileActivities');
-        const monthSelector = document.getElementById('month');
+        
         const themeToggle = document.getElementById('theme');
 
         // Toggle dark mode and save setting
@@ -215,33 +187,51 @@
         }
 
         // Fetch activities and display them in the calendar
-        const fetchActivities = async (month = 'current') => {
+        const fetchActivities = async (challenge) => {
+            let month = 6;
             let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
 
             calendarHeader.innerHTML = '';
             calendarBody.innerHTML = '';
 
             try {
-                const response = await fetch(`/activities?month=${month}`);
+                const response = await fetch(`/activitiesByEvent?eventid=${challenge.id}&month=${month}`);
                 const { activities, medals } = await response.json();
                 clearTimeout(loaderTimeout);
                 loader.style.display = 'none'; // Hide loader
+
+                /*
+                distance: 13596.8
+                emoji: "🏃‍♂️"
+                id: 15248158031
+                moving_time: 6394
+                name: "Jabardast July @ 26 aka Greenathon HM"
+                points: 19
+                start_date: "2025-07-27T05:38:47.000Z"
+                type: "Run"
+                */
                 
                 const athletes = {};
                 activities.forEach(activity => {
+                    
                     const athleteId = activity.athlete.id;
                     if (!athletes[athleteId]) {
                         athletes[athleteId] = {
                             athleteId: athleteId,
                             restDay: activity.athlete.restDay,
                             gender: activity.athlete.gender,
+                            team: activity.athlete.team,
                             name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
-                            profile: activity.athlete.profile || 'https://placehold.co/150', // Default photo
+                            profile: activity.athlete.profile, // Default photo
                             activities: {}
                         };
                     }
                     const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN', { timeZone: 'UTC' });
-                    athletes[athleteId].activities[activityDate] = activity;
+                    if (!athletes[athleteId].activities[activityDate]) {
+                        athletes[athleteId].activities[activityDate] = [];
+                    }
+                    athletes[athleteId].activities[activityDate].push(activity);
+
                 });
                 const medalsContainer = document.getElementById('medals');
 
@@ -269,19 +259,41 @@
 
                 // Generate calendar body
                 Object.values(athletes).forEach(athlete => {
+                    let monthlyDistance = 0;
+                    Object.values(athlete.activities).forEach(dayActivities => {
+                        dayActivities.forEach(activity => {
+                            monthlyDistance += activity.distance;
+                        });
+                    });
+
+                    const DISTANCE_GOAL = 250;
+                    const progressPercent = Math.min(100, (monthlyDistance / DISTANCE_GOAL) * 100).toFixed(1); // Cap at 100%
+
+
                     const row = document.createElement('tr');
                     const athleteCell = document.createElement('td');
+
+                    //athleteCell.style.backgroundColor = athlete.team ?  athlete.team : "#ff0000";
+                    athleteCell.style.backgroundColor = "rgba(61, 98, 59, 0.91)";
                     athleteCell.innerHTML = `
                         <span class="athlete-name" data-athlete-id="${athlete.name}">
-                            <img class="profile-photo-list" src="${athlete.profile}" />
-                            <br>${athlete.name}</span>
+                        <img class="profile-photo-list" src="${athlete.profile}" />
+                        <br><b style="font-size: 0.85rem; color: #e73707b5">${athlete.name}</b><br>
+                        <span style="font-weight: bold; color: #ff9800; font-size: 1.1rem;">${monthlyDistance.toFixed(2)} KM</span>
+                        <div style="width: 90%; background-color: #ddd; height: 6px; border-radius: 3px; margin: 4px;">
+                            <div style="width: ${progressPercent}%; height: 100%; background-color: #4caf50; border-radius: 3px;"></div>
+                        </div>
+                    </span>
                     `;
                     athleteCell.addEventListener('click', () => showProfilePopup(athlete));
                     row.appendChild(athleteCell);
 
                     for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
                         const activityDate = date.toLocaleDateString('en-IN');
-                        const activity = athlete.activities[activityDate];
+                        //const activity = athlete.activities[activityDate];
+                        const activitiesForDay = athlete.activities[activityDate];
+
+
                         // Set text content with activity type & points
                         let points = 0;
                         let emoji = "";
@@ -292,39 +304,36 @@
                         cell.style.backgroundPosition = "top center";
                         const todays = new Date().toLocaleDateString('en-IN');
                         const dayName = getDayName(date);
-                        if (date > currentDate && month === 'current') {
+                        if (date > currentDate) {
                             // Skip future dates for the current month
                             cell.textContent = '';
                             cell.style.backgroundColor = 'transparent';
 
-                        } else if (activity) {
-                            switch (activity.type.toLowerCase()) {
-                                case "run":
-                                    points = Math.floor((activity.moving_time / 300) * 0.9);
-                                    emoji = athlete.gender == "F" ? "🏃‍♀️" : "🏃‍♂️";
-                                    break;
-                                case "walk":
-                                    points = Math.floor((activity.moving_time / 300) * 0.7);
-                                    emoji = athlete.gender == "F" ? "🚶‍♀️" : "🚶‍♂️";
-                                    break;
-                                case "cycling":
-                                case "ride":
-                                    points = Math.floor((activity.moving_time / 300) * 0.8);
-                                    emoji = athlete.gender == "F" ? "🚴‍♀️" : "🚴‍♂️";
-                                    break;
-                                case "yoga":
-                                    points = Math.floor((activity.moving_time / 300) * 1.0);
-                                    emoji = athlete.gender == "F" ? "🧘‍♀️" : "🧘‍♂️";
-                                    break;
-                                case "workout":
-                                case "weighttraining":
-                                    points = Math.floor((activity.moving_time / 300) * 1.0);
-                                    emoji = "💪";
-                                    break;
-                                default:
-                                    points = 0;
-                                    emoji = "❔";
-                            }
+                        } else if (activitiesForDay && activitiesForDay.length > 0) {
+                            let totalDistance = 0;
+                            let totalPoints = 0;
+                            let emoji = "🏃‍♂️";
+
+                            activitiesForDay.forEach(activity => {
+                                let points = 0;
+                                const genderEmoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
+                                switch (activity.type.toLowerCase()) {
+                                    case "run":
+                                        points = Math.floor((activity.moving_time / 300) * 0.9);
+                                        break;
+                                    case "walk":
+                                        points = Math.floor((activity.moving_time / 300) * 0.7);
+                                        break;
+                                    default:
+                                        points = 0;
+                                }
+                                totalPoints += points;
+                                totalDistance += activity.distance;
+
+                                if (activity.type.toLowerCase() === "run") {
+                                    emoji = genderEmoji;
+                                }
+                            });
 
                             cell.style.backgroundColor = 'lightgreen';
                             cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>`;
@@ -333,16 +342,22 @@
                             // cell.style.backgroundPosition = "top center";
                             // Set content for activity type & points
                             cell.innerHTML = `<span class="activity-text"></span><br>
-                                                <span class="activity-points">${points} pts</span>`;
+                                                <span class="activity-points">${totalDistance} KM</span>`;
 
-                            cell.addEventListener('click', () => showActivityDetails(activity));
+                            cell.addEventListener('click', () => showActivityDetails(activitiesForDay));
                         } else {
+                            cell.innerHTML = `<span class="activity-text"></span><br>
+                                <span class="activity-points" style="font-size: 0.65rem; font-weight: 500;">Refueling</span>`;
+                            cell.style.backgroundColor = '#80d9ff'; // Calm light blue
+                            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>🧃</text></svg>")`;
+
+
                             //cell.textContent = 'No Workout';
                             //cell.innerHTML = `<span class="activity-text">No Workout</span>`;
-                            cell.innerHTML = `<span class="activity-text"></span><br>
-                                                <span class="activity-points" style="font-size: 0.6rem;">No Workout</span>`;
-                            cell.style.backgroundColor = '#c49beb';
-                            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>😞</text></svg>`;
+                            // cell.innerHTML = `<span class="activity-text"></span><br>
+                            //                     <span class="activity-points" style="font-size: 0.6rem;">Re</span>`;
+                            // cell.style.backgroundColor = '#c49beb';
+                            // cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>😞</text></svg>`;
                             // cell.style.backgroundSize = "contain";
                             // cell.style.backgroundRepeat = "no-repeat";
                             // cell.style.backgroundPosition = "top center";
@@ -351,16 +366,13 @@
                             cell.style.border = "2px solid blue";
                             cell.style.fontWeight = "bold";
                         }
-                        if(dayName == athlete.restDay) {
-                            cell.style.backgroundColor = '#80d9ff';
-                            if (!activity) {
-                                cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>`;
-                                // cell.style.backgroundSize = "contain";
-                                // cell.style.backgroundRepeat = "no-repeat";
-                                // cell.style.backgroundPosition = "top center";
-                                cell.innerHTML = `<span class="activity-text"></span><br><span class="activity-points">Rest !!</span>`;
-                            }
-                        }
+                        // if(dayName == athlete.restDay) {
+                        //     cell.style.backgroundColor = '#80d9ff';
+                        //     if (!activitiesForDay) {
+                        //         cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>`;
+                        //         cell.innerHTML = `<span class="activity-text"></span><br><span class="activity-points">Rest !!</span>`;
+                        //     }
+                        // }
 
                         row.appendChild(cell);
                     }
@@ -392,19 +404,23 @@
         }
 
         // Show activity details in a popup
-        const showActivityDetails = (activity) => {
+        const showActivityDetails = (activities) => {
+    let html = '';
+    activities.forEach(activity => {
+        html += `
+            <hr>
+            <p><strong>Title:</strong> ${activity.name}</p>
+            <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
+            <p><strong>Type:</strong> ${activity.type}</p>
+            <p><strong>Distance:</strong> ${activity.distance} km</p>
+            <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
+        `;
+    });
+    html = `<p><strong>Athlete:</strong> ${activities[0].athlete.firstname} ${activities[0].athlete.lastname}</p>` + html;
+    activityDetails.innerHTML = html;
+    activityPopup.style.display = 'block';
+};
 
-            activityDetails.innerHTML = `
-                <p><strong>Athlete:</strong> ${activity.athlete.firstname} ${activity.athlete.lastname}</p>
-                <p><strong>Title:</strong> ${activity.name}</p>
-                <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
-                <p><strong>Type:</strong> ${activity.type}</p>
-                <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
-                <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
-            `;
-           
-            activityPopup.style.display = 'block';
-        };
 
         // Show athlete profile in a popup
         const showProfilePopup = (athlete) => {
@@ -422,11 +438,6 @@
                 .join(', ');
 
             profileActivities.innerHTML = `Activity Count: ${activityText || 'No Activities'}`;
-            
-            const selectedDay = athlete.restDay || "Monday";
-            document.querySelector(`input[name="rest-day"][value="${selectedDay}"]`).checked = true;
-            document.getElementById('athlete-id').value = athlete.athleteId;
-            console.log("PROFILE::",  document.getElementById('athlete-id').value);
             profilePopup.style.display = 'block';
         };
 
@@ -440,21 +451,13 @@
         });
 
         // Handle month selection
-        let debounceTimer;
-        monthSelector.addEventListener('change', (event) => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                fetchActivities(event.target.value);
-            }, 500);
-        });
-
+        
         // Event listener for the "Authorize with Strava" button
         authButton.addEventListener('click', () => {
             window.location.href = '/auth/strava';
         });
 
-        // Initial load
-        fetchActivities();
+        
 
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("/service-worker.js")

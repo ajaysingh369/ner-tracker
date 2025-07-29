@@ -1,4 +1,4 @@
-const CACHE_NAME = "runner-tracker-cache-v6"; // Update version to clear old cache
+const CACHE_NAME = "runner-tracker-cache-v7"; // Update version to clear old cache
 const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 
 const urlsToCache = [
@@ -52,7 +52,7 @@ self.addEventListener("fetch", (event) => {
                     }
 
                     // Skip caching if response is for /activities?month=xxx and has 0 activities
-                    if (event.request.url.includes("/activities?month=")) {
+                    if (event.request.url.includes("/activitiesByEvent?month=")) {
                         const clonedResponse = networkResponse.clone();
                         return clonedResponse.json().then((jsonResponse) => {
                             if (jsonResponse.activities.length === 0) {

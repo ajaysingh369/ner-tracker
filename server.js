@@ -157,11 +157,18 @@ app.get('/activitiesByEvent', async (req, res) => {
         const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
 
         const athletes = await Athlete.find({});   //athleteId: "89664528"
-        const activitiesResults = await Promise.all(
+
+        const results = await Promise.allSettled(
             athletes.map(athlete => fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp))
         );
+        const allActivities = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
 
-        const allActivities = activitiesResults.flat();
+
+        // const activitiesResults = await Promise.all(
+        //     athletes.map(athlete => fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp))
+        // );
+
+        // const allActivities = activitiesResults.flat();
         const optimizedActivities = optimizeActivities(allActivities);
         const medals = calculateMedals(optimizedActivities);
 
