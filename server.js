@@ -31,6 +31,9 @@ const athleteSchema = new mongoose.Schema({
     gender: { type: String },
     restDay: { type: String, default: "Monday" },
     team: { type: String, default: "blue" },
+    email: { type: String },
+    source: { type: String, default: "strava" },
+    category: { type: String, default: "100" }
 });
 
 const Athlete = mongoose.model('Athlete', athleteSchema);
@@ -147,8 +150,8 @@ app.get('/activities', async (req, res) => {
 //Fetch event specific activities
 app.get('/activitiesByEvent', async (req, res) => {
     try {
-        const { eventId, month } = req.query;
-        console.log("Req Params:", eventId, month);
+        const { eventId, month, category } = req.query;
+        console.log("Req Params:", eventId, month, category);
         const currentDate = new Date();
         const startOfMonth = new Date(currentDate.getFullYear(), month === 'current' ? currentDate.getMonth() : month, 1);
         const endOfMonth = new Date(currentDate.getFullYear(), month === 'current' ? currentDate.getMonth() + 1 : month + 1, 0);
@@ -156,7 +159,8 @@ app.get('/activitiesByEvent', async (req, res) => {
         const startTimestamp = Math.floor(startOfMonth.getTime() / 1000);
         const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
 
-        const athletes = await Athlete.find({});   //athleteId: "89664528"
+        const athletes = await Athlete.find({category: category});   //athleteId: "89664528"
+        console.log(JSON.stringify(athletes));
 
         const results = await Promise.allSettled(
             athletes.map(athlete => fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp))
@@ -170,7 +174,7 @@ app.get('/activitiesByEvent', async (req, res) => {
 
         // const allActivities = activitiesResults.flat();
         const optimizedActivities = optimizeActivities(allActivities);
-        const medals = calculateMedals(optimizedActivities);
+        const medals = {}; //calculateMedals(optimizedActivities);
 
         res.json({ activities: optimizedActivities, medals });
     } catch (error) {
@@ -327,7 +331,8 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
                         profile: athlete.profile,
                         gender: athlete.gender,
                         restDay: athlete.restDay || "Monday",
-                        team: athlete.team || "blue"
+                        team: athlete.team || "blue",
+                        category: athlete.category || "100"
                     }
                 };
             });

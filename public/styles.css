@@ -96,3 +96,24 @@ to{transform:translateX(10px)}}
     height: 20rem;
     width:auto;
 }
+.category-filters {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0 10px;
+}
+.filter-button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 5px;
+    background-color: #fda94f; /* light strava orange */
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    opacity: 0.6;
+}
+.filter-button.selected {
+    background-color: #fc5200; /* bold strava orange */
+    opacity: 1;
+}
