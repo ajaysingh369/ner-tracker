@@ -18,6 +18,10 @@ const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/str
 const MONGO_URI = process.env.MONGO_URI;
 
 // Caching constants
+// In-memory cache structure
+const activityCache = {}; // { athleteId: { data: [...], timestamp: <unix> } }
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in ms
+
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes in milliseconds
 const tmpDir = os.tmpdir();
 const inMemoryCache = global.activityEventCache || {};
@@ -335,6 +339,26 @@ async function fetchAthleteActivities(athlete, startTimestamp, endTimestamp, ret
 
 // Fetch Activities of event for an Athlete
 async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp, retry = true) {
+    const cacheKey = `${athlete.athleteId}_${startTimestamp}`;
+    const cacheFile = path.join('/tmp', `activities_${cacheKey}.json`);
+    const now = Date.now();
+
+    // 1. Check in-memory cache
+    if (activityCache[cacheKey] && now - activityCache[cacheKey].timestamp < CACHE_DURATION) {
+        return activityCache[cacheKey].data;
+    }
+
+    // 2. Check in file system
+    if (fs.existsSync(cacheFile)) {
+        const stats = fs.statSync(cacheFile);
+        if (now - stats.mtimeMs < CACHE_DURATION) {
+            const fileData = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+            activityCache[cacheKey] = { data: fileData, timestamp: stats.mtimeMs };
+            return fileData;
+        }
+    }
+
+    // 3. Fetch fresh from Strava
     let activities = [];
     let page = 1;
     const perPage = 100;
@@ -384,6 +408,11 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
             if (response.data.length < perPage) break;
             page++;
         }
+        // 4. Cache result
+        activityCache[cacheKey] = { data: activities, timestamp: now };
+        fs.writeFileSync(cacheFile, JSON.stringify(activities), 'utf-8');
+
+        return activities;
     } catch (error) {
         // 🛑 If error is 401, refresh token
         if (error.response && error.response.status === 401) {
@@ -402,10 +431,20 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
                 console.error(`❌ Token refresh failed for athlete ${athlete.athleteId}`);
             }
         }
+
+        if (error.response && error.response.status === 429) {
+            console.warn(`⏳ Rate limited for athlete ${athlete.athleteId}, using stale cache if available.`);
+            if (fs.existsSync(cacheFile)) {
+                const fileData = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+                return fileData;
+            }
+        }
+
         console.error(`❌ Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
+        return [];
     }
 
-    return activities;
+    //return activities;
 }
 
 
@@ -485,6 +524,10 @@ function optimizeActivities(activities) {
 
     return Array.from(activityMap.values());
 }
+
+// app.get('*', (req, res) => {
+//     res.sendFile(path.join(__dirname, 'public', 'maintenance.html'));
+//   });
 
 // Start Server
 const PORT = process.env.PORT || 3003;

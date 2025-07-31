@@ -39,6 +39,12 @@
                     <button class="filter-button" data-category="200">200 KM (Bhaag Milkha Bhaag)</button>
                 </div>
 
+                <img class="maintain-img" src="https://twemoji.maxcdn.com/v/latest/svg/1f6e0.svg" alt="Under Construction" />
+  <h1 class="maintain-title">We’re getting ready!</h1>
+  <p class="maintain-desc">The tracker is under maintenance as we prepare for the August challenge.<br>
+     Please check back soon. 🏃‍♀️🏃‍♂️
+  </p>
+
                 <!-- Medals Section -->
                 <!-- <div class="medals-container" id="medallist">
                     <h2>🏅 Top Performers</h2><div id="medals" class="medals-grid"><p></p><p></p><p></p></div>
@@ -90,7 +96,7 @@
             <span id="closeProfilePopup" class="close">&times;</span>
             <h3>Athlete Profile</h3>
             <div id="profileDetails" class="profile-popup-divider">
-                <img id="profilePhoto" src="https://placehold.co/150" alt="Profile Photo" class="profile-photo-large">
+                <img id="profilePhoto" alt="Profile Photo" class="profile-photo-large">
                 <p id="profileName"></p>
                 <p id="profileActivities"></p>
             </div>
@@ -138,12 +144,12 @@
                     document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('selected'));
                     btn.classList.add('selected');
                     const selectedCategory = btn.dataset.category;
-                    fetchActivities(selectedCategory);
+                    //fetchActivities(selectedCategory);
                 });
             });
 
             // Initial load
-            fetchActivities();
+            //fetchActivities();
         });
 
         function applyCategoryFilter(category) {
@@ -189,7 +195,7 @@
 
         // Fetch activities and display them in the calendar
         const fetchActivities = async (category=100) => {
-            let month = 6;
+            let month = 7;
             let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
 
             calendarHeader.innerHTML = '';
