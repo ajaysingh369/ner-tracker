@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const mongoose = require('mongoose');
 
@@ -14,6 +16,12 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/strava/callback';
 const MONGO_URI = process.env.MONGO_URI;
+
+// Caching constants
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes in milliseconds
+const tmpDir = os.tmpdir();
+const inMemoryCache = global.activityEventCache || {};
+global.activityEventCache = inMemoryCache;
 
 // Connect to MongoDB
 mongoose.connect(MONGO_URI, { useUnifiedTopology: true })
@@ -33,7 +41,8 @@ const athleteSchema = new mongoose.Schema({
     team: { type: String, default: "blue" },
     email: { type: String },
     source: { type: String, default: "strava" },
-    category: { type: String, default: "100" }
+    category: { type: String, default: "100" },
+    status: { type: String, default: "pending" }
 });
 
 const Athlete = mongoose.model('Athlete', athleteSchema);
@@ -150,8 +159,31 @@ app.get('/activities', async (req, res) => {
 //Fetch event specific activities
 app.get('/activitiesByEvent', async (req, res) => {
     try {
-        const { eventId, month, category } = req.query;
-        console.log("Req Params:", eventId, month, category);
+        const { eventid, month, category, nocache } = req.query;
+        console.log("Req Params::", eventid, month, category, nocache);
+
+        const cacheKey = `${eventid}-${month}-${category}`;
+        const now = Date.now();
+        const filePath = path.join(tmpDir, `cache-${cacheKey}.json`);
+
+        // 1. Serve from memory cache if fresh
+        if (!nocache && inMemoryCache[cacheKey] && (now - inMemoryCache[cacheKey].timestamp < CACHE_TTL)) {
+            console.log("✅ Serving from memory cache");
+            return res.json(inMemoryCache[cacheKey].data);
+        }
+
+        // 2. Serve from file cache if exists and fresh
+        if (!nocache && fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+            if ((now - stats.mtimeMs) < CACHE_TTL) {
+                console.log("✅ Serving from file cache");
+                const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                inMemoryCache[cacheKey] = { data: fileData, timestamp: now };
+                return res.json(fileData);
+            }
+        }
+
+        // 3. Fetch fresh data
         const currentDate = new Date();
         const startOfMonth = new Date(currentDate.getFullYear(), month === 'current' ? currentDate.getMonth() : month, 1);
         const endOfMonth = new Date(currentDate.getFullYear(), month === 'current' ? currentDate.getMonth() + 1 : month + 1, 0);
@@ -160,7 +192,7 @@ app.get('/activitiesByEvent', async (req, res) => {
         const endTimestamp = Math.floor(endOfMonth.getTime() / 1000);
 
         const athletes = await Athlete.find({category: category});   //athleteId: "89664528"
-        console.log(JSON.stringify(athletes));
+        // console.log(JSON.stringify(athletes));
 
         const results = await Promise.allSettled(
             athletes.map(athlete => fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp))
@@ -176,7 +208,18 @@ app.get('/activitiesByEvent', async (req, res) => {
         const optimizedActivities = optimizeActivities(allActivities);
         const medals = {}; //calculateMedals(optimizedActivities);
 
-        res.json({ activities: optimizedActivities, medals });
+        const result = { activities: optimizedActivities, medals };
+
+        if (optimizedActivities.length > 0) {
+            // Save to memory and file
+            inMemoryCache[cacheKey] = { data: result, timestamp: now };
+            fs.writeFileSync(filePath, JSON.stringify(result));
+        } else {
+            console.log("🚫 Not caching empty activities response");
+        }
+
+        return res.json(result);
+        // res.json({ activities: optimizedActivities, medals });
     } catch (error) {
         console.error('❌ Error fetching activities:', error.message);
         res.status(500).json({ error: "Error fetching activities" });
