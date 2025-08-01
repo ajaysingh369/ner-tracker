@@ -39,11 +39,11 @@
                     <button class="filter-button" data-category="200">200 KM (Bhaag Milkha Bhaag)</button>
                 </div>
 
-                <img class="maintain-img" src="https://twemoji.maxcdn.com/v/latest/svg/1f6e0.svg" alt="Under Construction" />
+                <!-- <img class="maintain-img" src="https://twemoji.maxcdn.com/v/latest/svg/1f6e0.svg" alt="Under Construction" />
   <h1 class="maintain-title">We’re getting ready!</h1>
   <p class="maintain-desc">The tracker is under maintenance as we prepare for the August challenge.<br>
      Please check back soon. 🏃‍♀️🏃‍♂️
-  </p>
+  </p> -->
 
                 <!-- Medals Section -->
                 <!-- <div class="medals-container" id="medallist">
@@ -144,12 +144,12 @@
                     document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('selected'));
                     btn.classList.add('selected');
                     const selectedCategory = btn.dataset.category;
-                    //fetchActivities(selectedCategory);
+                    fetchActivities(selectedCategory);
                 });
             });
 
             // Initial load
-            //fetchActivities();
+            fetchActivities();
         });
 
         function applyCategoryFilter(category) {
@@ -427,7 +427,7 @@
 
             // Generate formatted activity count text
             const activityText = Object.entries(activityCounts)
-                .map(([type, count]) => `${type}: <b>${count}</b>`)
+                .map(([type, count]) => `Run: <b>${count}</b>`)
                 .join(', ');
 
             profileActivities.innerHTML = `Activity Count: ${activityText || 'No Activities'}`;
