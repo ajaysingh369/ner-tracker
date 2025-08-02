@@ -49,6 +49,14 @@ const athleteSchema = new mongoose.Schema({
     status: { type: String, default: "pending" }
 });
 
+const EventActivity = mongoose.model('EventActivity', new mongoose.Schema({
+    eventId: String,
+    month: Number,
+    athleteId: String,
+    athlete: Object,
+    activitiesByDate: Object
+}));
+
 const Athlete = mongoose.model('Athlete', athleteSchema);
 
 // Function to Refresh Access Token
@@ -161,7 +169,7 @@ app.get('/activities', async (req, res) => {
 });
 
 //Fetch event specific activities
-app.get('/activitiesByEvent', async (req, res) => {
+app.get('/activitiesByEvent_old', async (req, res) => {
     try {
         const { eventid, month, category, nocache } = req.query;
         console.log("Req Params::", eventid, month, category, nocache);
@@ -525,9 +533,146 @@ function optimizeActivities(activities) {
     return Array.from(activityMap.values());
 }
 
-// app.get('*', (req, res) => {
-//     res.sendFile(path.join(__dirname, 'public', 'maintenance.html'));
-//   });
+const getTodayDateIST = () => {
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const now = new Date(Date.now() + istOffset);
+    return now.toISOString().split("T")[0]; // YYYY-MM-DD
+};
+
+// POST endpoint to fetch today's activities and store in DB
+app.post('/syncEventActivities', async (req, res) => {
+    const { eventId, month } = req.body;
+    if (!eventId || month === undefined) {
+        return res.status(400).json({ error: 'eventId and month are required' });
+    }
+
+    const currentDate = new Date();
+    const startOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0);
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+    const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
+    const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
+
+    const todayDateKey = getTodayDateIST();
+    const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
+
+    const results = await Promise.allSettled(
+        athletes.map(athlete => fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp))
+    );
+
+    const successfulActivities = results
+        .filter(r => r.status === "fulfilled")
+        .flatMap(r => r.value);
+
+    const updates = {};
+
+    for (const activity of successfulActivities) {
+        const athleteId = activity.athlete.id;
+        if (!updates[athleteId]) {
+            updates[athleteId] = {
+                athleteId,
+                eventId,
+                month,
+                athlete: activity.athlete,
+                activitiesByDate: {}
+            };
+        }
+        if (!updates[athleteId].activitiesByDate[todayDateKey]) {
+            updates[athleteId].activitiesByDate[todayDateKey] = [];
+        }
+        updates[athleteId].activitiesByDate[todayDateKey].push({
+            id: activity.id,
+            name: activity.name,
+            distance: activity.distance,
+            moving_time: activity.moving_time,
+            start_date: activity.start_date,
+            type: activity.type,
+            points: activity.points,
+            emoji: activity.emoji
+        });
+    }
+
+    const bulkOps = Object.values(updates).map(entry => ({
+        updateOne: {
+            filter: { eventId, month, athleteId: entry.athleteId },
+            update: {
+                $set: {
+                    athlete: entry.athlete,
+                    [`activitiesByDate.${todayDateKey}`]: entry.activitiesByDate[todayDateKey]
+                }
+            },
+            upsert: true
+        }
+    }));
+
+    if (bulkOps.length > 0) {
+        await EventActivity.bulkWrite(bulkOps);
+    }
+
+    res.json({ message: `✅ Synced ${bulkOps.length} athlete records for ${todayDateKey}` });
+});
+
+
+// Get athletes by event and category
+app.get('/athletesByEvent', async (req, res) => {
+    try {
+        const { eventid, month, category } = req.query;
+        const athletes = await Athlete.find({ category: category });
+
+        const athleteList = athletes.map((athlete) => ({
+            id: athlete.athleteId,
+            firstname: athlete.firstname,
+            lastname: athlete.lastname,
+            profile: athlete.profile,
+            gender: athlete.gender,
+            restDay: athlete.restDay || "Monday",
+            team: athlete.team || "blue",
+            category: athlete.category || "100"
+        }));
+
+        res.json({ athletes: athleteList });
+    } catch (error) {
+        console.error("❌ Error fetching athletesByEvent:", error.message);
+        res.status(500).json({ error: "Error fetching athlete data" });
+    }
+});
+
+// ✅ New /activitiesByEvent: Fetch from MongoDB
+app.get('/activitiesByEvent', async (req, res) => {
+    try {
+        const { eventid, month, category } = req.query;
+        if (!eventid || !month || !category) {
+            return res.status(400).json({ error: "Missing eventid, month, or category" });
+        }
+
+        // Get athletes matching this category
+        const athletes = await Athlete.find({ category });
+
+        // Get athleteIds
+        const athleteIds = athletes.map((a) => a.athleteId);
+
+        // Fetch activity documents from MongoDB
+        const results = await EventActivity.find({
+            eventId: eventid,
+            month: parseInt(month),
+            athleteId: { $in: athleteIds }
+        });
+
+        // Format response: include athleteId, athlete info, and activitiesByDate
+        const activities = results.map((doc) => ({
+            athleteId: doc.athleteId,
+            athlete: doc.athlete,
+            activitiesByDate: doc.activitiesByDate
+        }));
+
+        res.json({ activities, medals: {} }); // You may calculate medals separately if needed
+    } catch (err) {
+        console.error("❌ Error fetching /activitiesByEvent:", err.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
 
 // Start Server
 const PORT = process.env.PORT || 3003;
