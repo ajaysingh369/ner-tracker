@@ -259,7 +259,7 @@ app.post('/syncEventActivities', async (req, res) => {
 
     // Fetch all athletes of selected category
     //const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
-    const athletes = await Athlete.find({ category: { $in: ["200"] } });
+    const athletes = await Athlete.find({ category: { $in: ["100", "150"] } });
     //const athletes = await Athlete.find({ athleteId: "112972100" });
     
     if (!athletes.length) {

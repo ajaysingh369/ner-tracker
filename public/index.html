@@ -291,11 +291,15 @@
                         cell.style.backgroundSize = "contain";
                         cell.style.backgroundRepeat = "no-repeat";
                         cell.style.backgroundPosition = "top center";
-                        cell.addEventListener("click", () => showActivityDetails(acts));
+                        cell.addEventListener("click", () =>  showActivityDetails(acts, athlete.name));
                     } else {
-                        cell.innerHTML = `<span class="activity-points" style="font-size: 0.65rem;">🧃 Refueling</span>`;
                         cell.classList.add("no-activity");
                         cell.style.backgroundColor = "#80d9ff";
+                        cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>`;
+                        cell.style.backgroundSize = "contain";
+                        cell.style.backgroundRepeat = "no-repeat";
+                        cell.style.backgroundPosition = "top center";       
+                        cell.innerHTML = `<span class="activity-points">Refueling</span>`;
                     }
 
                     const todayStr = new Date().toISOString().split("T")[0];
@@ -513,7 +517,7 @@
                             cell.innerHTML = `<span class="activity-text"></span><br>
                                                 <span class="activity-points">${totalDistance} KM</span>`;
 
-                            cell.addEventListener('click', () => showActivityDetails(activitiesForDay));
+                            cell.addEventListener('click', () => showActivityDetails(activitiesForDay, athlete.name));
                         } else {
                             cell.innerHTML = `<span class="activity-text"></span><br>
                                 <span class="activity-points" style="font-size: 0.65rem; font-weight: 500;">Refueling</span>`;
@@ -557,7 +561,7 @@
         }
 
         // Show activity details in a popup
-        const showActivityDetails = (activities) => {
+        const showActivityDetails_old = (activities) => {
             let html = '';
             activities.forEach(activity => {
                 html += `
@@ -573,6 +577,22 @@
             activityDetails.innerHTML = html;
             activityPopup.style.display = 'block';
 };
+
+        const showActivityDetails = (activities, athleteName = "Unknown Athlete") => {
+            let html = `<p><strong>Athlete:</strong> ${athleteName}</p>`;
+            activities.forEach(activity => {
+                html += `
+                    <hr>
+                    <p><strong>Title:</strong> ${activity.name}</p>
+                    <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
+                    <p><strong>Type:</strong> ${activity.type}</p>
+                    <p><strong>Distance:</strong> ${activity.distance} km</p>
+                    <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
+                `;
+            });
+            activityDetails.innerHTML = html;
+            activityPopup.style.display = 'block';
+        };
 
 
         // Show athlete profile in a popup
