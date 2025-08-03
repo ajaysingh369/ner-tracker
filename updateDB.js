@@ -98,7 +98,7 @@ const updates = async () => {
         { updateOne: { filter: { "email": "amritpaulap@gmail.com" }, update: { $set: { category: "100" } } } },
         { updateOne: { filter: { "email": "shaileshnri@gmail.com" }, update: { $set: { category: "200" } } } },
         { updateOne: { filter: { "email": "er.deepakvashist@gmail.com" }, update: { $set: { category: "100" } } } },
-        { updateOne: { filter: { "email": "vmaurya7@gmail.com" }, update: { $set: { category: "200" } } } },
+        { updateOne: { filter: { "email": "varshamaurya@rediffmail.com" }, update: { $set: { category: "200" } } } },
         { updateOne: { filter: { "email": "nutansaurabh.thakur@gmail.com" }, update: { $set: { category: "150" } } } },
         { updateOne: { filter: { "email": "goel_gaurav@outlook.com" }, update: { $set: { category: "150" } } } },
         { updateOne: { filter: { "email": "mishra.vivek03@gmail.com" }, update: { $set: { category: "150" } } } },

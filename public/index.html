@@ -210,14 +210,20 @@
 
             const currentDate = new Date();
             const activityMap = new Map();
+            console.log("renderCalendar::", activities);
 
-            // Create map: "athleteId-yyyy-mm-dd" => [activities]
-            activities.forEach(act => {
-                const date = act.start_date.split("T")[0]; // yyyy-mm-dd
-                const key = `${act.athlete.id}-${date}`;
-                if (!activityMap.has(key)) activityMap.set(key, []);
-                activityMap.get(key).push(act);
+            activities.forEach(entry => {
+                console.log("renderCalendar2::", entry);
+                const athleteId = entry.athleteId;
+                const actsByDate = entry.activitiesByDate || {};
+
+                Object.keys(actsByDate).forEach(dateStr => {
+                    const key = `${athleteId}-${dateStr}`;
+                    if (!activityMap.has(key)) activityMap.set(key, []);
+                    activityMap.get(key).push(...actsByDate[dateStr]);
+                });
             });
+            console.log("renderCalendar3::", activityMap);
 
             athletes.forEach(athlete => {
                 const row = document.createElement("tr");
@@ -229,12 +235,12 @@
                 const athleteName = `${athlete.firstname} ${athlete.lastname}`;
                 const DISTANCE_GOAL = parseInt(athlete.category) || 100;
 
-                let monthlyDistance = 10;
+                let monthlyDistance = 0;
                 let activitiesByDate = {};
 
                 for (let d = 1; d <= 31; d++) {
                     const dateStr = `2025-08-${d.toString().padStart(2, "0")}`;
-                    const key = `${athlete.athleteId}-${dateStr}`;
+                    const key = `${athlete.id}-${dateStr}`;
                     const acts = activityMap.get(key) || [];
                     if (acts.length > 0) {
                         activitiesByDate[dateStr] = acts;
@@ -261,7 +267,7 @@
 
                 for (let d = 1; d <= 31; d++) {
                     const dateStr = `2025-08-${d.toString().padStart(2, "0")}`;
-                    const key = `${athlete.athleteId}-${dateStr}`;
+                    const key = `${athlete.id}-${dateStr}`;
                     const cell = document.createElement("td");
 
                     const cellDate = new Date(dateStr);
@@ -275,10 +281,10 @@
                     } else if (activityMap.has(key)) {
                         const acts = activityMap.get(key);
                         const totalDist = acts.reduce((sum, a) => sum + a.distance, 0).toFixed(2);
-                        const totalPts = acts.reduce((sum, a) => sum + a.points, 0);
+                        //const totalPts = acts.reduce((sum, a) => sum + a.points, 0);
 
                         const emoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
-                        cell.innerHTML = `${totalDist} KM<br/>${totalPts} pts`;
+                        cell.innerHTML = `<span class="activity-points">${totalDist} KM</span>`
                         cell.classList.add("active-cell");
                         cell.style.backgroundColor = "lightgreen";
                         cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>")`;
@@ -305,110 +311,7 @@
             });
         }
 
-
-        function renderCalendar_old(athletes, activities) {
-            console.log("renderCalendar::", athletes, activities);
-            //calendarHeader.innerHTML = '';
-            calendarBody.innerHTML = '';
-
-            console.log("Athletes::", athletes);
-            console.log("Activities::", activities);
-            //const calendarTable = document.getElementById("calendar");
-            calendarBody.innerHTML = ""; // Clear existing
-
-            // const dateHeaderRow = document.createElement("tr");
-            // dateHeaderRow.innerHTML = `
-            //     <th>Athlete</th>
-            //     ${[...Array(31).keys()].map(d => `<th>${d + 1} Aug</th>`).join("")}
-            // `;
-            // calendarTable.appendChild(dateHeaderRow);
-
-            const activityMap = new Map();
-            activities.forEach(act => {
-                const date = act.start_date.split("T")[0]; // yyyy-mm-dd
-                const key = `${act.athlete.id}-${date}`;
-                if (!activityMap.has(key)) activityMap.set(key, []);
-                activityMap.get(key).push(act);
-            });
-
-            athletes.forEach(athlete => {
-                let monthlyDistance = 10;
-                    // Object.values(athlete.activities).forEach(dayActivities => {
-                    //     dayActivities.forEach(activity => {
-                    //         monthlyDistance += activity.distance;
-                    //     });
-                    // });
-                    //console.log("CATEGORY:::", athlete.category);
-                    const DISTANCE_GOAL = parseInt(athlete.category) || 250;
-                    //console.log("DISTANCE_GOAL:::", athlete.category, parseInt(athlete.category));
-                    const progressPercent = Math.min(100, (monthlyDistance / DISTANCE_GOAL) * 100).toFixed(1); // Cap at 100%
-
-
-                    const row = document.createElement('tr');
-                    const athleteCell = document.createElement('td');
-
-                    //athleteCell.style.backgroundColor = athlete.team ?  athlete.team : "#ff0000";
-                    const lowResUrl = getLowResImageUrl(athlete.profile);
-                    athleteCell.style.backgroundColor = "rgba(61, 98, 59, 0.91)";
-                    athleteCell.style.minWidth = "8rem";
-                    athleteCell.innerHTML = `
-                        <div class="athlete-cell" data-athlete-id="${athlete.firstname} ${athlete.lastname}">
-                            <img
-                            loading="lazy"
-                            class="profile-photo"
-                            src="${lowResUrl}"
-                            onerror="this.src='avatar.jpg'"
-                            alt="${athlete.firstname} ${athlete.lastname}"
-                            />
-                            <div class="athlete-info">
-                            <div class="athlete-name">${athlete.firstname} ${athlete.lastname}</div>
-                            <div class="athlete-distance">${monthlyDistance.toFixed(2)} KM</div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                            </div>
-                            </div>
-                        </div>
-
-
-                   
-                    `;
-                    athleteCell.addEventListener('click', () => showProfilePopup(athlete));
-                    row.appendChild(athleteCell);
-
-
-                //const row = document.createElement("tr");
-
-                // Athlete Info Cell
-                //row.innerHTML = `<td><img src="${athlete.profile}" class="avatar"> ${athlete.firstname}</td>`;
-
-                // Dates 1–31 Aug
-                for (let d = 1; d <= 31; d++) {
-                    const dateStr = `2025-08-${d.toString().padStart(2, "0")}`;
-                    const key = `${athlete.athleteId}-${dateStr}`;
-                    const cell = document.createElement("td");
-
-                    if (activityMap.has(key)) {
-                        const activities = activityMap.get(key);
-                        const totalDist = activities.reduce((sum, a) => sum + a.distance, 0).toFixed(2);
-                        const totalPts = activities.reduce((sum, a) => sum + a.points, 0);
-
-                        cell.innerHTML = `${totalDist} KM<br/>${totalPts} pts`;
-                        cell.classList.add("active-cell"); // Add background/icon if needed
-                        cell.addEventListener("click", () => showPopup(activities));
-                    } else {
-                        cell.innerHTML = "🧃 Refueling";
-                        cell.classList.add("no-activity");
-                    }
-
-                    row.appendChild(cell);
-                }
-
-                calendarTable.appendChild(row);
-            });
-        }
-
-
-
+        
         function applyCategoryFilter(category) {
             const athleteRows = document.querySelectorAll('#calendarBody tr');
             athleteRows.forEach(row => {
@@ -703,9 +606,9 @@
         // Handle month selection
         
         // Event listener for the "Authorize with Strava" button
-        authButton.addEventListener('click', () => {
-            window.location.href = '/auth/strava';
-        });
+        // authButton.addEventListener('click', () => {
+        //     window.location.href = '/auth/strava';
+        // });
 
         
 
