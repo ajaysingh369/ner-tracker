@@ -259,8 +259,9 @@ app.post('/syncEventActivities', async (req, res) => {
 
     // Fetch all athletes of selected category
     //const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
-    const athletes = await Athlete.find({ category: { $in: ["100", "150"] } });
-    //const athletes = await Athlete.find({ athleteId: "112972100" });
+    //const athletes = await Athlete.find({ category: { $in: ["100", "150"] } });
+    //const athletes = await Athlete.find({ athleteId: { $in: ["61676509", "148869247"] } });
+    const athletes = await Athlete.find({ athleteId: "61676509" });
     
     if (!athletes.length) {
         return res.status(404).json({ error: 'No athlete found with given ID' });

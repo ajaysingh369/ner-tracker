@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noida Extension Runners</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-text">
+                    <h1>Tej Kadam Foundation</h1>
+                    <h2>BADHTE KADAM</h2>
+                    <p>☀️ Virtual Run Challenge <span class="date-range">(1st Aug - 31st Aug)</p>
+                    <!-- <p>👣 Step Up. Stand Out. 👣</p> -->
+                </div> 
+            </div>
+            <div class="theme-toggle"><input type="checkbox" id="theme"></div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <button id="authButton" class="auth-button">
+                <span>Authorize with Strava</span><p class="auth-subtext">*if your name is missing from the list</p>
+            </button>
+            <div style="display: flex;align-items: center;justify-content: center;">
+                <img src="rules.jpeg" style="width: 15rem;margin: 2rem;">
+            </div>            
+            
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="social-links">
+                <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
+                <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
+                <a href="https://www.instagram.com/noidaextensionrunners/#" target="_blank"><i class="fab fa-instagram"></i></a>
+                <a href="https://strava.com/athletes/123859756" class="strava-badge- strava-badge-follow" target="_blank"><img src="icons/echelon-sprite-24.png" alt="Strava" /></a>
+            </div>
+            <div>&copy; 2025 Tej Kadam Foundation. All rights reserved.</div>
+        </footer>
+    </div>
+
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const darkModeEnabled = localStorage.getItem("darkMode") === "true";
+            themeToggle.checked = darkModeEnabled;
+            document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
+            
+        });
+
+        const authButton = document.getElementById('authButton');
+        const themeToggle = document.getElementById('theme');
+        const loader = document.getElementById('loader');
+        
+        // Toggle dark mode and save setting
+        themeToggle.addEventListener("change", () => {
+            const isDarkMode = themeToggle.checked;
+            document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+            localStorage.setItem("darkMode", isDarkMode);
+        });
+        
+        
+        // Event listener for the "Authorize with Strava" button
+        authButton.addEventListener('click', () => {
+            window.location.href = '/auth/strava';
+        });
+    </script>
+</body>
+</html>
