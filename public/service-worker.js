@@ -1,5 +1,5 @@
-const CACHE_NAME = "runner-tracker-cache-v8"; // Update version to clear old cache
-const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+const CACHE_NAME = "runner-tracker-cache-v9"; // Increment to bust previous cache
+const CACHE_LIFETIME = 30 * 60 * 1000; // 30 mins
 
 const urlsToCache = [
     "/",
@@ -9,7 +9,19 @@ const urlsToCache = [
     "/manifest.json"
 ];
 
-// Install Service Worker & Cache Static Assets
+// 🧠 Helper: Should we cache this API URL?
+const isCachableAPI = (url) => {
+    return url.includes("/activitiesByEvent") ||
+           url.includes("/athletesByEvent") ||
+           url.includes("/eventSummary");
+};
+
+// ⛔ Helper: Should we skip caching for this domain?
+const isExternalRequest = (url) => {
+    return !url.startsWith(self.location.origin);
+};
+
+// ✅ Install: Cache static assets
 self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
@@ -17,83 +29,87 @@ self.addEventListener("install", (event) => {
             return cache.addAll(urlsToCache);
         })
     );
-    self.skipWaiting(); // Activate new SW immediately
+    self.skipWaiting();
 });
 
-// Fetch & Serve Cached Files (Offline Support)
+// 🔁 Fetch: Serve from cache if valid, otherwise fetch and update
 self.addEventListener("fetch", (event) => {
+    const { request } = event;
+
+    if (request.method !== "GET") return;
+
     event.respondWith(
         caches.open(CACHE_NAME).then(async (cache) => {
-            const cachedResponse = await cache.match(event.request);
             const now = Date.now();
+            const cachedResponse = await cache.match(request);
+            const cachedTimeResp = await cache.match(request.url + "-timestamp");
+            const cacheAge = cachedTimeResp ? parseInt(await cachedTimeResp.text()) : 0;
 
-            if (cachedResponse) {
-                const cachedTime = await cache.match(event.request.url + "-timestamp");
-                const cacheAge = cachedTime ? parseInt(await cachedTime.text()) : 0;
+            // 👀 Check TTL and serve fresh if needed
+            const isFresh = now - cacheAge < CACHE_LIFETIME;
 
-                if (now - cacheAge < CACHE_LIFETIME) {
-                    // ✅ If cache is fresh (less than 4 hours), serve from cache
-                    console.log("✅ Serving from cache:", event.request.url);
-                    return cachedResponse;
-                } else {
-                    console.log("⚠️ Cache expired, fetching fresh:", event.request.url);
-                }
+            // 1. Serve fresh cache if valid
+            if (cachedResponse && isFresh) {
+                console.log("✅ Serving from cache:", request.url);
+                return cachedResponse;
             }
 
-            // 🌍 Fetch fresh from the network & update cache
-            // Ignore requests from "chrome-extension://" and invalid URLs
-            if (!event.request.url.startsWith("http")) {
-                return;
+            // 2. Skip third-party URLs
+            if (isExternalRequest(request.url)) {
+                return fetch(request).catch(() => cachedResponse || caches.match("/index.html"));
             }
-            return fetch(event.request)
+
+            // 3. Try fetching from network
+            return fetch(request)
                 .then((networkResponse) => {
                     if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
-                        return networkResponse; // Only cache successful responses
+                        return networkResponse;
                     }
 
-                    // Skip caching if response is for /activities?month=xxx and has 0 activities
-                    if (event.request.url.includes("/activitiesByEvent")) {
-                        const clonedResponse = networkResponse.clone();
-                        return clonedResponse.json().then((jsonResponse) => {
-                            if (jsonResponse.activities.length === 0) {
-                                console.log("🚫 Not caching empty activities response:", event.request.url);
-                                return networkResponse; // Don't cache this response
+                    // 4. Handle caching logic for APIs
+                    if (isCachableAPI(request.url)) {
+                        const cloned = networkResponse.clone();
+                        return cloned.json().then((jsonData) => {
+                            const isEmpty = Array.isArray(jsonData) ? jsonData.length === 0 : !jsonData;
+
+                            if (isEmpty) {
+                                console.log("🚫 Skipping empty API response:", request.url);
+                                return networkResponse;
                             }
 
-                            // ✅ Cache valid response
-                            cache.put(event.request, networkResponse.clone());
-                            cache.put(event.request.url + "-timestamp", new Response(now.toString()));
+                            // ✅ Cache valid API response
+                            cache.put(request, networkResponse.clone());
+                            cache.put(request.url + "-timestamp", new Response(now.toString()));
                             return networkResponse;
-                        }).catch((err) => {
-                            console.error("❌ Error parsing JSON response:", err);
-                            return networkResponse; // If error occurs, just return the response
+                        }).catch(err => {
+                            console.error("❌ JSON parsing failed:", err);
+                            return networkResponse;
                         });
                     }
 
-
-                    cache.put(event.request, networkResponse.clone());
-                    cache.put(event.request.url + "-timestamp", new Response(now.toString())); // Save cache time
+                    // 5. Cache static assets or other non-API requests
+                    cache.put(request, networkResponse.clone());
+                    cache.put(request.url + "-timestamp", new Response(now.toString()));
                     return networkResponse;
                 })
-                .catch(() => cachedResponse || caches.match("/index.html")); // If offline, fallback to cached version
+                .catch(() => cachedResponse || caches.match("/index.html"));
         })
     );
 });
 
-
-// Activate Service Worker & Clean Old Caches
+// 🧹 Activate: Remove old caches
 self.addEventListener("activate", (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cache) => {
                     if (cache !== CACHE_NAME) {
-                        console.log("🗑 Deleting old cache:", cache);
+                        console.log("🗑 Removing old cache:", cache);
                         return caches.delete(cache);
                     }
                 })
             );
         })
     );
-    self.clients.claim(); // Take control of open pages
+    self.clients.claim();
 });

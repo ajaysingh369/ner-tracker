@@ -170,7 +170,6 @@
         });
 
         async function fetchEventData(eventId, month, category) {
-            console.log("fetchEventData::", eventId, month, category);
             try {
                 let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
             
@@ -210,10 +209,8 @@
 
             const currentDate = new Date();
             const activityMap = new Map();
-            console.log("renderCalendar::", activities);
 
             activities.forEach(entry => {
-                console.log("renderCalendar2::", entry);
                 const athleteId = entry.athleteId;
                 const actsByDate = entry.activitiesByDate || {};
 
@@ -223,8 +220,7 @@
                     activityMap.get(key).push(...actsByDate[dateStr]);
                 });
             });
-            console.log("renderCalendar3::", activityMap);
-
+            
             athletes.forEach(athlete => {
                 const row = document.createElement("tr");
                 const athleteCell = document.createElement("td");
@@ -437,9 +433,8 @@
                             monthlyDistance += activity.distance;
                         });
                     });
-                    //console.log("CATEGORY:::", athlete.category);
+                    
                     const DISTANCE_GOAL = parseInt(athlete.category) || 250;
-                    //console.log("DISTANCE_GOAL:::", athlete.category, parseInt(athlete.category));
                     const progressPercent = Math.min(100, (monthlyDistance / DISTANCE_GOAL) * 100).toFixed(1); // Cap at 100%
 
 
@@ -597,7 +592,6 @@
 
         // Show athlete profile in a popup
         const showProfilePopup = (athlete) => {
-            console.log("PROFILE::", JSON.stringify(athlete));
             profilePhoto.src = athlete.profile;
             profileName.textContent = athlete.name;
             const activityCounts = {};
