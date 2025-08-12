@@ -2,8 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const mongoose = require('mongoose');
 
@@ -16,16 +14,6 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/strava/callback';
 const MONGO_URI = process.env.MONGO_URI;
-
-// Caching constants
-// In-memory cache structure
-const activityCache = {}; // { athleteId: { data: [...], timestamp: <unix> } }
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in ms
-
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes in milliseconds
-const tmpDir = os.tmpdir();
-const inMemoryCache = global.activityEventCache || {};
-global.activityEventCache = inMemoryCache;
 
 // Connect to MongoDB
 mongoose.connect(MONGO_URI, { useUnifiedTopology: true })
@@ -59,6 +47,18 @@ const EventActivity = mongoose.model('EventActivity', new mongoose.Schema({
 }));
 
 const Athlete = mongoose.model('Athlete', athleteSchema);
+//athleteSchema.index({ category: 1, status: 1, athleteId: 1 });
+Athlete.createIndexes().then(() => {
+    console.log('✅ Athlete indexes ensured');
+}).catch(err => {
+    console.error('❌ Athlete index creation error:', err.message);
+});
+
+// Fast lookups per event + month + athlete
+EventActivity.schema.index({ eventId: 1, month: 1, athleteId: 1 }, { unique: false });
+
+
+  const athletesCache = new Map(); // key -> { expiresAt: number, payload: object }
 
 // Function to Refresh Access Token
 const refreshAccessToken = async (athlete) => {
@@ -123,10 +123,6 @@ app.get('/auth/strava/callback', async (req, res) => {
     }
 });
 
-
-// Fetch Activities of event for an Athlete
-const refreshFailureTimestamps = {};
-
 // Token refresh with locking
 async function safeRefreshAccessToken(athlete) {
     if (!refreshLocks[athlete.athleteId]) {
@@ -137,30 +133,13 @@ async function safeRefreshAccessToken(athlete) {
 }
 
 async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp, retry = true) {
-    const cacheKey = `${athlete.athleteId}_${startTimestamp}`;
-    //const cacheFile = path.join('/tmp', `activities_${cacheKey}.json`);
     const now = Date.now();
 
-    // 1. Check in-memory cache
-    // if (activityCache[cacheKey] && now - activityCache[cacheKey].timestamp < CACHE_DURATION) {
-    //     return activityCache[cacheKey].data;
-    // }
-
-    // // 2. Check in file system
-    // if (fs.existsSync(cacheFile)) {
-    //     const stats = fs.statSync(cacheFile);
-    //     if (now - stats.mtimeMs < CACHE_DURATION) {
-    //         const fileData = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
-    //         activityCache[cacheKey] = { data: fileData, timestamp: stats.mtimeMs };
-    //         return fileData;
-    //     }
-    // }
 
     // 3. Fetch fresh from Strava
     let activities = [];
     let page = 1;
     const perPage = 100;
-    const MAX_RETRIES = 2;
     const adjustEndTimeStamp = endTimestamp+86400;
 
     try {
@@ -206,10 +185,6 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
             if (response.data.length < perPage) break;
             page++;
         }
-        // 4. Cache result
-        ///activityCache[cacheKey] = { data: activities, timestamp: now };
-        ///fs.writeFileSync(cacheFile, JSON.stringify(activities), 'utf-8');
-
         return activities;
     } catch (error) {
         // 🛑 If error is 401, refresh token
@@ -236,10 +211,6 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 
         if (error.response && error.response.status === 429) {
             console.warn(`⏳ Rate limited for athlete ${athlete.athleteId}, using stale cache if available.`);
-            // if (fs.existsSync(cacheFile)) {
-            //     const fileData = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
-            //     return fileData;
-            // }
         }
 
         console.error(`❌ Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
@@ -248,13 +219,6 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 
     //return activities;
 }
-
-
-const getTodayDateIST = () => {
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const now = new Date(Date.now() + istOffset);
-    return now.toISOString().split("T")[0]; // YYYY-MM-DD
-};
 
 // Global map to prevent multiple refresh calls for same athlete at same time
 const refreshLocks = new Map();
@@ -443,15 +407,7 @@ function* dateRangeIter(startISO, endISO) {
     };
   }
 
-// POST /syncEventActivitiesRange
-// Body:
-// {
-//   "eventId": "tkfvr",
-//   "month": 7,                         // 0-indexed Aug = 7 (your BE now expects 0-indexed)
-//   "startDate": "2025-08-01",          // optional; default 2025-08-01
-//   "endDate": "2025-08-31",            // optional; default today (IST)
-//   "categories": ["100","150","200"]   // optional; default all
-// }
+
 app.post('/syncEventActivitiesRange', async (req, res) => {
     try {
       const {
@@ -527,14 +483,13 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
           const updates = {}; // athleteId -> upsert payload
   
           const { after, before } = toUnixRangeForIST(dateISO);
-          const beforeAdjusted = before + 86400; // your earlier buffer; keep if you need it
   
           for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
             const batch = toProcess.slice(i, i + BATCH_SIZE);
             console.log(`  • Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toProcess.length / BATCH_SIZE)}`);
   
             const results = await Promise.allSettled(
-              batch.map(a => fetchAthleteActivitiesByEvent(a, after, before)) // you can switch to beforeAdjusted if needed
+              batch.map(a => fetchAthleteActivitiesByEvent(a, after, before))
             );
   
             results.forEach(result => {
@@ -660,7 +615,6 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
   });
   
 
-
 // POST endpoint to fetch today's activities and store in DB
 app.post('/syncEventActivities', async (req, res) => {
     const { eventId, month, date } = req.body;
@@ -684,27 +638,20 @@ app.post('/syncEventActivities', async (req, res) => {
     const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
     const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
-    const allCategories = ["100", "150", "200"];  //["100", "150", "200"];
+    const allCategories = ["100"];  //["100", "150", "200"];
 
     // Fetch all athletes of selected category
     //const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
-    //const athletes = await Athlete.find({ category: { $in: ["200"] } });
     //const athletes = await Athlete.find({ athleteId: { $in: ["61676509", "148869247"] } });
     //const athletes = await Athlete.find({ athleteId: "179482954" });
-    //"180767613", "179474640", "178581154", "178886643", "179553849", "179079797"
-    //"175300317"
-    //"113441625", "116199491", "178718682"
-
-    //failed - 111078445
-
     const summary = [];
 
     for (const category of allCategories) {
         console.log(`\n=== Starting sync for category ${category} ===`);
 
         //const athletes = await Athlete.find({ athleteId: { $in: ["180767613", "179474640", "178581154", "178886643", "179553849", "179079797", "175300317", 113441625", "116199491", "178718682", ""] } });
-        let athletes = await Athlete.find({ category });
-        //const athletes = await Athlete.find({ athleteId: "179482954" });
+        //let athletes = await Athlete.find({ category });
+        const athletes = await Athlete.find({ athleteId: "34629659" });
         if (!athletes.length) {
             console.log(`⚠️ No athletes found for category ${category}`);
             summary.push({ category, processed: 0, skipped: 0, fetched: 0 });
@@ -825,163 +772,135 @@ app.post('/syncEventActivities', async (req, res) => {
     res.json({ message: "✅ Sync complete", summary });
 });
 
-app.post('/syncEventActivities_old', async (req, res) => {
-    const { eventId, month, date } = req.body;
-    //console.log(eventId, month, date);
-
-    if (!eventId || month === undefined || !date) {
-        return res.status(400).json({ error: 'eventId, month, and date (YYYY-MM-DD) are required' });
-    }
-
-    // Parse the input date (e.g. "2025-08-01") and set start & end timestamp
-    const parsedDate = new Date(date + "T00:00:00.000+05:30"); // IST midnight
-    if (isNaN(parsedDate)) {
-        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
-    }
-
-    const startOfDay = new Date(parsedDate);
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-
-    const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
-    const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
-
-    // Fetch all athletes of selected category
-    //const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
-    //const athletes = await Athlete.find({ category: { $in: ["200"] } });
-    //const athletes = await Athlete.find({ athleteId: { $in: ["61676509", "148869247"] } });
-    const athletes = await Athlete.find({ athleteId: "179283352" });
-    
-    if (!athletes.length) {
-        return res.status(404).json({ error: 'No athlete found with given ID' });
-    }
-
-    const results = await Promise.allSettled(
-        athletes.map(athlete =>
-            fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp, true)
-        )
-    );
-
-    const successfulActivities = results
-        .filter(r => r.status === "fulfilled")
-        .flatMap(r => r.value);
-
-    const updates = {};
-
-    for (const activity of successfulActivities) {
-        const athleteId = activity.athlete.id;
-        const activityDateKey = new Date(activity.start_date).toISOString().split("T")[0];
-
-        if (!updates[athleteId]) {
-            updates[athleteId] = {
-                athleteId,
-                eventId,
-                month,
-                athlete: activity.athlete,
-                activitiesByDate: {}
-            };
-        }
-
-        if (!updates[athleteId].activitiesByDate[activityDateKey]) {
-            updates[athleteId].activitiesByDate[activityDateKey] = [];
-        }
-
-        updates[athleteId].activitiesByDate[activityDateKey].push({
-            id: activity.id,
-            name: activity.name,
-            distance: activity.distance,
-            moving_time: activity.moving_time,
-            start_date: activity.start_date,
-            type: activity.type,
-            points: activity.points,
-            emoji: activity.emoji
-        });
-    }
-
-    const bulkOps = Object.values(updates).map(entry => ({
-        updateOne: {
-            filter: { eventId, month, athleteId: entry.athleteId },
-            update: {
-                $set: {
-                    athlete: entry.athlete,
-                    [`activitiesByDate.${date}`]: entry.activitiesByDate[date] || []
-                }
-            },
-            upsert: true
-        }
-    }));
-
-    if (bulkOps.length > 0) {
-        await EventActivity.bulkWrite(bulkOps);
-    }
-
-    res.json({
-        message: `✅ Synced ${bulkOps.length} athlete records for ${date}`,
-        activitiesFetched: successfulActivities.length
-    });
-});
-
-
-
 // Get athletes by event and category
 app.get('/athletesByEvent', async (req, res) => {
     try {
-        const { eventid, month, category } = req.query;
-        const athletes = await Athlete.find({ category: category });
-
-        const athleteList = athletes.map((athlete) => ({
-            id: athlete.athleteId,
-            firstname: athlete.firstname,
-            lastname: athlete.lastname,
-            profile: athlete.profile,
-            gender: athlete.gender,
-            restDay: athlete.restDay || "Monday",
-            team: athlete.team || "blue",
-            category: athlete.category || "100"
-        }));
-
-        res.json({ athletes: athleteList });
-    } catch (error) {
-        console.error("❌ Error fetching athletesByEvent:", error.message);
-        res.status(500).json({ error: "Error fetching athlete data" });
+      const {
+        eventid,   // kept for shape/forward compat
+        month,     // kept for shape/forward compat
+        category,
+        page = '1',
+        pageSize = '200',
+        fields  // optional: "athleteId,firstname,lastname,profile,gender,restDay,team,category"
+      } = req.query;
+  
+      if (!category) {
+        return res.status(400).json({ error: 'category is required' });
+      }
+  
+      // Parse & clamp paging
+      const p = Math.max(1, parseInt(page, 10) || 1);
+      const ps = Math.min(500, Math.max(1, parseInt(pageSize, 10) || 200));
+  
+      // Projection (only what the UI needs by default)
+      const fieldList = (fields || 'athleteId,firstname,lastname,profile,gender,restDay,team,category,status')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      const projection = {};
+      for (const f of fieldList) projection[f] = 1;
+  
+      // Cache key
+      const cacheKey = `athletes:${category}:p${p}:ps${ps}:f${fieldList.sort().join('|')}`;
+      const now = Date.now();
+      const cached = athletesCache.get(cacheKey);
+      if (cached && cached.expiresAt > now) {
+        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+        return res.json(cached.payload);
+      }
+  
+      // Filter — if you use status to exclude pending/inactive, keep it
+      const filter = { category };
+      // If you want only active participants, uncomment:
+      // filter.status = 'active';
+  
+      // Run count + page query in parallel; lean() + projection keeps it fast/light
+      const [total, docs] = await Promise.all([
+        Athlete.countDocuments(filter).maxTimeMS(5000),
+        Athlete.find(filter, projection)
+          .sort({ lastname: 1, firstname: 1, athleteId: 1 })
+          .skip((p - 1) * ps)
+          .limit(ps)
+          .lean()
+          .maxTimeMS(5000)
+      ]);
+  
+      const payload = {
+        page: p,
+        pageSize: ps,
+        total,
+        pages: Math.ceil(total / ps),
+        athletes: docs.map(a => ({
+          id: a.athleteId,
+          firstname: a.firstname || '',
+          lastname: a.lastname || '',
+          profile: a.profile || '',
+          gender: a.gender ?? null,
+          restDay: a.restDay || 'Monday',
+          team: a.team || 'blue',
+          category: a.category || '100',
+          status: a.status || 'pending'
+        }))
+      };
+  
+      // Store in memory for 5 min
+      athletesCache.set(cacheKey, { expiresAt: now + 5 * 60 * 1000, payload });
+  
+      // Edge cache (Vercel/CloudFront) for 5 min, allow stale for 1h
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+      return res.json(payload);
+    } catch (err) {
+      console.error('❌ /athletesByEvent failed:', err.message);
+      res.setHeader('Cache-Control', 'public, s-maxage=30');
+      return res.status(500).json({ error: 'Internal Server Error' });
     }
-});
+  });
+
 
 // ✅ New /activitiesByEvent: Fetch from MongoDB
 app.get('/activitiesByEvent', async (req, res) => {
     try {
-        const { eventid, month, category } = req.query;
-        if (!eventid || !month || !category) {
-            return res.status(400).json({ error: "Missing eventid, month, or category" });
-        }
-
-        // Get athletes matching this category
-        const athletes = await Athlete.find({ category });
-
-        // Get athleteIds
-        const athleteIds = athletes.map((a) => a.athleteId);
-
-        // Fetch activity documents from MongoDB
-        const results = await EventActivity.find({
-            eventId: eventid,
-            month: parseInt(month),
-            athleteId: { $in: athleteIds }
-        });
-
-        // Format response: include athleteId, athlete info, and activitiesByDate
-        const activities = results.map((doc) => ({
-            athleteId: doc.athleteId,
-            athlete: doc.athlete,
-            activitiesByDate: doc.activitiesByDate
-        }));
-
-        res.json({ activities, medals: {} }); // You may calculate medals separately if needed
+      const { eventid, month, category, athleteIds } = req.query;
+      if (!eventid || month === undefined) {
+        return res.status(400).json({ error: "Missing eventid or month" });
+      }
+  
+      let ids = [];
+      if (athleteIds) {
+        ids = athleteIds.split(',').map(s => s.trim()).filter(Boolean);
+      } else if (category) {
+        // fallback: if no athleteIds provided, restrict by category via Athlete collection
+        const catIds = await Athlete.find({ category }, { athleteId: 1, _id: 0 }).lean();
+        ids = catIds.map(a => a.athleteId);
+      }
+  
+      const query = { eventId: eventid, month: parseInt(month, 10) };
+      if (ids.length > 0) query.athleteId = { $in: ids };
+  
+      // lean() to reduce overhead
+      const docs = await EventActivity.find(query, {
+        _id: 0, athleteId: 1, athlete: 1, activitiesByDate: 1
+      })
+      .lean()
+      .maxTimeMS(5000);
+  
+      // Cache headers for CDN; safe because data only changes when you sync
+      res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=1800');
+  
+      return res.json({
+        activities: docs.map(d => ({
+          athleteId: d.athleteId,
+          athlete: d.athlete,
+          activitiesByDate: d.activitiesByDate || {}
+        })),
+        medals: {} // (optional)
+      });
     } catch (err) {
-        console.error("❌ Error fetching /activitiesByEvent:", err.message);
-        res.status(500).json({ error: "Internal Server Error" });
+      console.error('❌ /activitiesByEvent error:', err.message);
+      res.setHeader('Cache-Control', 'public, s-maxage=30');
+      return res.status(500).json({ error: 'Internal Server Error' });
     }
-});
-
-
+  });
 
 // Start Server
 const PORT = process.env.PORT || 3003;

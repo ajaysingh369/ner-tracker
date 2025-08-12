@@ -203,112 +203,194 @@
             return originalUrl.replace(/=s\d+-c$/, '=s48-c');
         }
 
+        // ---- virtualization state (module-level)
+        let VIRT_STATE = {
+        athletes: [],
+        activityMap: new Map(),
+        distanceTotals: new Map(),
+        dateStrs: [],
+        todayStr: "",
+        pageSize: 25,
+        filteredIndexes: [],
+        nextIndex: 0,
+        observer: null
+        };
+
         function renderCalendar(athletes, activities) {
             const calendarBody = document.getElementById("calendarBody");
             calendarBody.innerHTML = "";
 
-            const currentDate = new Date();
-            const activityMap = new Map();
+            // ---- Precompute constants
+            const todayStr = new Date().toISOString().split("T")[0];
+            const MONTH_KEY = "2025-08";
+            const DAYS_IN_MONTH = 31;
+            const dateStrs = Array.from({ length: DAYS_IN_MONTH }, (_, i) =>
+                `${MONTH_KEY}-${String(i + 1).padStart(2, "0")}`
+            );
 
-            activities.forEach(entry => {
+            // ---- Build indexes
+            const activityMap = new Map();    // `${athleteId}-${yyyy-mm-dd}` -> [acts]
+            const distanceTotals = new Map(); // athleteId -> total KM up to today
+
+            for (const entry of activities) {
                 const athleteId = entry.athleteId;
-                const actsByDate = entry.activitiesByDate || {};
+                const byDate = entry.activitiesByDate || {};
+                for (const dateStr in byDate) {
+                const key = `${athleteId}-${dateStr}`;
+                const list = activityMap.get(key);
+                if (list) list.push(...byDate[dateStr]);
+                else activityMap.set(key, [...byDate[dateStr]]);
 
-                Object.keys(actsByDate).forEach(dateStr => {
-                    const key = `${athleteId}-${dateStr}`;
-                    if (!activityMap.has(key)) activityMap.set(key, []);
-                    activityMap.get(key).push(...actsByDate[dateStr]);
-                });
-            });
-            
-            athletes.forEach(athlete => {
-                const row = document.createElement("tr");
-                const athleteCell = document.createElement("td");
-                athleteCell.style.backgroundColor = "rgba(61, 98, 59, 0.91)";
-                athleteCell.style.minWidth = "8rem";
-
-                const lowResUrl = getLowResImageUrl(athlete.profile || "");
-                const athleteName = `${athlete.firstname} ${athlete.lastname}`;
-                const DISTANCE_GOAL = parseInt(athlete.category) || 100;
-
-                let monthlyDistance = 0;
-                let activitiesByDate = {};
-
-                for (let d = 1; d <= 31; d++) {
-                    const dateStr = `2025-08-${d.toString().padStart(2, "0")}`;
-                    const key = `${athlete.id}-${dateStr}`;
-                    const acts = activityMap.get(key) || [];
-                    if (acts.length > 0) {
-                        activitiesByDate[dateStr] = acts;
-                        monthlyDistance += acts.reduce((sum, a) => sum + a.distance, 0);
-                    }
+                if (dateStr <= todayStr) {
+                    const dayKm = byDate[dateStr].reduce((sum, a) => sum + (+a.distance || 0), 0);
+                    distanceTotals.set(athleteId, (distanceTotals.get(athleteId) || 0) + dayKm);
                 }
-
-                const progressPercent = Math.min(100, (monthlyDistance / DISTANCE_GOAL) * 100).toFixed(1);
-
-                athleteCell.innerHTML = `
-                    <div class="athlete-cell" data-athlete-id="${athleteName}">
-                        <img loading="lazy" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" alt="${athleteName}" />
-                        <div class="athlete-info">
-                            <div class="athlete-name">${athleteName}</div>
-                            <div class="athlete-distance">${monthlyDistance.toFixed(2)} KM</div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                athleteCell.addEventListener("click", () => showProfilePopup({ ...athlete, activities: activitiesByDate }));
-                row.appendChild(athleteCell);
-
-                for (let d = 1; d <= 31; d++) {
-                    const dateStr = `2025-08-${d.toString().padStart(2, "0")}`;
-                    const key = `${athlete.id}-${dateStr}`;
-                    const cell = document.createElement("td");
-
-                    const cellDate = new Date(dateStr);
-                    const today = new Date();
-                    //today.setHours(0, 0, 0, 0); // Ignore time
-
-                    if (cellDate > today) {
-                        // 🟦 Future date — leave blank
-                        cell.textContent = "";
-                        cell.style.backgroundColor = "transparent";
-                    } else if (activityMap.has(key)) {
-                        const acts = activityMap.get(key);
-                        const totalDist = acts.reduce((sum, a) => sum + a.distance, 0).toFixed(2);
-                        //const totalPts = acts.reduce((sum, a) => sum + a.points, 0);
-
-                        const emoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
-                        cell.innerHTML = `<span class="activity-points">${totalDist} KM</span>`
-                        cell.classList.add("active-cell");
-                        cell.style.backgroundColor = "lightgreen";
-                        cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>")`;
-                        cell.style.backgroundSize = "contain";
-                        cell.style.backgroundRepeat = "no-repeat";
-                        cell.style.backgroundPosition = "top center";
-                        cell.addEventListener("click", () =>  showActivityDetails(acts, athlete.name));
-                    } else {
-                        cell.classList.add("no-activity");
-                        cell.style.backgroundColor = "#80d9ff";
-                        cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>`;
-                        cell.style.backgroundSize = "contain";
-                        cell.style.backgroundRepeat = "no-repeat";
-                        cell.style.backgroundPosition = "top center";       
-                        cell.innerHTML = `<span class="activity-points">Refueling</span>`;
-                    }
-
-                    const todayStr = new Date().toISOString().split("T")[0];
-                    if (dateStr === todayStr) {
-                        cell.style.border = "2px solid blue";
-                        cell.style.fontWeight = "bold";
-                    }
-
-                    row.appendChild(cell);
                 }
+            }
 
-                calendarBody.appendChild(row);
+            // ---- Sort athletes by total distance (desc)
+            const sortedAthletes = [...athletes].sort((a, b) => {
+                const db = distanceTotals.get(b.id) || 0;
+                const da = distanceTotals.get(a.id) || 0;
+                return db - da;
             });
+
+            // Save to virtualization state
+            VIRT_STATE.athletes = sortedAthletes.map(a => ({
+                ...a,
+                _nameLower: `${a.firstname} ${a.lastname}`.toLowerCase() // for fast search
+            }));
+            VIRT_STATE.activityMap = activityMap;
+            VIRT_STATE.distanceTotals = distanceTotals;
+            VIRT_STATE.dateStrs = dateStrs;
+            VIRT_STATE.todayStr = todayStr;
+            VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
+            VIRT_STATE.nextIndex = 0;
+
+            // Clear any previous observer
+            if (VIRT_STATE.observer) {
+                VIRT_STATE.observer.disconnect();
+                VIRT_STATE.observer = null;
+            }
+
+            // Render first chunk
+            renderNextChunk();
+
+            // Add a sentinel row to trigger loading more
+            const sentinel = document.createElement("tr");
+            sentinel.id = "virt-sentinel";
+            sentinel.innerHTML = `<td colspan="${1 + VIRT_STATE.dateStrs.length}" style="height:1px;padding:0;border:0"></td>`;
+            calendarBody.appendChild(sentinel);
+
+            // Observe sentinel
+            VIRT_STATE.observer = new IntersectionObserver(entries => {
+                for (const entry of entries) {
+                if (entry.isIntersecting) renderNextChunk();
+                }
+            }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
+            VIRT_STATE.observer.observe(sentinel);
+    }
+
+    function renderNextChunk() {
+        const calendarBody = document.getElementById("calendarBody");
+        const { athletes, filteredIndexes, pageSize, nextIndex } = VIRT_STATE;
+        if (nextIndex >= filteredIndexes.length) return;
+
+        const end = Math.min(nextIndex + pageSize, filteredIndexes.length);
+        const frag = document.createDocumentFragment();
+
+        for (let i = nextIndex; i < end; i++) {
+            const idx = filteredIndexes[i];
+            const athlete = athletes[idx];
+            frag.appendChild(buildAthleteRow(athlete));
+        }
+
+        VIRT_STATE.nextIndex = end;
+
+        // Insert before sentinel so it stays last
+        const sentinel = document.getElementById("virt-sentinel");
+        if (sentinel) calendarBody.insertBefore(frag, sentinel);
+        else calendarBody.appendChild(frag); // first pass before sentinel exists
+    }
+
+        function buildAthleteRow(athlete) {
+        const { activityMap, dateStrs, todayStr, distanceTotals } = VIRT_STATE;
+
+        const row = document.createElement("tr");
+
+        // Left cell
+        const athleteCell = document.createElement("td");
+        athleteCell.style.backgroundColor = "rgba(61, 98, 59, 0.91)";
+        athleteCell.style.minWidth = "8rem";
+
+        const lowResUrl = getLowResImageUrl(athlete.profile || "");
+        const athleteName = `${athlete.firstname} ${athlete.lastname}`;
+        const monthTotal = distanceTotals.get(athlete.id) || 0;
+        const DISTANCE_GOAL = parseInt(athlete.category, 10) || 100;
+        const progressPercent = Math.min(100, (monthTotal / DISTANCE_GOAL) * 100).toFixed(1);
+
+        athleteCell.innerHTML = `
+            <div class="athlete-cell" data-athlete-id="${athleteName}">
+            <img loading="lazy" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" alt="${athleteName}" />
+            <div class="athlete-info">
+                <div class="athlete-name">${athleteName}</div>
+                <div class="athlete-distance">${monthTotal.toFixed(2)} KM</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${progressPercent}%"></div></div>
+            </div>
+            </div>
+        `;
+
+        // Build compact activities map for popup
+        const popupActivitiesByDate = {};
+        for (const dStr of dateStrs) {
+            const acts = activityMap.get(`${athlete.id}-${dStr}`);
+            if (acts && acts.length) popupActivitiesByDate[dStr] = acts;
+        }
+        athleteCell.addEventListener("click", () =>
+            showProfilePopup({ ...athlete, activities: popupActivitiesByDate })
+        );
+
+        row.appendChild(athleteCell);
+
+        const genderEmoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
+        for (const dStr of dateStrs) {
+            const cell = document.createElement("td");
+
+            if (dStr > todayStr) {
+            cell.textContent = "";
+            cell.style.backgroundColor = "transparent";
+            } else {
+            const acts = activityMap.get(`${athlete.id}-${dStr}`);
+            if (acts && acts.length) {
+                const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
+                cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} KM</span>`;
+                cell.classList.add("active-cell");
+                cell.style.backgroundColor = "lightgreen";
+                cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${genderEmoji}</text></svg>")`;
+                cell.style.backgroundSize = "contain";
+                cell.style.backgroundRepeat = "no-repeat";
+                cell.style.backgroundPosition = "top center";
+                cell.addEventListener("click", () => showActivityDetails(acts, athleteName));
+            } else {
+                cell.classList.add("no-activity");
+                cell.style.backgroundColor = "#80d9ff";
+                cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>")`;
+                cell.style.backgroundSize = "contain";
+                cell.style.backgroundRepeat = "no-repeat";
+                cell.style.backgroundPosition = "top center";
+                cell.innerHTML = `<span class="activity-points">Refueling</span>`;
+            }
+            }
+
+            if (dStr === todayStr) {
+            cell.style.border = "2px solid blue";
+            cell.style.fontWeight = "bold";
+            }
+
+            row.appendChild(cell);
+        }
+
+        return row;
         }
 
         
@@ -542,18 +624,45 @@
 
         // Function to filter athletes by name
         function filterAthletes() {
-            const searchValue = document.getElementById('searchAthlete').value.toLowerCase();
-            const athleteRows = document.querySelectorAll('#calendarBody tr');
+            const q = document.getElementById('searchAthlete').value.trim().toLowerCase();
 
-            athleteRows.forEach(row => {
-                const athleteName = row.querySelector('.athlete-name')?.textContent.toLowerCase();
-                if (athleteName && athleteName.includes(searchValue)) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
+            // Reset indices based on the query (don’t touch the master arrays)
+            if (!q) {
+                VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
+            } else {
+                VIRT_STATE.filteredIndexes = VIRT_STATE.athletes
+                .map((a, i) => (a._nameLower.includes(q) ? i : -1))
+                .filter(i => i !== -1);
+            }
+
+            // Reset the table body but keep thead
+            const calendarBody = document.getElementById("calendarBody");
+            calendarBody.innerHTML = "";
+
+            // Reset scroll state and sentinel
+            VIRT_STATE.nextIndex = 0;
+            if (VIRT_STATE.observer) {
+                VIRT_STATE.observer.disconnect();
+                VIRT_STATE.observer = null;
+            }
+
+            // Render first chunk for filtered list
+            renderNextChunk();
+
+            // Re-add sentinel
+            const sentinel = document.createElement("tr");
+            sentinel.id = "virt-sentinel";
+            sentinel.innerHTML = `<td colspan="${1 + VIRT_STATE.dateStrs.length}" style="height:1px;padding:0;border:0"></td>`;
+            calendarBody.appendChild(sentinel);
+
+            VIRT_STATE.observer = new IntersectionObserver(entries => {
+                for (const entry of entries) {
+                if (entry.isIntersecting) renderNextChunk();
                 }
-            });
+            }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
+            VIRT_STATE.observer.observe(sentinel);
         }
+
 
         // Show activity details in a popup
         const showActivityDetails_old = (activities) => {
