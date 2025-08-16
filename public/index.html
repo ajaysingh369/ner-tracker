@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tej Kadam Foundation</title>
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="styles.css">
     <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
@@ -152,12 +152,12 @@
             </div>
         </div>
     </div>
-    <script>
+    <script defer>
         // Load dark mode setting
         document.addEventListener("DOMContentLoaded", () => {
             const authButton = document.getElementById('authButton');
             const loader = document.getElementById('loader');
-            const calendarHeader = document.getElementById('calendarHeader');
+            //const calendarHeader = document.getElementById('calendarHeader');
             const calendarBody = document.getElementById('calendarBody');
             const activityPopup = document.getElementById('activityPopup');
             const profilePhoto = document.getElementById('profilePhoto');
@@ -189,12 +189,21 @@
                 });
             });
 
-            const headerRow = document.createElement('tr');
-            headerRow.innerHTML = `
-                <th>Athlete</th>
-                ${[...Array(31).keys()].map(d => `<th>${d + 1} Aug</th>`).join("")}
-            `;
-            calendarHeader.appendChild(headerRow);
+            document.getElementById("calendarHeader").innerHTML = buildHeader("2025-08");
+
+            // const headerRow = document.createElement('tr');
+            // headerRow.innerHTML = `
+            //     <th>Athlete</th>
+            //     ${[...Array(31).keys()].map(d => `<th>${d + 1} Aug</th>`).join("")}
+            // `;
+            // calendarHeader.appendChild(headerRow);
+
+            // document.getElementById("calendarBody").addEventListener("click", (e) => {
+            //     const cell = e.target.closest("[data-acts][data-athlete]");
+            //     if (!cell) return;
+            //     const acts = JSON.parse(cell.dataset.acts);
+            //     showActivityDetails(acts, cell.dataset.athlete);
+            // });
 
             // Initial load
             fetchEventData("tkfvr", "7", "100");

@@ -52,6 +52,19 @@ function formatMedalWinners(medalWinners, athletes) {
     return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join('<br> ');
 }
 
+function buildHeader(monthKey = "2025-08") {
+    const [y, m] = monthKey.split("-");
+    const days = new Date(+y, +m, 0).getDate();
+    return `
+      <tr>
+        <th>Athlete</th>
+        ${Array.from({length: days}, (_, i) => {
+          const d = String(i+1).padStart(2,"0");
+          return `<th>${+d} Aug</th>`;
+        }).join("")}
+      </tr>`;
+}
+  
 // Function to format date as "1st Feb", "2nd Feb", "3rd Feb"
 function formatDateHeader(date) {
     const day = date.getDate();
@@ -173,6 +186,7 @@ function buildAthleteRow(athlete) {
     const { activityMap, dateStrs, todayStr, distanceTotals, activeDays } = VIRT_STATE;
 
     const row = document.createElement("tr");
+    row.className = "row-virt";
 
     // Left cell
     const athleteCell = document.createElement("td");
@@ -188,8 +202,7 @@ function buildAthleteRow(athlete) {
 
     // load per-category qualified state (first render per fetch)
     const qualifiedState = loadQualifiedState(athlete.category || "100");
-    // did they qualify now?
-    // must meet both criteria
+    // did they qualify now? must meet both criteria
     const meetsDistance = monthTotal >= DISTANCE_GOAL;
     const meetsDays = daysActive >= 22;
     const isQualified = meetsDistance && meetsDays;
@@ -199,7 +212,7 @@ function buildAthleteRow(athlete) {
     athleteCell.innerHTML = `
         <div class="athlete-cell ${isQualified ? 'qualified' : ''}" data-athlete-id="${athleteName}">
             <span class="qualified-stamp ${shouldAnimateStamp ? 'stamp-animate' : ''}" title="Goal achieved!">Qualified</span>
-        <img loading="lazy" decoding="async" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" width="48" height="48" alt="${athleteName}" />
+        <img loading="lazy" decoding="async" fetchpriority="low" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" width="48" height="48" alt="${athleteName}" />
         <div class="athlete-info">
             <div class="athlete-name">${athleteName}</div>
             <div class="athlete-distance">${monthTotal.toFixed(2)} KM</div>
@@ -212,7 +225,11 @@ function buildAthleteRow(athlete) {
     const popupActivitiesByDate = {};
     for (const dStr of dateStrs) {
         const acts = activityMap.get(`${athlete.id}-${dStr}`);
-        if (acts && acts.length) popupActivitiesByDate[dStr] = acts;
+        if (acts && acts.length) {
+            popupActivitiesByDate[dStr] = acts;
+            athleteCell.dataset.acts = JSON.stringify(acts);
+            athleteCell.dataset.athlete = athleteName;
+        }
     }
     athleteCell.addEventListener("click", () =>
         showProfilePopup({ ...athlete, activities: popupActivitiesByDate })
@@ -237,27 +254,17 @@ function buildAthleteRow(athlete) {
         if (acts && acts.length) {
             const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
             cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} KM</span>`;
-            cell.classList.add("active-cell");
-            cell.style.backgroundColor = "lightgreen";
+            cell.classList.add("active-cell","cell__emoji");
             cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${genderEmoji}</text></svg>")`;
-            cell.style.backgroundSize = "contain";
-            cell.style.backgroundRepeat = "no-repeat";
-            cell.style.backgroundPosition = "top center";
             cell.addEventListener("click", () => showActivityDetails(acts, athleteName));
         } else {
-            cell.classList.add("no-activity");
-            cell.style.backgroundColor = "#80d9ff";
-            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>")`;
-            cell.style.backgroundSize = "contain";
-            cell.style.backgroundRepeat = "no-repeat";
-            cell.style.backgroundPosition = "top center";
+            cell.classList.add("cell--rest", "cell__emoji");
             cell.innerHTML = `<span class="activity-points">Refueling</span>`;
         }
         }
 
         if (dStr === todayStr) {
-        cell.style.border = "2px solid blue";
-        cell.style.fontWeight = "bold";
+            cell.classList.add("cell--today");
         }
 
         row.appendChild(cell);

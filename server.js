@@ -182,7 +182,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
                     name, // Activity Name
                     distance: parseFloat((distance / 1000).toFixed(2)), // Distance covered
                     moving_time, // Time in motion,
-                    start_date: istDate.toISOString(), // Store in IST format
+                    start_date: start_date, //istDate.toISOString(), // Store in IST format
                     type,
                     points: exts[0],
                     emoji: exts[1], 
@@ -473,11 +473,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
             {
               eventId,
               month,
-              $or: [
-                { [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] } },
-                // legacy safety: if activitiesByDate exists (even empty), treat as synced
-                { [`activitiesByDate.${dateISO}`]: { $exists: true } }
-              ]
+              [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] }
             },
             { athleteId: 1 }
           );
@@ -519,7 +515,10 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
               // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
               activityList.forEach(activity => {
                 const dayKey = istDayKey(activity.start_date);
-                if (dayKey !== dateISO) console.log("date differes in sync::", dayKey, dateISO); return;
+                if (dayKey !== dateISO) {
+                  console.log("date differes in sync::", dayKey, dateISO, activity.start_date); 
+                  return;
+                }
                 const athleteId = activity.athlete.id;
   
                 if (!updates[athleteId]) {
