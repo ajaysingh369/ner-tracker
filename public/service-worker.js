@@ -1,4 +1,4 @@
-const CACHE_NAME = "runner-tracker-cache-v10"; // Increment to bust previous cache
+const CACHE_NAME = "runner-tracker-cache-v11"; // Increment to bust previous cache
 const CACHE_LIFETIME = 30 * 60 * 1000; // 30 mins
 
 const urlsToCache = [
@@ -35,8 +35,23 @@ self.addEventListener("install", (event) => {
 // 🔁 Fetch: Serve from cache if valid, otherwise fetch and update
 self.addEventListener("fetch", (event) => {
     const { request } = event;
+    const url = new URL(request.url);
 
     if (request.method !== "GET") return;
+
+    // Locale JSON: stale-while-revalidate (keep query string such as ?v=3)
+    if (url.pathname.startsWith("/locales/") && url.pathname.endsWith(".json")) {
+        event.respondWith((async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(request); // respects query params
+        const network = fetch(request).then((resp) => {
+            if (resp.ok) cache.put(request, resp.clone());
+            return resp;
+        }).catch(() => null);
+        return cached || network || new Response("{}", { headers: { "Content-Type": "application/json" }});
+        })());
+        return;
+    }
 
     event.respondWith(
         caches.open(CACHE_NAME).then(async (cache) => {

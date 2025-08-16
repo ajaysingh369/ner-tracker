@@ -124,4 +124,9 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
       0 0 30px #e66000;
     color: #484746;
   }
-}  
+}
+
+.lang-toggle { display: inline-flex; gap: 6px; align-items: center; }
+.lang-btn { padding: 4px 8px; border-radius: 999px; border: 1px solid #444; background: #1b1b1b; color: #eee; cursor: pointer; }
+.lang-btn.active { background: #ff7a00; color: #000; border-color: #ff7a00; }
+.lang-btn:focus-visible { outline:2px solid #ff7a00; outline-offset:2px; }

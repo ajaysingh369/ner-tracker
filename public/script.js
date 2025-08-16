@@ -14,6 +14,42 @@ let VIRT_STATE = {
 
 const debounced = (fn, d=250) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), d); }; };
 
+function setActiveLangButtons(lang) {
+    document.querySelectorAll(".lang-btn").forEach(btn => {
+      const isActive = btn.dataset.lang === lang;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
+function initLanguageUI() {
+    setActiveLangButtons(I18N.current());
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const selectedLang = btn.dataset.lang;
+        await I18N.load(btn.dataset.lang);
+        // Static nodes auto-update via translateDOM(); now refresh dynamic:
+        setActiveLangButtons(selectedLang); 
+        rerenderDynamicText();
+      }, { passive: true });
+    });
+  }
+  
+  function rerenderDynamicText() {
+    // Example: update any live text built via JS
+    // Header with month/day labels:
+    buildHeader();  // will call I18N.t / I18N.dateFormatter internally
+    // Qualified stamp labels:
+    //refreshQualifiedStamps();
+    // Popups/tooltips that have stored text:
+    //closeAndReopenVisiblePopupsIfNeeded();
+    // Sync note:
+    const note = document.getElementById("syncNote");
+    if (note) note.textContent = I18N.t("ui.note.sync");
+  }
+  
+  
+
 function getQueryParams() {
     const params = new URLSearchParams(window.location.search);
     return {
@@ -52,7 +88,7 @@ function formatMedalWinners(medalWinners, athletes) {
     return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join('<br> ');
 }
 
-function buildHeader(monthKey = "2025-08") {
+function buildHeader2(monthKey = "2025-08") {
     const [y, m] = monthKey.split("-");
     const days = new Date(+y, +m, 0).getDate();
     return `
@@ -64,6 +100,22 @@ function buildHeader(monthKey = "2025-08") {
         }).join("")}
       </tr>`;
 }
+function buildHeader(year=2025, month=8) {
+    const days = new Date(year, month, 0).getDate();
+    const mFmt = I18N.dateFormatter({ month: "short" }); // en: Aug, hi: अग॰
+    const d = new Date(year, month-1, 1);
+
+    const monthLabel = mFmt.format(d);
+    return `
+      <tr>
+        <th>${I18N.t("table.header.athlete")}</th>
+        ${Array.from({ length: days }, (_, i) => {
+            const d = String(i+1).padStart(2,"0");
+           return `<th>${d} ${monthLabel}</th>`;
+        }).join("")}
+      </tr>`;
+  }
+  
   
 // Function to format date as "1st Feb", "2nd Feb", "3rd Feb"
 function formatDateHeader(date) {
@@ -208,14 +260,15 @@ function buildAthleteRow(athlete) {
     const isQualified = meetsDistance && meetsDays;
     const wasQualified = !!qualifiedState[athlete.id];
     const shouldAnimateStamp = isQualified && !wasQualified;
+    const txt = I18N.t("ui.qualified.stamp");
 
     athleteCell.innerHTML = `
         <div class="athlete-cell ${isQualified ? 'qualified' : ''}" data-athlete-id="${athleteName}">
-            <span class="qualified-stamp ${shouldAnimateStamp ? 'stamp-animate' : ''}" title="Goal achieved!">Qualified</span>
+            <span class="qualified-stamp ${shouldAnimateStamp ? 'stamp-animate' : ''}" title="Goal achieved!">${txt}</span>
         <img loading="lazy" decoding="async" fetchpriority="low" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" width="48" height="48" alt="${athleteName}" />
         <div class="athlete-info">
             <div class="athlete-name">${athleteName}</div>
-            <div class="athlete-distance">${monthTotal.toFixed(2)} KM</div>
+            <div class="athlete-distance">${monthTotal.toFixed(2)} ${I18N.t("ui.km")}</div>
             <div class="progress-bar"><div class="progress-fill" style="width:${progressPercent}%"></div></div>
         </div>
         </div>
@@ -253,13 +306,13 @@ function buildAthleteRow(athlete) {
         const acts = activityMap.get(`${athlete.id}-${dStr}`);
         if (acts && acts.length) {
             const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
-            cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} KM</span>`;
+            cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} ${I18N.t("ui.km")}</span>`;
             cell.classList.add("active-cell","cell__emoji");
             cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${genderEmoji}</text></svg>")`;
             cell.addEventListener("click", () => showActivityDetails(acts, athleteName));
         } else {
             cell.classList.add("cell--rest", "cell__emoji");
-            cell.innerHTML = `<span class="activity-points">Refueling</span>`;
+            cell.innerHTML = `<span class="activity-points">${I18N.t("ui.refueling")}</span>`;
         }
         }
 
@@ -334,11 +387,11 @@ const showActivityDetails = (activities, athleteName = "Unknown Athlete") => {
     activities.forEach(activity => {
         html += `
             <hr>
-            <p><strong>Title:</strong> ${activity.name}</p>
-            <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
-            <p><strong>Type:</strong> ${activity.type}</p>
-            <p><strong>Distance:</strong> ${activity.distance} km</p>
-            <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
+            <p><strong>${I18N.t("popup.details.t1")}:</strong> ${activity.name}</p>
+            <p><strong>${I18N.t("popup.details.t2")}:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
+            <p><strong>${I18N.t("popup.details.t3")}:</strong> ${activity.type}</p>
+            <p><strong>${I18N.t("popup.details.t4")}:</strong> ${activity.distance} km</p>
+            <p><strong>${I18N.t("popup.details.t5")}:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
         `;
     });
     activityDetails.innerHTML = html;
@@ -360,7 +413,7 @@ const showProfilePopup = (athlete) => {
         .map(([type, count]) => `Run: <b>${count}</b>`)
         .join(', ');
 
-    profileActivities.innerHTML = `Activity Count: ${activityText || 'No Activities'}`;
+    profileActivities.innerHTML = `${I18N.t("popup.details.t6")}: ${activityText || 'No Activities'}`;
     profilePopup.style.display = 'flex';
 };
 

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tej Kadam Foundation</title>
+    <script src="i18n.js" defer></script>
     <script src="script.js" defer></script>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="styles.css">
@@ -15,9 +16,10 @@
         <header class="app-header">
             <div class="header-content">
                 <div class="header-text">
-                    <h1>Tej Kadam Foundation</h1>
-                    <h2>BADHTE KADAM</h2>
-                    <p>☀️ Virtual Run Challenge <span class="date-range">(1st Aug - 31st Aug)</p>
+                    <h1 data-i18n="banner-title"></h1>
+                    <h2 data-i18n="banner-subtitle"></h2>
+                    <p data-i18n="banner-description"></p>
+                    <span data-i18n="event-date" class="date-range"></span>
                     <!-- <p>👣 Step Up. Stand Out. 👣</p> -->
                 </div> 
             </div>
@@ -26,18 +28,22 @@
 
         <!-- Main Content -->
         <main class="app-main">
+            <div class="lang-toggle">
+                <button id="lang-en" class="lang-btn" data-lang="en">English</button>
+                <button id="lang-hi" class="lang-btn" data-lang="hi">हिन्दी</button>
+              </div>
 
             <div id="leaderboard-container">
                 <!-- <button id="authButton" class="auth-button">
                     <span>Authorize with Strava</span><p class="auth-subtext">*if your name is missing from the list. Your name & data will be display from 1st Aug</p>
                 </button> -->
                 <!-- Loader -->
-                <div id="loader" class="loader"><span class="running-emoji">🏃‍♂️</span><span class="loading-text">Loading</span></div>
+                <div id="loader" class="loader"><span class="running-emoji">🏃‍♂️</span><span data-i18n="ui.loading" class="loading-text"></span></div>
 
                 <div id="categoryFilters" class="category-filters">
-                    <button class="filter-button selected" data-category="100">100 KM (Lakshaya)</button>
-                    <button class="filter-button" data-category="150">150 KM (Udaan)</button>
-                    <button class="filter-button" data-category="200">200 KM (Bhaag Milkha Bhaag)</button>
+                    <button class="filter-button selected" data-category="100" data-i18n="ui.category.100"></button>
+                    <button class="filter-button" data-category="150" data-i18n="ui.category.150"></button>
+                    <button class="filter-button" data-category="200" data-i18n="ui.category.200"></button>
                 </div>
 
                 <!-- <img class="maintain-img" src="https://twemoji.maxcdn.com/v/latest/svg/1f6e0.svg" alt="Under Construction" />
@@ -56,10 +62,10 @@
             
                 <!-- Calendar Table -->
                 <div class="activity-table">
-                    <h2>Leaderboard</h2>
+                    <h2 data-i18n="ui.leaderboard"></h2>
                     <!-- <h2>Team Activities</h2> -->
                     <!-- <p class="points-info"><strong>5 mins activity rewards:</strong> 🏃Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b></p> -->
-                     <p class="glowing-note">To make sure all your activities are counted correctly (even those late-night runs close to midnight 🕛), we sync data up to yesterday. Don’t worry—anything you record today will safely appear in the tracker tomorrow. Keep running strong! 🏃‍♀️🏃‍♂️✨</p>
+                     <p class="glowing-note" data-i18n="ui.note.sync"></p>
                     <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
                 </div>
                 <div class="calendar-container" id="actlist">
@@ -77,46 +83,43 @@
                     <p>Aug 1 - Aug 31, 2025 | Anytime</p>
                 </div>
                 <div class="event-description">
-                    <p>Tej Kadam Foundation and AAV Group proudly present “BADHTE KADAM” – a 31-day virtual run/walk challenge to kickstart or boost your fitness journey!</p>
+                    <p data-i18n="ui.event.desc"></p>
                     <ol style="padding: 1rem;">
-                        <li>Open for all – especially beginners</li>
-                        <li>Walk or run at your pace, anytime, anywhere</li>
-                        <li>Track your progress &amp; stay motivated</li>
+                        <li data-i18n="ui.event.desc1"></li>
+                        <li data-i18n="ui.event.desc2"></li>
+                        <li data-i18n="ui.event.desc3"></li>
                     </ol>
-                    <p>This is your moment to break boundaries and create a healthier, stronger you through daily movement.</p>
+                    <p  data-i18n="ui.event.subdesc"></p>
             
-                    <strong>Activity Related Instructions</strong>
+                    <strong data-i18n="ui.ins.activity"></strong>
                     <ul style="padding: 1rem;">
-                        <li>You can run or walk anytime, anywhere during the challenge.</li>
-                        <li>Each activity must be at least 2 kilometres to be valid.</li>
-                        <li>You can log more than one activity in a day.</li>
-                        <li>Any activity less than 2 kilometres will not be counted.</li>
+                        <li data-i18n="ui.ins.activity1"></li>
+                        <li data-i18n="ui.ins.activity2"></li>
+                        <li data-i18n="ui.ins.activity3"></li>
+                        <li data-i18n="ui.ins.activity4"></li>
                     </ul>
-                    <strong>Qualification Related Instructions</strong>
+                    <strong data-i18n="ui.ins.qualification"></strong>
                     <ul style="padding: 1rem;">
-                        <li>You must complete at least 22 active days in the event month.</li>
-                        <li>An active day means logging at least one valid activity (2 km or more).</li>
-                        <li>Only Strava-recorded activities will be considered.</li>
-                        <li>No manual entries or screenshots from other apps will be accepted.</li>
+                        <li data-i18n="ui.ins.qualification1"></li>
+                        <li data-i18n="ui.ins.qualification2"></li>
+                        <li data-i18n="ui.ins.qualification3"></li>
+                        <li data-i18n="ui.ins.qualification4"></li>
                     </ul>
-                    <strong>Deliverables to Participants</strong>
+                    <strong data-i18n="ui.ins.deliverables"></strong>
                     <ul style="padding: 1rem;">
-                        <li>You are using this special dashboard to track your daily activities (Please check "App related instructions below").</li>
-                        <li>Participants who successfully complete the challenge will be rewarded for their consistency and effort.</li>
-                        <li>Regular monitoring of activities will be done to ensure fair participation.</li> 
-                        <li>Our team will also provide timely updates and motivation to keep you going!</li>
+                        <li  data-i18n="ui.ins.deliverables1"></li>
+                        <li  data-i18n="ui.ins.deliverables2"></li>
+                        <li  data-i18n="ui.ins.deliverables3"></li> 
+                        <li  data-i18n="ui.ins.deliverables4"></li>
                     </ul>
-                    <strong>App Related Instructions</strong>
+                    <strong data-i18n="ui.ins.app"></strong>
                     <ul style="padding: 1rem;">
-                    <li>Download the Strava app from the Play Store or App Store </li>
-                    <li>If you don’t have a Strava account, create one for free.</li>
-                    <li>Use only Strava to record your running/walking activities.</li>
-                    <li>Make sure your activities are visible to “Everyone” in Strava settings.</li>
-                    <li>Please record your activity as “Run” in Strava, even if you are doing a walk.</li>
-                    <!-- <li><strong>Just to make sure that all your valid activities must be counted for day, even you have recorded it late night  before 12, we sync till yesterday. So dont worry, keep recording your activities today, it will reflect tomorrow for sure :)</strong></li> -->
+                    <li data-i18n="ui.ins.app1"></li>
+                    <li data-i18n="ui.ins.app2"></li>
+                    <li data-i18n="ui.ins.app3"></li>
+                    <li data-i18n="ui.ins.app4"></li>
+                    <li data-i18n="ui.ins.app5"></li>
                     </ul>
-
-
         </main>
 
         <!-- Footer -->
@@ -135,7 +138,7 @@
     <div id="activityPopup" class="popup">
         <div class="popup-content">
             <span id="closePopup" class="close" onclick="closePopup('activityPopup')">&times;</span>
-            <h3>Activity Details</h3>
+            <h3 data-i18n="popup.details.title"></h3>
             <div id="activityDetails"></div>
         </div>
     </div>
@@ -144,7 +147,7 @@
     <div id="profilePopup" class="popup">
         <div class="popup-content">
             <span id="closeProfilePopup" class="close" onclick="closePopup('profilePopup')">&times;</span>
-            <h3>Athlete Profile</h3>
+            <h3 data-i18n="popup.profile.title"></h3>
             <div id="profileDetails" class="profile-popup-divider">
                 <img id="profilePhoto" alt="Profile Photo" class="profile-photo-large">
                 <p id="profileName"></p>
@@ -154,7 +157,15 @@
     </div>
     <script defer>
         // Load dark mode setting
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", async () => {
+            await I18N.init();            // 🔴 ensure dict is loaded first
+            await I18N.whenReady();       // (redundant after init, but safe)
+
+            // Now it’s safe to render any dynamic UI that calls I18N.t(...)
+            initLanguageUI();             // set up buttons that call I18N.load('en'|'hi')
+            //buildStaticChrome();          // headers that use I18N.t / translateDOM
+            //await fetchAndRenderData();   // tables, popups, stamps, etc. that use I18N.t
+
             const authButton = document.getElementById('authButton');
             const loader = document.getElementById('loader');
             //const calendarHeader = document.getElementById('calendarHeader');
@@ -165,6 +176,7 @@
             const profileActivities = document.getElementById('profileActivities');
             const themeToggle = document.getElementById('theme');
 
+            
             // Toggle dark mode and save setting
             themeToggle.addEventListener("change", () => {
                 const isDarkMode = themeToggle.checked;
@@ -189,7 +201,7 @@
                 });
             });
 
-            document.getElementById("calendarHeader").innerHTML = buildHeader("2025-08");
+            document.getElementById("calendarHeader").innerHTML = buildHeader(2025, 8);
 
             // const headerRow = document.createElement('tr');
             // headerRow.innerHTML = `
@@ -206,7 +218,7 @@
             // });
 
             // Initial load
-            fetchEventData("tkfvr", "7", "100");
+            await fetchEventData("tkfvr", "7", "100");
         });
 
         async function fetchEventData(eventId, month, category) {

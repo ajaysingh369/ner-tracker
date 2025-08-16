@@ -212,16 +212,16 @@ curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: 
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
   -H "Content-Type: application/json" \
-  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-01","endDate":"2025-08-14","categories":["100", "150", "200"]}'
+  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-12","endDate":"2025-08-12","categories":["100", "150", "200"]}'
 
 
 
-curl -X POST http://localhost:3000/admin/clearSyncStatus \
+curl -X POST http://localhost:3003/admin/clearSyncStatus \
   -H "Content-Type: application/json" \
   -H "x-admin-secret: ajaysingh369" \
   -d '{
     "eventId": "tkfvr",
-    "dates": ["2025-08-15", "2025-08-16"],
+    "dates": ["2025-08-15", "2025-08-16"], "athleteIds": ["123859756","34629659"]
     "dryRun": true
   }'
 
