@@ -1,5 +1,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:var(--background-color);color:var(--text-color);line-height:1.6}
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji"; background:var(--background-color);color:var(--text-color);line-height:1.6}
+
+//body{font-family:'Inter',sans-serif;background:var(--background-color);color:var(--text-color);line-height:1.6}
 body[data-theme="dark"]{background:#1a1a1a;color:#f8f9fa}:root{--background-color:#fff;--text-color:#333;--primary-color:#007bff;--secondary-color:#f1f3f5;--border-color:#ddd}[data-theme="dark"]{--background-color:#1a1a1a;--text-color:#f8f9fa;--primary-color:#0d6efd;--secondary-color:#2d2d2d;--border-color:#444}
 .app-container{max-width:1200px;margin:15px auto;padding:10px;background:var(--background-color);border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
 .app-header{position:relative;text-align:center;margin-bottom:20px;padding:15px 5px;background:url('bg_new.jpg')center/cover no-repeat;height:10rem;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;color:white}
@@ -25,7 +27,7 @@ to{transform:translateX(10px)}}
 33%{content:".."}
 66%{content:"..."}
 100%{content:""}}.medals-container{text-align:center;margin:20px 0}.medals-container h2{font-size:1.3rem;margin-bottom:10px;color:var(--text-color)}.medals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-top:10px}.medals-grid p{background:linear-gradient(135deg,#fc5200,#ffcc00);color:#333;padding:4px;border-radius:10px;font-size:1rem;font-weight:bold;transition:transform 0.3s ease,box-shadow 0.3s ease;box-shadow:2px 4px 8px rgba(0,0,0,0.2)}.medals-grid p:hover{transform:scale(1.05);box-shadow:4px 8px 16px rgba(0,0,0,0.3)}.calendar-container{overflow-x:auto;margin-top:-20px;scrollbar-width:none;padding-bottom:10px}.activity-table{padding-top:15px}.activity-table h2{font-size:1.2rem}
-#calendarTable{width:100%;border-collapse:collapse;margin-top:20px}
+#calendarTable{width:100%;border-collapse:collapse;margin-top:20px;margin-bottom:40px}
 #calendarTable thead th{position:sticky;top:0;background:var(--primary-color);z-index:1}
 #calendarTable th,#calendarTable td{padding:2px;text-align:center;border:1px solid var(--border-color)}
 #calendarTable th{background:var(--primary-color);color:#fff;font-weight:600}
@@ -129,6 +131,7 @@ to{transform:translateX(10px)}}
 
 
 .athlete-cell {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -148,41 +151,59 @@ to{transform:translateX(10px)}}
     margin-bottom: 6px;
   }
   
-  .athlete-info {
-    text-align: center;
-    width: 100%;
+  .athlete-info { text-align: center; width: 100%; }
+  .athlete-name {background: #dc1a1a1a; font-size: 0.95rem; font-weight: bold; color: #c9e707cf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+  .athlete-distance { font-size: 1rem; font-weight: bold; color: #ff9800; margin-bottom: 4px; }
+  .progress-bar { background-color: #ddd; height: 8px; border-radius: 3px; width: 100%; max-width: 90%; margin: 0 auto; }
+  .progress-fill { background-color: #4caf50; height: 100%; border-radius: 3px;}
+
+/* the stamp */
+.qualified-stamp {
+  position: absolute; top: 25px; left: 25px; padding: 4px 8px;
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;color: #fc000066;
+  border: 2px solid #28a745;border-radius: 6px; background: rgba(40,167,69,0.12); box-shadow: 0 2px 8px rgba(40,167,69,0.25);
+  transform: rotate(-10deg) scale(0.9);opacity: 0;pointer-events: none; transition: opacity .2s ease-out, transform .2s ease-out;
+}
+
+.athlete-cell.qualified .qualified-stamp {opacity: 1; transform: rotate(-10deg) scale(1);}
+
+/* one-time “stamp” animation */
+@keyframes stamp-pop {
+  0%   { transform: rotate(-18deg) scale(2); opacity: 0; }
+  60%  { transform: rotate(-10deg) scale(0.95); opacity: 0.6; }
+  100% { transform: rotate(-10deg) scale(1); opacity: 1; }
+}
+.qualified-stamp.stamp-animate {animation: stamp-pop 1520ms cubic-bezier(.2,.9,.2,1) both;}
+.event-description {margin-top: 16px; line-height: 1.5; font-size: 1rem; color: #444;}
+
+.glowing-note {font-size: 12px; font-weight: bold; color: #fff; text-align: center; margin: 1px 0;
+
+  /* glowing effect */
+  text-shadow: 
+    0 0 5px #ff4da6,
+    0 0 10px #ff4da6,
+    0 0 20px #ff4da6,
+    0 0 30px #ff1a75;
+
+  /* flashy animation */
+  animation: glowFlash 3.0s ease-in-out infinite alternate;
+}
+
+@keyframes glowFlash {
+  from {
+    text-shadow: 
+      0 0 5px #ff4da6,
+      0 0 10px #ff4da6,
+      0 0 20px #ff4da6,
+      0 0 30px #ff1a75;
+    color: #484746;
   }
-  
-  .athlete-name {
-    background: #dc1a1aa6
-    font-size: 0.95rem;
-    font-weight: bold;
-    color: #c9e707cf;
-    white-space: nowrap;         /* 🔒 Keep name in one line */
-    overflow: hidden;            /* 🔒 Hide overflow */
-    text-overflow: ellipsis;
-    /* margin-bottom: 4px; */
+  to {
+    text-shadow: 
+      0 0 5px #ffbf00,
+      0 0 10px #ff9d00,
+      0 0 20px #ff8800,
+      0 0 30px #e66000;
+    color: #484746;
   }
-  
-  .athlete-distance {
-    font-size: 1rem;
-    font-weight: bold;
-    color: #ff9800;
-    ?margin-bottom: 4px;
-  }
-  
-  .progress-bar {
-    background-color: #ddd;
-    height: 8px;
-    border-radius: 3px;
-    width: 100%;
-    max-width: 90%;
-    margin: 0 auto;
-  }
-  
-  .progress-fill {
-    background-color: #4caf50;
-    height: 100%;
-    border-radius: 3px;
-  }
-  
+}  

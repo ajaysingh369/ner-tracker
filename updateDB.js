@@ -198,16 +198,33 @@ const updates = async () => {
 
 updates().catch(console.error);
 
-//{email:{ $exists: false }} 90073940
+//{email:{ $exists: false }}  179496390
+
 //100 - 104
 //150 - 53
 //200 - 62
-//34629659 - Teena, 179496390 - Manu, 146462753-Prashant
+//34629659 - Teena, 179496390 - Manu, 146462753-Prashant  180913389, // 146462753, 30181449, 34629659
 
 /*
+curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr","month":"7", "date":"2025-08-01"}'
+
+curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-01","endDate":"2025-08-14","categories":["100", "150", "200"]}'
+
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
   -H "Content-Type: application/json" \
-  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-01","endDate":"2025-08-08","categories":["100", "150", "200"]}'
+  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-01","endDate":"2025-08-14","categories":["100", "150", "200"]}'
+
+
+
+curl -X POST http://localhost:3000/admin/clearSyncStatus \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: ajaysingh369" \
+  -d '{
+    "eventId": "tkfvr",
+    "dates": ["2025-08-15", "2025-08-16"],
+    "dryRun": true
+  }'
+
 
 /*
 

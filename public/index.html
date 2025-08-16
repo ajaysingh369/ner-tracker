@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tej Kadam Foundation</title>
+    <script src="script.js"></script>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> -->
 </head>
 <body>
     <div class="app-container">
@@ -40,10 +41,10 @@
                 </div>
 
                 <!-- <img class="maintain-img" src="https://twemoji.maxcdn.com/v/latest/svg/1f6e0.svg" alt="Under Construction" />
-  <h1 class="maintain-title">We’re getting ready!</h1>
-  <p class="maintain-desc">The tracker is under maintenance as we prepare for the August challenge.<br>
-     Please check back soon. 🏃‍♀️🏃‍♂️
-  </p> -->
+                <h1 class="maintain-title">We’re getting ready!</h1>
+                <p class="maintain-desc">The tracker is under maintenance as we prepare for the August challenge.<br>
+                    Please check back soon. 🏃‍♀️🏃‍♂️
+                </p> -->
 
                 <!-- Medals Section -->
                 <!-- <div class="medals-container" id="medallist">
@@ -58,6 +59,7 @@
                     <h2>Leaderboard</h2>
                     <!-- <h2>Team Activities</h2> -->
                     <!-- <p class="points-info"><strong>5 mins activity rewards:</strong> 🏃Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b></p> -->
+                     <p class="glowing-note">To make sure all your activities are counted correctly (even those late-night runs close to midnight 🕛), we sync data up to yesterday. Don’t worry—anything you record today will safely appear in the tracker tomorrow. Keep running strong! 🏃‍♀️🏃‍♂️✨</p>
                     <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
                 </div>
                 <div class="calendar-container" id="actlist">
@@ -67,6 +69,54 @@
                     </table>
                 </div>
             </div>
+
+
+            <div class="MuiCardContent-root css-15q2cw4">
+                <h4>बढ़ते कदम Virtual Run</h4>
+                <div>
+                    <p>Aug 1 - Aug 31, 2025 | Anytime</p>
+                </div>
+                <div class="event-description">
+                    <p>Tej Kadam Foundation and AAV Group proudly present “BADHTE KADAM” – a 31-day virtual run/walk challenge to kickstart or boost your fitness journey!</p>
+                    <ol style="padding: 1rem;">
+                        <li>Open for all – especially beginners</li>
+                        <li>Walk or run at your pace, anytime, anywhere</li>
+                        <li>Track your progress &amp; stay motivated</li>
+                    </ol>
+                    <p>This is your moment to break boundaries and create a healthier, stronger you through daily movement.</p>
+            
+                    <strong>Activity Related Instructions</strong>
+                    <ul style="padding: 1rem;">
+                        <li>You can run or walk anytime, anywhere during the challenge.</li>
+                        <li>Each activity must be at least 2 kilometres to be valid.</li>
+                        <li>You can log more than one activity in a day.</li>
+                        <li>Any activity less than 2 kilometres will not be counted.</li>
+                    </ul>
+                    <strong>Qualification Related Instructions</strong>
+                    <ul style="padding: 1rem;">
+                        <li>You must complete at least 22 active days in the event month.</li>
+                        <li>An active day means logging at least one valid activity (2 km or more).</li>
+                        <li>Only Strava-recorded activities will be considered.</li>
+                        <li>No manual entries or screenshots from other apps will be accepted.</li>
+                    </ul>
+                    <strong>Deliverables to Participants</strong>
+                    <ul style="padding: 1rem;">
+                        <li>You are using this special dashboard to track your daily activities (Please check "App related instructions below").</li>
+                        <li>Participants who successfully complete the challenge will be rewarded for their consistency and effort.</li>
+                        <li>Regular monitoring of activities will be done to ensure fair participation.</li> 
+                        <li>Our team will also provide timely updates and motivation to keep you going!</li>
+                    </ul>
+                    <strong>App Related Instructions</strong>
+                    <ul style="padding: 1rem;">
+                    <li>Download the Strava app from the Play Store or App Store </li>
+                    <li>If you don’t have a Strava account, create one for free.</li>
+                    <li>Use only Strava to record your running/walking activities.</li>
+                    <li>Make sure your activities are visible to “Everyone” in Strava settings.</li>
+                    <li>Please record your activity as “Run” in Strava, even if you are doing a walk.</li>
+                    <!-- <li><strong>Just to make sure that all your valid activities must be counted for day, even you have recorded it late night  before 12, we sync till yesterday. So dont worry, keep recording your activities today, it will reflect tomorrow for sure :)</strong></li> -->
+                    </ul>
+
+
         </main>
 
         <!-- Footer -->
@@ -84,7 +134,7 @@
     <!-- Activity Details Popup -->
     <div id="activityPopup" class="popup">
         <div class="popup-content">
-            <span id="closePopup" class="close">&times;</span>
+            <span id="closePopup" class="close" onclick="closePopup('activityPopup')">&times;</span>
             <h3>Activity Details</h3>
             <div id="activityDetails"></div>
         </div>
@@ -93,7 +143,7 @@
     <!-- Athlete Profile Popup -->
     <div id="profilePopup" class="popup">
         <div class="popup-content">
-            <span id="closeProfilePopup" class="close">&times;</span>
+            <span id="closeProfilePopup" class="close" onclick="closePopup('profilePopup')">&times;</span>
             <h3>Athlete Profile</h3>
             <div id="profileDetails" class="profile-popup-divider">
                 <img id="profilePhoto" alt="Profile Photo" class="profile-photo-large">
@@ -102,49 +152,39 @@
             </div>
         </div>
     </div>
-
     <script>
-        function getQueryParams() {
-            const params = new URLSearchParams(window.location.search);
-            return {
-                id: params.get("id"),
-                start: params.get("start"),
-                end: params.get("end")
-            };
-        }
-        function getDayName(dateString) {
-            const date = new Date(dateString);
-            const options = { weekday: 'long' };
-            return date.toLocaleDateString('en-US', options);
-        }
         // Load dark mode setting
         document.addEventListener("DOMContentLoaded", () => {
-            const darkModeEnabled = localStorage.getItem("darkMode") === "true";
-            themeToggle.checked = darkModeEnabled;
-            document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
             const authButton = document.getElementById('authButton');
             const loader = document.getElementById('loader');
             const calendarHeader = document.getElementById('calendarHeader');
             const calendarBody = document.getElementById('calendarBody');
             const activityPopup = document.getElementById('activityPopup');
-            const activityDetails = document.getElementById('activityDetails');
-            const closePopup = document.getElementById('closePopup');
-            const profilePopup = document.getElementById('profilePopup');
-            const closeProfilePopup = document.getElementById('closeProfilePopup');
             const profilePhoto = document.getElementById('profilePhoto');
             const profileName = document.getElementById('profileName');
             const profileActivities = document.getElementById('profileActivities');
-                
+            const themeToggle = document.getElementById('theme');
+
+            // Toggle dark mode and save setting
+            themeToggle.addEventListener("change", () => {
+                const isDarkMode = themeToggle.checked;
+                document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+                localStorage.setItem("darkMode", isDarkMode);
+            });
+            const darkModeEnabled = localStorage.getItem("darkMode") === "true";
+            
+            themeToggle.checked = darkModeEnabled;
+            document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");   
                 
             // Attach search event listener
-            document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
+            document.getElementById('searchAthlete').addEventListener('input', debounced(filterAthletes, 250));
+            //document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
 
             document.querySelectorAll('.filter-button').forEach(btn => {
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('selected'));
                     btn.classList.add('selected');
                     const selectedCategory = btn.dataset.category;
-                    //fetchActivities(selectedCategory);
                     fetchEventData("tkfvr", "7", selectedCategory);
                 });
             });
@@ -154,18 +194,9 @@
                 <th>Athlete</th>
                 ${[...Array(31).keys()].map(d => `<th>${d + 1} Aug</th>`).join("")}
             `;
-            // headerRow.innerHTML = '<th>Athlete</th>'; // First column for athlete names
-
-            // for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
-            //     const dateCell = document.createElement('th');
-            //     dateCell.innerHTML = formatDateHeader(date);
-            //     headerRow.appendChild(dateCell);
-            // }
-
             calendarHeader.appendChild(headerRow);
 
             // Initial load
-            // fetchActivities();
             fetchEventData("tkfvr", "7", "100");
         });
 
@@ -199,541 +230,7 @@
             }
         }
 
-        function getLowResImageUrl(originalUrl) {
-            return originalUrl.replace(/=s\d+-c$/, '=s48-c');
-        }
 
-        // ---- virtualization state (module-level)
-        let VIRT_STATE = {
-        athletes: [],
-        activityMap: new Map(),
-        distanceTotals: new Map(),
-        dateStrs: [],
-        todayStr: "",
-        pageSize: 25,
-        filteredIndexes: [],
-        nextIndex: 0,
-        observer: null
-        };
-
-        function renderCalendar(athletes, activities) {
-            const calendarBody = document.getElementById("calendarBody");
-            calendarBody.innerHTML = "";
-
-            // ---- Precompute constants
-            const todayStr = new Date().toISOString().split("T")[0];
-            const MONTH_KEY = "2025-08";
-            const DAYS_IN_MONTH = 31;
-            const dateStrs = Array.from({ length: DAYS_IN_MONTH }, (_, i) =>
-                `${MONTH_KEY}-${String(i + 1).padStart(2, "0")}`
-            );
-
-            // ---- Build indexes
-            const activityMap = new Map();    // `${athleteId}-${yyyy-mm-dd}` -> [acts]
-            const distanceTotals = new Map(); // athleteId -> total KM up to today
-
-            for (const entry of activities) {
-                const athleteId = entry.athleteId;
-                const byDate = entry.activitiesByDate || {};
-                for (const dateStr in byDate) {
-                const key = `${athleteId}-${dateStr}`;
-                const list = activityMap.get(key);
-                if (list) list.push(...byDate[dateStr]);
-                else activityMap.set(key, [...byDate[dateStr]]);
-
-                if (dateStr <= todayStr) {
-                    const dayKm = byDate[dateStr].reduce((sum, a) => sum + (+a.distance || 0), 0);
-                    distanceTotals.set(athleteId, (distanceTotals.get(athleteId) || 0) + dayKm);
-                }
-                }
-            }
-
-            // ---- Sort athletes by total distance (desc)
-            const sortedAthletes = [...athletes].sort((a, b) => {
-                const db = distanceTotals.get(b.id) || 0;
-                const da = distanceTotals.get(a.id) || 0;
-                return db - da;
-            });
-
-            // Save to virtualization state
-            VIRT_STATE.athletes = sortedAthletes.map(a => ({
-                ...a,
-                _nameLower: `${a.firstname} ${a.lastname}`.toLowerCase() // for fast search
-            }));
-            VIRT_STATE.activityMap = activityMap;
-            VIRT_STATE.distanceTotals = distanceTotals;
-            VIRT_STATE.dateStrs = dateStrs;
-            VIRT_STATE.todayStr = todayStr;
-            VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
-            VIRT_STATE.nextIndex = 0;
-
-            // Clear any previous observer
-            if (VIRT_STATE.observer) {
-                VIRT_STATE.observer.disconnect();
-                VIRT_STATE.observer = null;
-            }
-
-            // Render first chunk
-            renderNextChunk();
-
-            // Add a sentinel row to trigger loading more
-            const sentinel = document.createElement("tr");
-            sentinel.id = "virt-sentinel";
-            sentinel.innerHTML = `<td colspan="${1 + VIRT_STATE.dateStrs.length}" style="height:1px;padding:0;border:0"></td>`;
-            calendarBody.appendChild(sentinel);
-
-            // Observe sentinel
-            VIRT_STATE.observer = new IntersectionObserver(entries => {
-                for (const entry of entries) {
-                if (entry.isIntersecting) renderNextChunk();
-                }
-            }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
-            VIRT_STATE.observer.observe(sentinel);
-    }
-
-    function renderNextChunk() {
-        const calendarBody = document.getElementById("calendarBody");
-        const { athletes, filteredIndexes, pageSize, nextIndex } = VIRT_STATE;
-        if (nextIndex >= filteredIndexes.length) return;
-
-        const end = Math.min(nextIndex + pageSize, filteredIndexes.length);
-        const frag = document.createDocumentFragment();
-
-        for (let i = nextIndex; i < end; i++) {
-            const idx = filteredIndexes[i];
-            const athlete = athletes[idx];
-            frag.appendChild(buildAthleteRow(athlete));
-        }
-
-        VIRT_STATE.nextIndex = end;
-
-        // Insert before sentinel so it stays last
-        const sentinel = document.getElementById("virt-sentinel");
-        if (sentinel) calendarBody.insertBefore(frag, sentinel);
-        else calendarBody.appendChild(frag); // first pass before sentinel exists
-    }
-
-        function buildAthleteRow(athlete) {
-        const { activityMap, dateStrs, todayStr, distanceTotals } = VIRT_STATE;
-
-        const row = document.createElement("tr");
-
-        // Left cell
-        const athleteCell = document.createElement("td");
-        athleteCell.style.backgroundColor = "rgba(61, 98, 59, 0.91)";
-        athleteCell.style.minWidth = "8rem";
-
-        const lowResUrl = getLowResImageUrl(athlete.profile || "");
-        const athleteName = `${athlete.firstname} ${athlete.lastname}`;
-        const monthTotal = distanceTotals.get(athlete.id) || 0;
-        const DISTANCE_GOAL = parseInt(athlete.category, 10) || 100;
-        const progressPercent = Math.min(100, (monthTotal / DISTANCE_GOAL) * 100).toFixed(1);
-
-        athleteCell.innerHTML = `
-            <div class="athlete-cell" data-athlete-id="${athleteName}">
-            <img loading="lazy" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" alt="${athleteName}" />
-            <div class="athlete-info">
-                <div class="athlete-name">${athleteName}</div>
-                <div class="athlete-distance">${monthTotal.toFixed(2)} KM</div>
-                <div class="progress-bar"><div class="progress-fill" style="width:${progressPercent}%"></div></div>
-            </div>
-            </div>
-        `;
-
-        // Build compact activities map for popup
-        const popupActivitiesByDate = {};
-        for (const dStr of dateStrs) {
-            const acts = activityMap.get(`${athlete.id}-${dStr}`);
-            if (acts && acts.length) popupActivitiesByDate[dStr] = acts;
-        }
-        athleteCell.addEventListener("click", () =>
-            showProfilePopup({ ...athlete, activities: popupActivitiesByDate })
-        );
-
-        row.appendChild(athleteCell);
-
-        const genderEmoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
-        for (const dStr of dateStrs) {
-            const cell = document.createElement("td");
-
-            if (dStr > todayStr) {
-            cell.textContent = "";
-            cell.style.backgroundColor = "transparent";
-            } else {
-            const acts = activityMap.get(`${athlete.id}-${dStr}`);
-            if (acts && acts.length) {
-                const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
-                cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} KM</span>`;
-                cell.classList.add("active-cell");
-                cell.style.backgroundColor = "lightgreen";
-                cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${genderEmoji}</text></svg>")`;
-                cell.style.backgroundSize = "contain";
-                cell.style.backgroundRepeat = "no-repeat";
-                cell.style.backgroundPosition = "top center";
-                cell.addEventListener("click", () => showActivityDetails(acts, athleteName));
-            } else {
-                cell.classList.add("no-activity");
-                cell.style.backgroundColor = "#80d9ff";
-                cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>💤</text></svg>")`;
-                cell.style.backgroundSize = "contain";
-                cell.style.backgroundRepeat = "no-repeat";
-                cell.style.backgroundPosition = "top center";
-                cell.innerHTML = `<span class="activity-points">Refueling</span>`;
-            }
-            }
-
-            if (dStr === todayStr) {
-            cell.style.border = "2px solid blue";
-            cell.style.fontWeight = "bold";
-            }
-
-            row.appendChild(cell);
-        }
-
-        return row;
-        }
-
-        
-        function applyCategoryFilter(category) {
-            const athleteRows = document.querySelectorAll('#calendarBody tr');
-            athleteRows.forEach(row => {
-                const categoryAttr = row.getAttribute('data-category');
-                if (categoryAttr === category) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
-            });
-        }
-
-        
-        const themeToggle = document.getElementById('theme');
-
-        // Toggle dark mode and save setting
-        themeToggle.addEventListener("change", () => {
-            const isDarkMode = themeToggle.checked;
-            document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
-            localStorage.setItem("darkMode", isDarkMode);
-        });
-        
-        function formatMedalWinners(medalWinners, athletes) {
-            if (!medalWinners || medalWinners.length === 0) return 'N/A';
-            return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join('<br> ');
-        }
-
-        // Function to format date as "1st Feb", "2nd Feb", "3rd Feb"
-        function formatDateHeader(date) {
-            const day = date.getDate();
-            const month = date.toLocaleString("en-US", { month: "short" }); // "Feb"
-            
-            // Add suffix (st, nd, rd, th)
-            let suffix = "th";
-            if (day === 1 || day === 21 || day === 31) suffix = "st";
-            else if (day === 2 || day === 22) suffix = "nd";
-            else if (day === 3 || day === 23) suffix = "rd";
-
-            return `${day}<sup>${suffix}</sup> ${month}`; // Example: "1st Feb"
-        }
-
-        // Fetch activities and display them in the calendar
-        const fetchActivities = async (category=100) => {
-            let month = 7;
-            let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
-
-            calendarHeader.innerHTML = '';
-            calendarBody.innerHTML = '';
-
-            try {
-                const response = await fetch(`/activitiesByEvent?eventid=tkfvr&month=${month}&category=${category}`);
-                const { activities, medals } = await response.json();
-                clearTimeout(loaderTimeout);
-                loader.style.display = 'none'; // Hide loader
-
-                /*
-                distance: 13596.8
-                emoji: "🏃‍♂️"
-                id: 15248158031
-                moving_time: 6394
-                name: "Jabardast July @ 26 aka Greenathon HM"
-                points: 19
-                start_date: "2025-07-27T05:38:47.000Z"
-                type: "Run"
-                */
-                
-                const athletes = {};
-                activities.forEach(activity => {
-                    
-                    const athleteId = activity.athlete.id;
-                    if (!athletes[athleteId]) {
-                        athletes[athleteId] = {
-                            athleteId: athleteId,
-                            restDay: activity.athlete.restDay,
-                            gender: activity.athlete.gender,
-                            team: activity.athlete.team,
-                            category: activity.athlete.category,
-                            name: `${activity.athlete.firstname} ${activity.athlete.lastname}`,
-                            profile: activity.athlete.profile, // Default photo
-                            activities: {}
-                        };
-                    }
-                    const activityDate = new Date(activity.start_date).toLocaleDateString('en-IN', { timeZone: 'UTC' });
-                    if (!athletes[athleteId].activities[activityDate]) {
-                        athletes[athleteId].activities[activityDate] = [];
-                    }
-                    athletes[athleteId].activities[activityDate].push(activity);
-
-                });
-                // const medalsContainer = document.getElementById('medals');
-
-                // medalsContainer.innerHTML = `
-                //     <p>🥇 ${formatMedalWinners(medals.gold, athletes)}</p>
-                //     <p>🥈 ${formatMedalWinners(medals.silver, athletes)}</p>
-                //     <p>🥉 ${formatMedalWinners(medals.bronze, athletes)}</p>
-                // `;
-
-                // Generate calendar header (dates)
-                const currentDate = new Date();
-                const startOfMonth = month === 'current' ? new Date(currentDate.getFullYear(), currentDate.getMonth(), 1) : new Date(currentDate.getFullYear(), month, 1);
-                const endOfMonth = month === 'current' ? new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0) : new Date(currentDate.getFullYear(), month + 1, 0);
-
-                const headerRow = document.createElement('tr');
-                headerRow.innerHTML = '<th>Athlete</th>'; // First column for athlete names
-
-                for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
-                    const dateCell = document.createElement('th');
-                    dateCell.innerHTML = formatDateHeader(date);
-                    headerRow.appendChild(dateCell);
-                }
-
-                calendarHeader.appendChild(headerRow);
-
-                // Generate calendar body
-                Object.values(athletes).forEach(athlete => {
-                    let monthlyDistance = 0;
-                    Object.values(athlete.activities).forEach(dayActivities => {
-                        dayActivities.forEach(activity => {
-                            monthlyDistance += activity.distance;
-                        });
-                    });
-                    
-                    const DISTANCE_GOAL = parseInt(athlete.category) || 250;
-                    const progressPercent = Math.min(100, (monthlyDistance / DISTANCE_GOAL) * 100).toFixed(1); // Cap at 100%
-
-
-                    const row = document.createElement('tr');
-                    const athleteCell = document.createElement('td');
-
-                    //athleteCell.style.backgroundColor = athlete.team ?  athlete.team : "#ff0000";
-                    athleteCell.style.backgroundColor = "rgba(61, 98, 59, 0.91)";
-                    athleteCell.innerHTML = `
-                        <span class="athlete-name" data-athlete-id="${athlete.name}">
-                        <img class="profile-photo-list" src="${athlete.profile}" />
-                        <br><b style="font-size: 0.85rem; color: #e73707b5">${athlete.name}</b><br>
-                        <span style="font-weight: bold; color: #ff9800; font-size: 1.1rem;">${monthlyDistance.toFixed(2)} KM</span>
-                        <div style="width: 90%; background-color: #ddd; height: 6px; border-radius: 3px; margin: 4px;">
-                            <div style="width: ${progressPercent}%; height: 100%; background-color: #4caf50; border-radius: 3px;"></div>
-                        </div>
-                    </span>
-                    `;
-                    athleteCell.addEventListener('click', () => showProfilePopup(athlete));
-                    row.appendChild(athleteCell);
-
-                    for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
-                        const activityDate = date.toLocaleDateString('en-IN');
-                        //const activity = athlete.activities[activityDate];
-                        const activitiesForDay = athlete.activities[activityDate];
-
-
-                        // Set text content with activity type & points
-                        let points = 0;
-                        let emoji = "";
-
-                        const cell = document.createElement('td');
-                        cell.style.backgroundSize = "contain";
-                        cell.style.backgroundRepeat = "no-repeat";
-                        cell.style.backgroundPosition = "top center";
-                        const todays = new Date().toLocaleDateString('en-IN');
-                        const dayName = getDayName(date);
-                        if (date > currentDate) {
-                            // Skip future dates for the current month
-                            cell.textContent = '';
-                            cell.style.backgroundColor = 'transparent';
-
-                        } else if (activitiesForDay && activitiesForDay.length > 0) {
-                            let totalDistance = 0;
-                            let totalPoints = 0;
-                            let emoji = "🏃‍♂️";
-
-                            activitiesForDay.forEach(activity => {
-                                let points = 0;
-                                const genderEmoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
-                                switch (activity.type.toLowerCase()) {
-                                    case "run":
-                                        points = Math.floor((activity.moving_time / 300) * 0.9);
-                                        break;
-                                    case "walk":
-                                        points = Math.floor((activity.moving_time / 300) * 0.7);
-                                        break;
-                                    default:
-                                        points = 0;
-                                }
-                                totalPoints += points;
-                                totalDistance += activity.distance;
-
-                                if (activity.type.toLowerCase() === "run") {
-                                    emoji = genderEmoji;
-                                }
-                            });
-
-                            cell.style.backgroundColor = 'lightgreen';
-                            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>`;
-                            // cell.style.backgroundSize = "contain";
-                            // cell.style.backgroundRepeat = "no-repeat";
-                            // cell.style.backgroundPosition = "top center";
-                            // Set content for activity type & points
-                            cell.innerHTML = `<span class="activity-text"></span><br>
-                                                <span class="activity-points">${totalDistance} KM</span>`;
-
-                            cell.addEventListener('click', () => showActivityDetails(activitiesForDay, athlete.name));
-                        } else {
-                            cell.innerHTML = `<span class="activity-text"></span><br>
-                                <span class="activity-points" style="font-size: 0.65rem; font-weight: 500;">Refueling</span>`;
-                            cell.style.backgroundColor = '#80d9ff'; // Calm light blue
-                            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>🧃</text></svg>")`;
-
-
-                        }
-                        if (activityDate === todays) {
-                            cell.style.border = "2px solid blue";
-                            cell.style.fontWeight = "bold";
-                        }
-
-                        row.appendChild(cell);
-                    }
-
-                    calendarBody.appendChild(row);
-                });
-            } catch (error) {
-                clearTimeout(loaderTimeout);
-                loader.style.display = 'none'; // Hide loader
-                console.error('Error fetching activities:', error);
-            } finally {
-                loader.style.display = 'none'; // Hide loader
-            }
-        };
-
-        // Function to filter athletes by name
-        function filterAthletes() {
-            const q = document.getElementById('searchAthlete').value.trim().toLowerCase();
-
-            // Reset indices based on the query (don’t touch the master arrays)
-            if (!q) {
-                VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
-            } else {
-                VIRT_STATE.filteredIndexes = VIRT_STATE.athletes
-                .map((a, i) => (a._nameLower.includes(q) ? i : -1))
-                .filter(i => i !== -1);
-            }
-
-            // Reset the table body but keep thead
-            const calendarBody = document.getElementById("calendarBody");
-            calendarBody.innerHTML = "";
-
-            // Reset scroll state and sentinel
-            VIRT_STATE.nextIndex = 0;
-            if (VIRT_STATE.observer) {
-                VIRT_STATE.observer.disconnect();
-                VIRT_STATE.observer = null;
-            }
-
-            // Render first chunk for filtered list
-            renderNextChunk();
-
-            // Re-add sentinel
-            const sentinel = document.createElement("tr");
-            sentinel.id = "virt-sentinel";
-            sentinel.innerHTML = `<td colspan="${1 + VIRT_STATE.dateStrs.length}" style="height:1px;padding:0;border:0"></td>`;
-            calendarBody.appendChild(sentinel);
-
-            VIRT_STATE.observer = new IntersectionObserver(entries => {
-                for (const entry of entries) {
-                if (entry.isIntersecting) renderNextChunk();
-                }
-            }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
-            VIRT_STATE.observer.observe(sentinel);
-        }
-
-
-        // Show activity details in a popup
-        const showActivityDetails_old = (activities) => {
-            let html = '';
-            activities.forEach(activity => {
-                html += `
-                    <hr>
-                    <p><strong>Title:</strong> ${activity.name}</p>
-                    <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
-                    <p><strong>Type:</strong> ${activity.type}</p>
-                    <p><strong>Distance:</strong> ${activity.distance} km</p>
-                    <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
-                `;
-            });
-            html = `<p><strong>Athlete:</strong> ${activities[0].athlete.firstname} ${activities[0].athlete.lastname}</p>` + html;
-            activityDetails.innerHTML = html;
-            activityPopup.style.display = 'block';
-};
-
-        const showActivityDetails = (activities, athleteName = "Unknown Athlete") => {
-            let html = `<p><strong>Athlete:</strong> ${athleteName}</p>`;
-            activities.forEach(activity => {
-                html += `
-                    <hr>
-                    <p><strong>Title:</strong> ${activity.name}</p>
-                    <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
-                    <p><strong>Type:</strong> ${activity.type}</p>
-                    <p><strong>Distance:</strong> ${activity.distance} km</p>
-                    <p><strong>Time:</strong> ${(activity.moving_time / 60).toFixed(2)} mins</p>
-                `;
-            });
-            activityDetails.innerHTML = html;
-            activityPopup.style.display = 'block';
-        };
-
-
-        // Show athlete profile in a popup
-        const showProfilePopup = (athlete) => {
-            profilePhoto.src = athlete.profile;
-            profileName.textContent = athlete.name;
-            const activityCounts = {};
-            Object.values(athlete.activities).forEach(activity => {
-                activityCounts[activity.type] = (activityCounts[activity.type] || 0) + 1;
-            });
-
-            // Generate formatted activity count text
-            const activityText = Object.entries(activityCounts)
-                .map(([type, count]) => `Run: <b>${count}</b>`)
-                .join(', ');
-
-            profileActivities.innerHTML = `Activity Count: ${activityText || 'No Activities'}`;
-            profilePopup.style.display = 'block';
-        };
-
-        // Close the popups
-        closePopup.addEventListener('click', () => {
-            activityPopup.style.display = 'none';
-        });
-
-        closeProfilePopup.addEventListener('click', () => {
-            profilePopup.style.display = 'none';
-        });
-
-        // Handle month selection
-        
-        // Event listener for the "Authorize with Strava" button
-        // authButton.addEventListener('click', () => {
-        //     window.location.href = '/auth/strava';
-        // });
-
-        
 
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("/service-worker.js")
@@ -742,5 +239,7 @@
         }
 
     </script>
+    <!-- <script src='https://www.noupe.com/embed/0198ae6285747716a0ad807817842530f55b.js'></script> -->
+    <script src='https://www.noupe.com/embed/0198ae99e30c7defabfff814601e305befda.js'></script>
 </body>
 </html>

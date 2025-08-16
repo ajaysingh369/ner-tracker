@@ -86,6 +86,16 @@ const refreshAccessToken = async (athlete) => {
     }
 };
 
+function istDayKey(iso) {
+  // iso is a UTC ISO string from Strava (e.g., "2025-08-14T21:30:00Z")
+  const d = new Date(iso);
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000); // shift to IST
+  const y = ist.getUTCFullYear();
+  const m = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(ist.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`; // "YYYY-MM-DD" in IST
+}
+
 // OAuth Authentication with Strava
 app.get('/auth/strava', (req, res) => {
     const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,read_all`;
@@ -125,12 +135,20 @@ app.get('/auth/strava/callback', async (req, res) => {
 
 // Token refresh with locking
 async function safeRefreshAccessToken(athlete) {
-    if (!refreshLocks[athlete.athleteId]) {
-        refreshLocks[athlete.athleteId] = refreshAccessToken(athlete)
-            .finally(() => { delete refreshLocks[athlete.athleteId]; });
-    }
-    return refreshLocks[athlete.athleteId];
+  if (!refreshLocks.has(athlete.athleteId)) {
+    const p = refreshAccessToken(athlete).finally(() => refreshLocks.delete(athlete.athleteId));
+    refreshLocks.set(athlete.athleteId, p);
+  }
+  return refreshLocks.get(athlete.athleteId);
 }
+
+// async function safeRefreshAccessToken(athlete) {
+//     if (!refreshLocks[athlete.athleteId]) {
+//         refreshLocks[athlete.athleteId] = refreshAccessToken(athlete)
+//             .finally(() => { delete refreshLocks[athlete.athleteId]; });
+//     }
+//     return refreshLocks[athlete.athleteId];
+// }
 
 async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp, retry = true) {
     const now = Date.now();
@@ -140,7 +158,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
     let activities = [];
     let page = 1;
     const perPage = 100;
-    const adjustEndTimeStamp = endTimestamp+86400;
+    const adjustEndTimeStamp = endTimestamp;
 
     try {
         while (true) {
@@ -500,7 +518,8 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
               // We expect only activities of this *exact* date
               // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
               activityList.forEach(activity => {
-                const dayKey = new Date(activity.start_date).toISOString().split('T')[0];
+                const dayKey = istDayKey(activity.start_date);
+                if (dayKey !== dateISO) console.log("date differes in sync::", dayKey, dateISO); return;
                 const athleteId = activity.athlete.id;
   
                 if (!updates[athleteId]) {
@@ -513,10 +532,10 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
                     syncStatusByDate: {}
                   };
                 }
-                if (!updates[athleteId].activitiesByDate[dayKey]) {
-                  updates[athleteId].activitiesByDate[dayKey] = [];
+                if (!updates[athleteId].activitiesByDate[dateISO]) {
+                  updates[athleteId].activitiesByDate[dateISO] = [];
                 }
-                updates[athleteId].activitiesByDate[dayKey].push({
+                updates[athleteId].activitiesByDate[dateISO].push({
                   id: activity.id,
                   name: activity.name,
                   distance: activity.distance,
@@ -526,7 +545,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
                   points: activity.points,
                   emoji: activity.emoji
                 });
-                updates[athleteId].syncStatusByDate[dayKey] = 'present';
+                updates[athleteId].syncStatusByDate[dateISO] = 'present';
               });
             });
   
@@ -901,6 +920,91 @@ app.get('/activitiesByEvent', async (req, res) => {
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   });
+
+// Use an environment variable for admin protection
+const ADMIN_SECRET = process.env.ADMIN_SECRET || "ajaysingh369";
+
+// Simple header-based guard
+function assertAdmin(req, res, next) {
+  const secret = req.header("x-admin-secret");
+  if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
+
+/**
+ * POST /admin/clearSyncStatus
+ * Body: {
+ *   "eventId": "BADHTE_KADAM_2025_AUG",
+ *   "dates": ["2025-08-15", "2025-08-16"],
+ *   "athleteIds": ["12345","67890"], // optional
+ *   "dryRun": true                    // optional (default: false)
+ * }
+ */
+app.post("/admin/clearSyncStatus", assertAdmin, async (req, res) => {
+  try {
+    const { eventId, dates, athleteIds, dryRun = false } = req.body || {};
+
+    if (!eventId || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({
+        error: "Invalid payload. 'eventId' and non-empty 'dates[]' are required.",
+      });
+    }
+
+    // Validate YYYY-MM-DD format and build $unset map
+    const unsetFields = {};
+    for (const d of dates) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        return res.status(400).json({ error: `Invalid date format: ${d}. Use YYYY-MM-DD.` });
+      }
+      unsetFields[`activitiesByDate.${d}`] = [];
+      unsetFields[`syncStatusByDate.${d}`] = "";
+    }
+
+    // Build filter
+    const filter = { eventId: String(eventId) };
+    if (Array.isArray(athleteIds) && athleteIds.length) {
+      filter.athleteId = { $in: athleteIds.map(String) };
+    }
+
+    // How many docs match?
+    const matched = await EventActivity.countDocuments(filter);
+
+    // If dryRun, don’t modify—just report
+    if (dryRun) {
+      return res.json({
+        eventId,
+        dates,
+        athleteIds: athleteIds || null,
+        matched,
+        modified: 0,
+        dryRun: true,
+        note: "This was a dry run—no changes were made.",
+      });
+    }
+
+    // Perform the unset
+    const result = await EventActivity.updateMany(filter, { $unset: unsetFields });
+    const modified =
+      typeof result.modifiedCount === "number"
+        ? result.modifiedCount
+        : (result.nModified || 0);
+
+    return res.json({
+      eventId,
+      dates,
+      athleteIds: athleteIds || null,
+      matched,
+      modified,
+      dryRun: false,
+    });
+  } catch (err) {
+    console.error("clearSyncStatus error:", err);
+    return res.status(500).json({ error: "Internal error", details: err.message });
+  }
+});
+
 
 // Start Server
 const PORT = process.env.PORT || 3003;
