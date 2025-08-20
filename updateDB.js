@@ -212,7 +212,7 @@ curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: 
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
   -H "Content-Type: application/json" \
-  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-12","endDate":"2025-08-12","categories":["100", "150", "200"]}'
+  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-18","endDate":"2025-08-18","categories":["100", "150", "200"]}'
 
 
 
