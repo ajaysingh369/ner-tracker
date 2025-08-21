@@ -168,25 +168,41 @@ function renderCalendar(athletes, activities) {
     // ---- Build indexes
     const activityMap = new Map();    // `${athleteId}-${yyyy-mm-dd}` -> [acts]
     const distanceTotals = new Map(); // athleteId -> total KM up to today
-    const activeDays = new Map();         // key: athleteId -> count of distinct days with ≥1 act (≤ today)
+    //const activeDays = new Map();         // key: athleteId -> count of distinct days with ≥1 act (≤ today)
+    const activeDaySets = new Map();
 
     for (const entry of activities) {
         const athleteId = entry.athleteId;
         const byDate = entry.activitiesByDate || {};
         for (const dateStr in byDate) {
+            const acts = byDate[dateStr] || [];
+            
             const key = `${athleteId}-${dateStr}`;
             const list = activityMap.get(key);
-            if (list) list.push(...byDate[dateStr]);
-            else activityMap.set(key, [...byDate[dateStr]]);
+            if (list) list.push(...acts);
+            else activityMap.set(key, [...acts]);
 
+            // Only consider days up to today
             if (dateStr <= todayStr) {
-                const dayKm = byDate[dateStr].reduce((sum, a) => sum + (+a.distance || 0), 0);
+                // keep your existing distance accumulation
+                const dayKm = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
                 distanceTotals.set(athleteId, (distanceTotals.get(athleteId) || 0) + dayKm);
-
-                // active day count
-                activeDays.set(athleteId, (activeDays.get(athleteId) || 0) + 1);
+        
+                // active day = at least one activity >= 2 km
+                const isValidActive = acts.some(a => (+a.distance || 0) >= 2);
+                if (isValidActive) {
+                let s = activeDaySets.get(athleteId);
+                if (!s) { s = new Set(); activeDaySets.set(athleteId, s); }
+                s.add(dateStr);
+                }
             }
         }
+    }
+
+    // materialize counts
+    const activeDays = new Map();
+    for (const [athleteId, set] of activeDaySets) {
+        activeDays.set(athleteId, set.size);
     }
 
     // ---- Sort athletes by total distance (desc)
