@@ -473,7 +473,10 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
             {
               eventId,
               month,
-              [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] }
+              $or: [
+                { [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] } },
+                { [`activitiesByDate.${dateISO}`]: { $exists: true } } // legacy guard
+              ]
             },
             { athleteId: 1 }
           );
@@ -659,17 +662,13 @@ app.post('/syncEventActivities', async (req, res) => {
     const allCategories = ["100"];  //["100", "150", "200"];
 
     // Fetch all athletes of selected category
-    //const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
-    //const athletes = await Athlete.find({ athleteId: { $in: ["61676509", "148869247"] } });
     //const athletes = await Athlete.find({ athleteId: "179482954" });
     const summary = [];
 
     for (const category of allCategories) {
         console.log(`\n=== Starting sync for category ${category} ===`);
 
-        //const athletes = await Athlete.find({ athleteId: { $in: ["180767613", "179474640", "178581154", "178886643", "179553849", "179079797", "175300317", 113441625", "116199491", "178718682", ""] } });
-        //let athletes = await Athlete.find({ category });
-        const athletes = await Athlete.find({ athleteId: "34629659" });
+       let athletes = await Athlete.find({ category });
         if (!athletes.length) {
             console.log(`⚠️ No athletes found for category ${category}`);
             summary.push({ category, processed: 0, skipped: 0, fetched: 0 });
