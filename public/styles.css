@@ -80,7 +80,7 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 /* the stamp */
 .qualified-stamp {
   position: absolute; top: 25px; left: 25px; padding: 4px 8px;
-  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;color: #fc000066;
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;color: #ff6100;
   border: 2px solid #28a745;border-radius: 6px; background: rgba(40,167,69,0.12); box-shadow: 0 2px 8px rgba(40,167,69,0.25);
   transform: rotate(-10deg) scale(0.9);opacity: 0;pointer-events: none; transition: opacity .2s ease-out, transform .2s ease-out;
 }
@@ -93,7 +93,7 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
   60%  { transform: rotate(-10deg) scale(0.95); opacity: 0.6; }
   100% { transform: rotate(-10deg) scale(1); opacity: 1; }
 }
-.qualified-stamp.stamp-animate {animation: stamp-pop 1520ms cubic-bezier(.2,.9,.2,1) both;}
+.qualified-stamp.stamp-animate {animation: stamp-pop 2520ms cubic-bezier(.2,.9,.2,1) both;}
 .event-description {margin-top: 16px; line-height: 1.5; font-size: 1rem; color: #444;}
 .glowing-note {font-size: 12px; font-weight: bold; color: #fff; text-align: center; margin: 1px 0;
   text-shadow: 
