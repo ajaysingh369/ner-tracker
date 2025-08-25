@@ -212,7 +212,8 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 
             if (!retry) {
                 console.error(`❌ Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
-                return [];
+                //return [];
+                return -1;
             }
             //const newTokenData = await refreshAccessToken(athlete);
             const newTokenData = await safeRefreshAccessToken(athlete);
@@ -358,7 +359,6 @@ app.post('/syncEventActivities_New', async (req, res) => {
 });
 
 
-// Helper — fetch activities & handle token refresh safely
 // Helper — fetch activities & handle token refresh safely
 async function fetchAthleteActivitiesWithRefresh(athlete, startTimestamp, endTimestamp) {
     let refreshedOnce = false; // ✅ Limit refresh attempts
@@ -511,6 +511,10 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
   
             results.forEach(result => {
               if (result.status !== 'fulfilled') return;
+              if (result.value === -1) {
+                console.log(`   ✗ Fetch failed (val -1) for ${a.athleteId}`);
+                return;
+              }
               const activityList = result.value || [];
               if (activityList.length > 0) fetchedCount++;
   
@@ -1002,6 +1006,129 @@ app.post("/admin/clearSyncStatus", assertAdmin, async (req, res) => {
     return res.status(500).json({ error: "Internal error", details: err.message });
   }
 });
+
+// /admin/exportActivities?eventId=BADHTE_KADAM_2025_AUG&month=202508&from=2025-08-01&to=2025-08-16
+app.get("/admin/exportActivities", assertAdmin, async (req, res) => {
+  try {
+    const { eventId, month, from, to } = req.query || {};
+    if (!eventId || month == null) {
+      return res.status(400).json({ error: "eventId and month are required" });
+    }
+
+    // month stored as "7" (string) in DB; accept 7 or "7"
+    const monthNum = Number(String(month).replace(/\D/g, "")); // "7" -> 7
+    if (!Number.isFinite(monthNum)) {
+      return res.status(400).json({ error: "month must be a number like 7 or '7'" });
+    }
+    const monthVariants = [monthNum, String(monthNum)]; // matches 7 and "7"
+
+    // optional date filter on keys like "2025-08-15"
+    const dateFilter = {};
+    if (from) dateFilter.$gte = from;
+    if (to)   dateFilter.$lte = to;
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
+
+    // CSV headers
+    const headers = [
+      "athleteId","firstname","lastname",
+      "dateISO","activityId","activityName","type",
+      "distance_km","moving_time_sec","start_date_utc"
+    ];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="activities_${eventId}_m${monthNum}${from ? "_from_"+from : ""}${to ? "_to_"+to : ""}.csv"`
+    );
+    res.write(headers.join(",") + "\n");
+
+    // quick visibility
+    const approx = await EventActivity.countDocuments({ eventId, month: { $in: monthVariants } }).catch(() => 0);
+    console.log(`[exportActivities] docs match (top-level):`, approx, { eventId, monthVariants, from, to });
+
+    const pipeline = [
+      { $match: { eventId, month: { $in: monthVariants } } },
+
+      // join names (optional)
+      { $lookup: {
+        from: "athletes",
+        localField: "athleteId",
+        foreignField: "athleteId",
+        as: "ath"
+      }},
+      { $addFields: {
+        ath: { $first: "$ath" },
+        abda: { $objectToArray: { $ifNull: ["$activitiesByDate", {}] } } // [{k:"YYYY-MM-DD", v:[acts]}]
+      }},
+
+      // explode by date
+      { $unwind: { path: "$abda", preserveNullAndEmptyArrays: false } },
+
+      // optional date window
+      ...(hasDateFilter ? [{ $match: { "abda.k": dateFilter } }] : []),
+
+      // explode the activities array for that date
+      { $unwind: { path: "$abda.v", preserveNullAndEmptyArrays: false } },
+
+      // select fields
+      { $project: {
+        _id: 0,
+        athleteId: 1,
+        firstname: "$ath.firstname",
+        lastname: "$ath.lastname",
+        dateISO: "$abda.k",
+        activityId: "$abda.v.id",
+        activityName: "$abda.v.name",
+        type: "$abda.v.type",
+        distance_km: "$abda.v.distance",
+        moving_time_sec: "$abda.v.moving_time",
+        start_date_utc: { $ifNull: ["$abda.v.start_date_utc", "$abda.v.start_date"] }
+      }}
+    ];
+
+    // IMPORTANT: no .exec() after .cursor()
+    const cursor = EventActivity.aggregate(pipeline)
+      .allowDiskUse(true)                    // safer for big outputs
+      .cursor({ batchSize: 200 });           // returns AggregationCursor
+
+    const esc = (v) => {
+      if (v === undefined || v === null) return "";
+      const s = String(v);
+      return (s.includes(",") || s.includes("\"") || s.includes("\n"))
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+
+    let rows = 0;
+    // AggregationCursor is async iterable in modern Node/Mongoose
+    for await (const row of cursor) {
+      rows++;
+      const line = [
+        row.athleteId,
+        row.firstname || "",
+        row.lastname || "",
+        row.dateISO,
+        row.activityId,
+        row.activityName,
+        row.type,
+        row.distance_km ?? "",
+        row.moving_time_sec ?? "",
+        row.start_date_utc ?? ""
+      ].map(esc).join(",");
+      res.write(line + "\n");
+    }
+
+    console.log(`[exportActivities] wrote rows:`, rows);
+    res.end();
+  } catch (err) {
+    console.error("exportActivities error:", err);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+    else try { res.end(); } catch {}
+  }
+});
+
+
+
 
 
 // Start Server
