@@ -167,6 +167,8 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
                 params: { after: startTimestamp, before: adjustEndTimeStamp, per_page: perPage, page }
             });
 
+            //console.log("fetchAthleteActivitiesByEvent::", startTimestamp, adjustEndTimeStamp, response.data)
+
             if (response.data.length === 0) break;
 
             // Process activities with athlete data
@@ -212,8 +214,8 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 
             if (!retry) {
                 console.error(`❌ Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
-                //return [];
-                return -1;
+                return [];
+                //return -1;
             }
             //const newTokenData = await refreshAccessToken(athlete);
             const newTokenData = await safeRefreshAccessToken(athlete);
@@ -520,6 +522,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
   
               // We expect only activities of this *exact* date
               // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
+              //console.log("ACTIVITY LIST::", JSON.stringify(activityList));
               activityList.forEach(activity => {
                 const dayKey = istDayKey(activity.start_date);
                 if (dayKey !== dateISO) {
