@@ -98,7 +98,7 @@ function istDayKey(iso) {
 
 // OAuth Authentication with Strava
 app.get('/auth/strava', (req, res) => {
-  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,read_all`;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all`;
   res.redirect(url);
 });
 
@@ -114,17 +114,76 @@ app.get('/auth/strava/callback', async (req, res) => {
       grant_type: 'authorization_code'
     });
 
-    await Athlete.findOneAndUpdate(
-      { athleteId: tokenResponse.data.athlete.id },
-      {
-        accessToken: tokenResponse.data.access_token,
-        refreshToken: tokenResponse.data.refresh_token,
-        firstname: tokenResponse.data.athlete.firstname,
-        lastname: tokenResponse.data.athlete.lastname,
-        profile: tokenResponse.data.athlete.profile
-      },
-      { upsert: true, new: true }
-    );
+    const athleteData = tokenResponse.data.athlete;
+    const accessToken = tokenResponse.data.access_token;
+    const refreshToken = tokenResponse.data.refresh_token;
+    const stravaId = String(athleteData.id);
+    const email = athleteData.email;
+
+    console.log(`DEBUG: Auth callback for ID: ${stravaId}, Email: ${email}`);
+
+    // 1. Try to find by Strava ID
+    let athlete = await Athlete.findOne({ athleteId: stravaId });
+
+    if (athlete) {
+      console.log(`✅ Found existing athlete by ID: ${stravaId}`);
+      // Update existing
+      athlete.accessToken = accessToken;
+      athlete.refreshToken = refreshToken;
+      athlete.firstname = athleteData.firstname;
+      athlete.lastname = athleteData.lastname;
+      athlete.profile = athleteData.profile;
+      if (email) athlete.email = email; // Update email if provided
+
+      // If it was a dummy (unlikely if found by Strava ID, but possible if ID was manually set?)
+      if (athlete.dummy) {
+        athlete.dummy = false;
+        athlete.status = 'confirmed';
+      }
+      await athlete.save();
+    } else {
+      // 2. Not found by ID, try email (if available)
+      if (email) {
+        console.log(`🔍 Looking for athlete by email: ${email}`);
+        // Case-insensitive search might be better, but exact match for now
+        athlete = await Athlete.findOne({ email: email });
+      }
+
+      if (athlete) {
+        // Found by email -> It's a dummy or pre-registered user
+        console.log(`✅ Merging dummy/pre-registered athlete ${athlete.athleteId} with Strava ID ${stravaId}`);
+
+        // If it was a dummy, we replace the ID with the real Strava ID
+        // Note: Changing _id is hard, but we are using 'athleteId' as a custom field.
+        // We need to check if 'athleteId' is unique. It is.
+        // But we are updating THIS document's athleteId.
+
+        athlete.athleteId = stravaId;
+        athlete.accessToken = accessToken;
+        athlete.refreshToken = refreshToken;
+        athlete.firstname = athleteData.firstname;
+        athlete.lastname = athleteData.lastname;
+        athlete.profile = athleteData.profile;
+        athlete.dummy = false;
+        athlete.status = 'confirmed';
+        await athlete.save();
+      } else {
+        // 3. New user
+        console.log(`✨ Creating new athlete: ${stravaId}`);
+        athlete = await Athlete.create({
+          athleteId: stravaId,
+          accessToken,
+          refreshToken,
+          firstname: athleteData.firstname,
+          lastname: athleteData.lastname,
+          profile: athleteData.profile,
+          email: email,
+          status: 'confirmed', // Auto-confirm new authorizations? Or 'pending'? User said "insert". 
+          // Let's default to 'confirmed' since they just authorized.
+          dummy: false
+        });
+      }
+    }
 
     res.redirect('/');
   } catch (error) {
@@ -208,10 +267,10 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
     // 🛑 If error is 401, refresh token
     if (error.response && error.response.status === 401) {
 
-      console.log(`🔄 fetchAthleteActivitiesByEvent::Access token expired for athlete ${athlete.athleteId}, refreshing...`);
+      console.log(`🔄 Access token expired for athlete ${athlete.athleteId}, refreshing...`);
 
       if (!retry) {
-        console.error(`❌ fetchAthleteActivitiesByEvent::Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
+        console.error(`❌ Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
         return [];
       }
       //const newTokenData = await refreshAccessToken(athlete);
@@ -229,11 +288,16 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 
     if (error.response && error.response.status === 429) {
       console.warn(`⏳ Rate limited for athlete ${athlete.athleteId}, using stale cache if available.`);
+      // if (fs.existsSync(cacheFile)) {
+      //     const fileData = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+      //     return fileData;
+      // }
     }
 
     console.error(`❌ Error fetching activities for athlete ${athlete.athleteId}:`, error.message);
     return [];
   }
+
 
   //return activities;
 }
@@ -526,6 +590,143 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
               if (!updates[athleteId]) {
                 updates[athleteId] = {
                   athleteId,
+=======
+    try {
+      const {
+        eventId,
+        month,
+        startDate,
+        endDate,
+        categories
+      } = req.body;
+
+      if (!eventId || month === undefined) {
+        return res.status(400).json({ error: 'eventId and month are required' });
+      }
+
+      const todayIST = (() => {
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const now = new Date(Date.now() + istOffset);
+        return now.toISOString().split('T')[0];
+      })();
+
+      const startISO = startDate || '2025-08-01';
+      const endISO = endDate || todayIST;
+      const cats = Array.isArray(categories) && categories.length ? categories : ['100', '150', '200'];
+
+      const summary = [];
+      const MAX_REQUESTS_PER_WINDOW = 95; // safety margin
+      const DEFAULT_BATCH = 10;
+
+      // Iterate dates outer → reduces memory + lets us skip fast per-date
+      for (const dateISO of dateRangeIter(startISO, endISO)) {
+        console.log(`\n📅 Syncing date ${dateISO}`);
+
+        for (const category of cats) {
+          console.log(` ▶️ Category ${category}`);
+
+          const athletes = await Athlete.find({ category });
+          if (!athletes.length) {
+            console.log(`  ⚠️ No athletes in ${category}`);
+            summary.push({ date: dateISO, category, processed: 0, skipped: 0, fetched: 0 });
+            continue;
+          }
+
+          // Find athleteIds already synced for this date (present or empty)
+          const alreadySyncedDocs = await EventActivity.find(
+            {
+              eventId,
+              month,
+              $or: [
+                { [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] } },
+                { [`activitiesByDate.${dateISO}`]: { $exists: true } } // legacy guard
+              ]
+            },
+            { athleteId: 1 }
+          );
+
+          const alreadySynced = new Set(alreadySyncedDocs.map(d => d.athleteId));
+          const toProcess = athletes.filter(a => !alreadySynced.has(a.athleteId));
+
+          const skipped = athletes.length - toProcess.length;
+          console.log(`  Athletes total: ${athletes.length}, to process: ${toProcess.length}, skipped: ${skipped}`);
+
+          if (toProcess.length === 0) {
+            summary.push({ date: dateISO, category, processed: 0, skipped, fetched: 0 });
+            continue;
+          }
+
+          // Adaptive batch + delay
+          const BATCH_SIZE = toProcess.length > 50 ? Math.min(DEFAULT_BATCH, 8) : DEFAULT_BATCH;
+          const estDelayMs = Math.ceil((15 * 60 * 1000) / (MAX_REQUESTS_PER_WINDOW / BATCH_SIZE)); // coarse budget
+          let fetchedCount = 0;
+
+          const updates = {}; // athleteId -> upsert payload
+
+          const { after, before } = toUnixRangeForIST(dateISO);
+
+          for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+            const batch = toProcess.slice(i, i + BATCH_SIZE);
+            console.log(`  • Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toProcess.length / BATCH_SIZE)}`);
+
+            const results = await Promise.allSettled(
+              batch.map(a => fetchAthleteActivitiesByEvent(a, after, before))
+            );
+
+            results.forEach(result => {
+              if (result.status !== 'fulfilled') return;
+              if (result.value === -1) {
+                console.log(`   ✗ Fetch failed (val -1) for ${a.athleteId}`);
+                return;
+              }
+              const activityList = result.value || [];
+              if (activityList.length > 0) fetchedCount++;
+
+              // We expect only activities of this *exact* date
+              // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
+              //console.log("ACTIVITY LIST::", JSON.stringify(activityList));
+              activityList.forEach(activity => {
+                const dayKey = istDayKey(activity.start_date);
+                if (dayKey !== dateISO) {
+                  console.log("date differes in sync::", dayKey, dateISO, activity.start_date);
+                  return;
+                }
+                const athleteId = activity.athlete.id;
+
+                if (!updates[athleteId]) {
+                  updates[athleteId] = {
+                    athleteId,
+                    eventId,
+                    month,
+                    athlete: activity.athlete,
+                    activitiesByDate: {},
+                    syncStatusByDate: {}
+                  };
+                }
+                if (!updates[athleteId].activitiesByDate[dateISO]) {
+                  updates[athleteId].activitiesByDate[dateISO] = [];
+                }
+                updates[athleteId].activitiesByDate[dateISO].push({
+                  id: activity.id,
+                  name: activity.name,
+                  distance: activity.distance,
+                  moving_time: activity.moving_time,
+                  start_date: activity.start_date,
+                  type: activity.type,
+                  points: activity.points,
+                  emoji: activity.emoji
+                });
+                updates[athleteId].syncStatusByDate[dateISO] = 'present';
+              });
+            });
+
+            // Mark EMPTY for any athlete in this batch that returned zero activities
+            for (const a of batch) {
+              if (updates[a.athleteId]) continue; // has present data for some dayKey
+              // Explicitly mark this date as empty
+              if (!updates[a.athleteId]) {
+                updates[a.athleteId] = {
+                  athleteId: a.athleteId,
                   eventId,
                   month,
                   athlete: activity.athlete,
@@ -557,6 +758,50 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
             if (!updates[a.athleteId]) {
               updates[a.athleteId] = {
                 athleteId: a.athleteId,
+=======
+// POST endpoint to fetch today's activities and store in DB
+app.post('/syncEventActivities', async (req, res) => {
+    const { eventId, month, date } = req.body;
+    console.log(eventId, month, date);
+
+    if (!eventId || month === undefined || !date) {
+        return res.status(400).json({ error: 'eventId, month, and date (YYYY-MM-DD) are required' });
+    }
+
+    const parsedDate = new Date(date + "T00:00:00.000+05:30");
+    if (isNaN(parsedDate)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+    }
+
+    const today = new Date();
+    const daysOld = Math.floor((today - parsedDate) / (1000 * 60 * 60 * 24));
+
+    const startOfDay = new Date(parsedDate);
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+    const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
+    const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
+
+    const allCategories = ["100"];  //["100", "150", "200"];
+
+    // Fetch all athletes of selected category
+    //const athletes = await Athlete.find({ athleteId: "179482954" });
+    const summary = [];
+
+    for (const category of allCategories) {
+        console.log(`\n=== Starting sync for category ${category} ===`);
+
+       let athletes = await Athlete.find({ category });
+        if (!athletes.length) {
+            console.log(`⚠️ No athletes found for category ${category}`);
+            summary.push({ category, processed: 0, skipped: 0, fetched: 0 });
+            continue;
+        }
+
+        // Skip check for old dates
+        let existingDocsMap = new Map();
+        if (daysOld > 2) {
+            const existingDocs = await EventActivity.find({
                 eventId,
                 month,
                 athlete: {
@@ -1029,6 +1274,129 @@ app.post("/admin/clearSyncStatus", assertAdmin, async (req, res) => {
     return res.status(500).json({ error: "Internal error", details: err.message });
   }
 });
+
+// /admin/exportActivities?eventId=BADHTE_KADAM_2025_AUG&month=202508&from=2025-08-01&to=2025-08-16
+app.get("/admin/exportActivities", assertAdmin, async (req, res) => {
+  try {
+    const { eventId, month, from, to } = req.query || {};
+    if (!eventId || month == null) {
+      return res.status(400).json({ error: "eventId and month are required" });
+    }
+
+    // month stored as "7" (string) in DB; accept 7 or "7"
+    const monthNum = Number(String(month).replace(/\D/g, "")); // "7" -> 7
+    if (!Number.isFinite(monthNum)) {
+      return res.status(400).json({ error: "month must be a number like 7 or '7'" });
+    }
+    const monthVariants = [monthNum, String(monthNum)]; // matches 7 and "7"
+
+    // optional date filter on keys like "2025-08-15"
+    const dateFilter = {};
+    if (from) dateFilter.$gte = from;
+    if (to)   dateFilter.$lte = to;
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
+
+    // CSV headers
+    const headers = [
+      "athleteId","firstname","lastname",
+      "dateISO","activityId","activityName","type",
+      "distance_km","moving_time_sec","start_date_utc"
+    ];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="activities_${eventId}_m${monthNum}${from ? "_from_"+from : ""}${to ? "_to_"+to : ""}.csv"`
+    );
+    res.write(headers.join(",") + "\n");
+
+    // quick visibility
+    const approx = await EventActivity.countDocuments({ eventId, month: { $in: monthVariants } }).catch(() => 0);
+    console.log(`[exportActivities] docs match (top-level):`, approx, { eventId, monthVariants, from, to });
+
+    const pipeline = [
+      { $match: { eventId, month: { $in: monthVariants } } },
+
+      // join names (optional)
+      { $lookup: {
+        from: "athletes",
+        localField: "athleteId",
+        foreignField: "athleteId",
+        as: "ath"
+      }},
+      { $addFields: {
+        ath: { $first: "$ath" },
+        abda: { $objectToArray: { $ifNull: ["$activitiesByDate", {}] } } // [{k:"YYYY-MM-DD", v:[acts]}]
+      }},
+
+      // explode by date
+      { $unwind: { path: "$abda", preserveNullAndEmptyArrays: false } },
+
+      // optional date window
+      ...(hasDateFilter ? [{ $match: { "abda.k": dateFilter } }] : []),
+
+      // explode the activities array for that date
+      { $unwind: { path: "$abda.v", preserveNullAndEmptyArrays: false } },
+
+      // select fields
+      { $project: {
+        _id: 0,
+        athleteId: 1,
+        firstname: "$ath.firstname",
+        lastname: "$ath.lastname",
+        dateISO: "$abda.k",
+        activityId: "$abda.v.id",
+        activityName: "$abda.v.name",
+        type: "$abda.v.type",
+        distance_km: "$abda.v.distance",
+        moving_time_sec: "$abda.v.moving_time",
+        start_date_utc: { $ifNull: ["$abda.v.start_date_utc", "$abda.v.start_date"] }
+      }}
+    ];
+
+    // IMPORTANT: no .exec() after .cursor()
+    const cursor = EventActivity.aggregate(pipeline)
+      .allowDiskUse(true)                    // safer for big outputs
+      .cursor({ batchSize: 200 });           // returns AggregationCursor
+
+    const esc = (v) => {
+      if (v === undefined || v === null) return "";
+      const s = String(v);
+      return (s.includes(",") || s.includes("\"") || s.includes("\n"))
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+
+    let rows = 0;
+    // AggregationCursor is async iterable in modern Node/Mongoose
+    for await (const row of cursor) {
+      rows++;
+      const line = [
+        row.athleteId,
+        row.firstname || "",
+        row.lastname || "",
+        row.dateISO,
+        row.activityId,
+        row.activityName,
+        row.type,
+        row.distance_km ?? "",
+        row.moving_time_sec ?? "",
+        row.start_date_utc ?? ""
+      ].map(esc).join(",");
+      res.write(line + "\n");
+    }
+
+    console.log(`[exportActivities] wrote rows:`, rows);
+    res.end();
+  } catch (err) {
+    console.error("exportActivities error:", err);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+    else try { res.end(); } catch {}
+  }
+});
+
+
+
 
 
 // Start Server
