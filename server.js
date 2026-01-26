@@ -15,10 +15,26 @@ const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/strava/callback';
 const MONGO_URI = process.env.MONGO_URI;
 
-// Connect to MongoDB
-mongoose.connect(MONGO_URI, { useUnifiedTopology: true })
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ Error connecting to MongoDB:', err));
+// Global variable to cache the connection across invocations
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    return cachedDb;
+  }
+
+  // Fix: prevent buffering which can cause timeouts
+  mongoose.set('strictQuery', false);
+
+  cachedDb = await mongoose.connect(MONGO_URI, {
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000, // Fail fast if DB is down
+    socketTimeoutMS: 45000,
+  });
+
+  console.log('✅ New MongoDB Connection established');
+  return cachedDb;
+}
 
 // Define Schema for Athletes
 const athleteSchema = new mongoose.Schema({
@@ -49,11 +65,11 @@ const EventActivity = mongoose.model('EventActivity', new mongoose.Schema({
 
 const Athlete = mongoose.model('Athlete', athleteSchema);
 //athleteSchema.index({ category: 1, status: 1, athleteId: 1 });
-Athlete.createIndexes().then(() => {
-  console.log('✅ Athlete indexes ensured');
-}).catch(err => {
-  console.error('❌ Athlete index creation error:', err.message);
-});
+// Athlete.createIndexes().then(() => {
+//   console.log('✅ Athlete indexes ensured');
+// }).catch(err => {
+//   console.error('❌ Athlete index creation error:', err.message);
+// });
 
 
 
@@ -103,6 +119,7 @@ app.get('/auth/strava', (req, res) => {
 });
 
 app.get('/auth/strava/callback', async (req, res) => {
+  await connectToDatabase();
   const code = req.query.code;
   if (!code) return res.status(400).send('❌ Authorization code not found');
 
@@ -242,6 +259,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 const refreshLocks = new Map();
 
 app.post('/syncEventActivities_New', async (req, res) => {
+  await connectToDatabase();
   const { eventId, month, date } = req.body;
   if (!eventId || month === undefined || !date) {
     return res.status(400).json({ error: 'eventId, month, and date (YYYY-MM-DD) are required' });
@@ -426,6 +444,7 @@ function toUnixRangeForIST(dateISO) {
 
 
 app.post('/syncEventActivitiesRange', async (req, res) => {
+  await connectToDatabase();
   try {
     const {
       eventId,
@@ -637,6 +656,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
 
 // POST endpoint to fetch today's activities and store in DB
 app.post('/syncEventActivities', async (req, res) => {
+  await connectToDatabase();
   const { eventId, month, date } = req.body;
   console.log(eventId, month, date);
 
@@ -794,6 +814,7 @@ app.post('/syncEventActivities', async (req, res) => {
 
 // Get athletes by event and category
 app.get('/athletesByEvent', async (req, res) => {
+  await connectToDatabase();
   try {
     const {
       eventid,   // kept for shape/forward compat
@@ -905,6 +926,7 @@ EventActivity.schema.index({ eventId: 1, month: 1, "athlete.category": 1 });
 
 // ✅ New /activitiesByEvent: Fetch from MongoDB
 app.get('/activitiesByEvent', async (req, res) => {
+  await connectToDatabase();
   try {
     const { eventid, month, category, athleteIds } = req.query;
     if (!eventid || month === undefined) {
@@ -968,6 +990,7 @@ function assertAdmin(req, res, next) {
  * }
  */
 app.post("/admin/clearSyncStatus", assertAdmin, async (req, res) => {
+  await connectToDatabase();
   try {
     const { eventId, dates, athleteIds, dryRun = false } = req.body || {};
 
