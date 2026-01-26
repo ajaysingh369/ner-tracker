@@ -12,30 +12,30 @@ let VIRT_STATE = {
     observer: null
 };
 
-const debounced = (fn, d=250) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), d); }; };
+const debounced = (fn, d = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), d); }; };
 
 function setActiveLangButtons(lang) {
     document.querySelectorAll(".lang-btn").forEach(btn => {
-      const isActive = btn.dataset.lang === lang;
-      btn.classList.toggle("active", isActive);
-      btn.setAttribute("aria-pressed", String(isActive));
+        const isActive = btn.dataset.lang === lang;
+        btn.classList.toggle("active", isActive);
+        btn.setAttribute("aria-pressed", String(isActive));
     });
-  }
+}
 
 function initLanguageUI() {
     setActiveLangButtons(I18N.current());
     document.querySelectorAll(".lang-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const selectedLang = btn.dataset.lang;
-        await I18N.load(btn.dataset.lang);
-        // Static nodes auto-update via translateDOM(); now refresh dynamic:
-        setActiveLangButtons(selectedLang); 
-        rerenderDynamicText();
-      }, { passive: true });
+        btn.addEventListener("click", async () => {
+            const selectedLang = btn.dataset.lang;
+            await I18N.load(btn.dataset.lang);
+            // Static nodes auto-update via translateDOM(); now refresh dynamic:
+            setActiveLangButtons(selectedLang);
+            rerenderDynamicText();
+        }, { passive: true });
     });
-  }
-  
-  function rerenderDynamicText() {
+}
+
+function rerenderDynamicText() {
     // Example: update any live text built via JS
     // Header with month/day labels:
     buildHeader();  // will call I18N.t / I18N.dateFormatter internally
@@ -46,9 +46,9 @@ function initLanguageUI() {
     // Sync note:
     const note = document.getElementById("syncNote");
     if (note) note.textContent = I18N.t("ui.note.sync");
-  }
-  
-  
+}
+
+
 
 function getQueryParams() {
     const params = new URLSearchParams(window.location.search);
@@ -71,7 +71,7 @@ function getLowResImageUrl(originalUrl) {
 
 function getQualKey(category) {
     // bump to v2 to include the 22-day rule
-    return `qualifiedState-2025-08-${category}-v2`;
+    return `qualifiedState-2026-02-${category}-v2`;
 }
 
 function loadQualifiedState(category) {
@@ -88,40 +88,40 @@ function formatMedalWinners(medalWinners, athletes) {
     return medalWinners.map(id => athletes[id]?.name || `Athlete ${id}`).join('<br> ');
 }
 
-function buildHeader2(monthKey = "2025-08") {
+function buildHeader2(monthKey = "2026-02") {
     const [y, m] = monthKey.split("-");
     const days = new Date(+y, +m, 0).getDate();
     return `
       <tr>
         <th>Athlete</th>
-        ${Array.from({length: days}, (_, i) => {
-          const d = String(i+1).padStart(2,"0");
-          return `<th>${+d} Aug</th>`;
-        }).join("")}
+        ${Array.from({ length: days }, (_, i) => {
+        const d = String(i + 1).padStart(2, "0");
+        return `<th>${+d} Feb</th>`;
+    }).join("")}
       </tr>`;
 }
-function buildHeader(year=2025, month=8) {
+function buildHeader(year = 2026, month = 2) {
     const days = new Date(year, month, 0).getDate();
-    const mFmt = I18N.dateFormatter({ month: "short" }); // en: Aug, hi: अग॰
-    const d = new Date(year, month-1, 1);
+    const mFmt = I18N.dateFormatter({ month: "short" }); // en: Feb, hi: फ़र॰
+    const d = new Date(year, month - 1, 1);
 
     const monthLabel = mFmt.format(d);
     return `
       <tr>
         <th>${I18N.t("table.header.athlete")}</th>
         ${Array.from({ length: days }, (_, i) => {
-            const d = String(i+1).padStart(2,"0");
-           return `<th>${d} ${monthLabel}</th>`;
-        }).join("")}
+        const d = String(i + 1).padStart(2, "0");
+        return `<th>${d} ${monthLabel}</th>`;
+    }).join("")}
       </tr>`;
-  }
-  
-  
+}
+
+
 // Function to format date as "1st Feb", "2nd Feb", "3rd Feb"
 function formatDateHeader(date) {
     const day = date.getDate();
     const month = date.toLocaleString("en-US", { month: "short" }); // "Feb"
-    
+
     // Add suffix (st, nd, rd, th)
     let suffix = "th";
     if (day === 1 || day === 21 || day === 31) suffix = "st";
@@ -159,78 +159,66 @@ function renderCalendar(athletes, activities) {
 
     // ---- Precompute constants
     const todayStr = new Date().toISOString().split("T")[0];
-    const MONTH_KEY = "2025-08";
-    const DAYS_IN_MONTH = 31;
+    const MONTH_KEY = "2026-02";
+    const DAYS_IN_MONTH = 28;
     const dateStrs = Array.from({ length: DAYS_IN_MONTH }, (_, i) =>
         `${MONTH_KEY}-${String(i + 1).padStart(2, "0")}`
     );
 
-    // ---- Build indexes
-    const activityMap = new Map();    // `${athleteId}-${yyyy-mm-dd}` -> [acts]
-    const distanceTotals = new Map(); // athleteId -> total KM up to today
-    const activeDays = new Map();         // key: athleteId -> count of distinct days with ≥1 act (≤ today)
+    // Initialize Worker
+    const worker = new Worker("worker.js");
 
-    for (const entry of activities) {
-        const athleteId = entry.athleteId;
-        const byDate = entry.activitiesByDate || {};
-        for (const dateStr in byDate) {
-            const key = `${athleteId}-${dateStr}`;
-            const list = activityMap.get(key);
-            if (list) list.push(...byDate[dateStr]);
-            else activityMap.set(key, [...byDate[dateStr]]);
-
-            if (dateStr <= todayStr) {
-                const dayKm = byDate[dateStr].reduce((sum, a) => sum + (+a.distance || 0), 0);
-                distanceTotals.set(athleteId, (distanceTotals.get(athleteId) || 0) + dayKm);
-
-                // active day count
-                activeDays.set(athleteId, (activeDays.get(athleteId) || 0) + 1);
-            }
-        }
-    }
-
-    // ---- Sort athletes by total distance (desc)
-    const sortedAthletes = [...athletes].sort((a, b) => {
-        const db = distanceTotals.get(b.id) || 0;
-        const da = distanceTotals.get(a.id) || 0;
-        return db - da;
+    worker.postMessage({
+        athletes,
+        activities,
+        todayStr,
+        dateStrs
     });
 
-    // Save to virtualization state
-    VIRT_STATE.athletes = sortedAthletes.map(a => ({
-        ...a,
-        _nameLower: `${a.firstname} ${a.lastname}`.toLowerCase() // for fast search
-    }));
-    VIRT_STATE.activityMap = activityMap;
-    VIRT_STATE.distanceTotals = distanceTotals;
-    VIRT_STATE.activeDays = activeDays;
-    VIRT_STATE.dateStrs = dateStrs;
-    VIRT_STATE.todayStr = todayStr;
-    VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
-    VIRT_STATE.nextIndex = 0;
+    worker.onmessage = function (e) {
+        const { athletes: sortedAthletes, activityMap, distanceTotals, activeDays } = e.data;
 
-    // Clear any previous observer
-    if (VIRT_STATE.observer) {
-        VIRT_STATE.observer.disconnect();
-        VIRT_STATE.observer = null;
-    }
+        // Save to virtualization state
+        VIRT_STATE.athletes = sortedAthletes;
+        VIRT_STATE.activityMap = activityMap;
+        VIRT_STATE.distanceTotals = distanceTotals;
+        VIRT_STATE.activeDays = activeDays;
+        VIRT_STATE.dateStrs = dateStrs;
+        VIRT_STATE.todayStr = todayStr;
+        VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
+        VIRT_STATE.nextIndex = 0;
 
-    // Render first chunk
-    renderNextChunk();
-
-    // Add a sentinel row to trigger loading more
-    const sentinel = document.createElement("tr");
-    sentinel.id = "virt-sentinel";
-    sentinel.innerHTML = `<td colspan="${1 + VIRT_STATE.dateStrs.length}" style="height:1px;padding:0;border:0"></td>`;
-    calendarBody.appendChild(sentinel);
-
-    // Observe sentinel
-    VIRT_STATE.observer = new IntersectionObserver(entries => {
-        for (const entry of entries) {
-        if (entry.isIntersecting) renderNextChunk();
+        // Clear any previous observer
+        if (VIRT_STATE.observer) {
+            VIRT_STATE.observer.disconnect();
+            VIRT_STATE.observer = null;
         }
-    }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
-    VIRT_STATE.observer.observe(sentinel);
+
+        // Render first chunk
+        renderNextChunk();
+
+        // Add a sentinel row to trigger loading more
+        const sentinel = document.createElement("tr");
+        sentinel.id = "virt-sentinel";
+        sentinel.innerHTML = `<td colspan="${1 + VIRT_STATE.dateStrs.length}" style="height:1px;padding:0;border:0"></td>`;
+        calendarBody.appendChild(sentinel);
+
+        // Observe sentinel
+        VIRT_STATE.observer = new IntersectionObserver(entries => {
+            for (const entry of entries) {
+                if (entry.isIntersecting) renderNextChunk();
+            }
+        }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
+        VIRT_STATE.observer.observe(sentinel);
+
+        // Terminate worker after processing
+        worker.terminate();
+    };
+
+    worker.onerror = function (error) {
+        console.error("Worker error:", error);
+        // Fallback or error handling could go here
+    };
 }
 
 
@@ -246,25 +234,29 @@ function buildAthleteRow(athlete) {
     athleteCell.style.minWidth = "8rem";
 
     const lowResUrl = getLowResImageUrl(athlete.profile || "");
-    const athleteName = `${athlete.firstname} ${athlete.lastname}`;
-    const monthTotal = distanceTotals.get(athlete.id) || 0;
+    const athleteName = `${athlete.firstname || 'Unknown'} ${athlete.lastname || ''}`.trim() || 'Athlete';
+    const monthTotal = distanceTotals.get(athlete.athleteId) || 0;
     const DISTANCE_GOAL = parseInt(athlete.category, 10) || 100;
     const progressPercent = Math.min(100, (monthTotal / DISTANCE_GOAL) * 100).toFixed(1);
-    const daysActive = activeDays.get(athlete.id) || 0;
+    const daysActive = activeDays.get(athlete.athleteId) || 0;
 
     // load per-category qualified state (first render per fetch)
     const qualifiedState = loadQualifiedState(athlete.category || "100");
     // did they qualify now? must meet both criteria
     const meetsDistance = monthTotal >= DISTANCE_GOAL;
-    const meetsDays = daysActive >= 22;
+    const meetsDays = daysActive >= 20;
     const isQualified = meetsDistance && meetsDays;
-    const wasQualified = !!qualifiedState[athlete.id];
+    const wasQualified = !!qualifiedState[athlete.athleteId];
     const shouldAnimateStamp = isQualified && !wasQualified;
     const txt = I18N.t("ui.qualified.stamp");
+
+    const isDummy = !!athlete.dummy;
+    const dummyBadge = isDummy ? `<span class="dummy-badge" title="Guest Athlete">Guest</span>` : '';
 
     athleteCell.innerHTML = `
         <div class="athlete-cell ${isQualified ? 'qualified' : ''}" data-athlete-id="${athleteName}">
             <span class="qualified-stamp ${shouldAnimateStamp ? 'stamp-animate' : ''}" title="Goal achieved!">${txt}</span>
+            ${dummyBadge}
         <img loading="lazy" decoding="async" fetchpriority="low" class="profile-photo" src="${lowResUrl}" onerror="this.src='avatar.jpg'" width="48" height="48" alt="${athleteName}" />
         <div class="athlete-info">
             <div class="athlete-name">${athleteName}</div>
@@ -277,7 +269,7 @@ function buildAthleteRow(athlete) {
     // Build compact activities map for popup
     const popupActivitiesByDate = {};
     for (const dStr of dateStrs) {
-        const acts = activityMap.get(`${athlete.id}-${dStr}`);
+        const acts = activityMap.get(`${athlete.athleteId}-${dStr}`);
         if (acts && acts.length) {
             popupActivitiesByDate[dStr] = acts;
             athleteCell.dataset.acts = JSON.stringify(acts);
@@ -289,38 +281,46 @@ function buildAthleteRow(athlete) {
     );
 
     if (shouldAnimateStamp) {
-        qualifiedState[athlete.id] = true;
+        qualifiedState[athlete.athleteId] = true;
         saveQualifiedState(athlete.category, qualifiedState);
     }
 
     row.appendChild(athleteCell);
 
-    const genderEmoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
-    for (const dStr of dateStrs) {
+    if (isDummy) {
         const cell = document.createElement("td");
-
-        if (dStr > todayStr) {
-        cell.textContent = "";
-        cell.style.backgroundColor = "transparent";
-        } else {
-        const acts = activityMap.get(`${athlete.id}-${dStr}`);
-        if (acts && acts.length) {
-            const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
-            cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} ${I18N.t("ui.km")}</span>`;
-            cell.classList.add("active-cell","cell__emoji");
-            cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${genderEmoji}</text></svg>")`;
-            cell.addEventListener("click", () => showActivityDetails(acts, athleteName));
-        } else {
-            cell.classList.add("cell--rest", "cell__emoji");
-            cell.innerHTML = `<span class="activity-points">${I18N.t("ui.refueling")}</span>`;
-        }
-        }
-
-        if (dStr === todayStr) {
-            cell.classList.add("cell--today");
-        }
-
+        cell.colSpan = dateStrs.length;
+        cell.className = "authorize-cell";
+        cell.innerHTML = `<button class="authorize-btn" onclick="window.location.href='/auth/strava'">Authorize with Strava</button>`;
         row.appendChild(cell);
+    } else {
+        const genderEmoji = athlete.gender === "F" ? "🏃‍♀️" : "🏃‍♂️";
+        for (const dStr of dateStrs) {
+            const cell = document.createElement("td");
+
+            if (dStr > todayStr) {
+                cell.textContent = "";
+                cell.style.backgroundColor = "transparent";
+            } else {
+                const acts = activityMap.get(`${athlete.athleteId}-${dStr}`);
+                if (acts && acts.length) {
+                    const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
+                    cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} ${I18N.t("ui.km")}</span>`;
+                    cell.classList.add("active-cell", "cell__emoji");
+                    cell.style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><text x='50%' y='50%' font-size='50' text-anchor='middle' dominant-baseline='middle'>${genderEmoji}</text></svg>")`;
+                    cell.addEventListener("click", () => showActivityDetails(acts, athleteName));
+                } else {
+                    cell.classList.add("cell--rest", "cell__emoji");
+                    cell.innerHTML = `<span class="activity-points">${I18N.t("ui.refueling")}</span>`;
+                }
+            }
+
+            if (dStr === todayStr) {
+                cell.classList.add("cell--today");
+            }
+
+            row.appendChild(cell);
+        }
     }
 
     return row;
@@ -348,8 +348,8 @@ function filterAthletes() {
         VIRT_STATE.filteredIndexes = VIRT_STATE.athletes.map((_, i) => i);
     } else {
         VIRT_STATE.filteredIndexes = VIRT_STATE.athletes
-        .map((a, i) => (a._nameLower.includes(q) ? i : -1))
-        .filter(i => i !== -1);
+            .map((a, i) => (a._nameLower.includes(q) ? i : -1))
+            .filter(i => i !== -1);
     }
 
     // Reset the table body but keep thead
@@ -374,7 +374,7 @@ function filterAthletes() {
 
     VIRT_STATE.observer = new IntersectionObserver(entries => {
         for (const entry of entries) {
-        if (entry.isIntersecting) renderNextChunk();
+            if (entry.isIntersecting) renderNextChunk();
         }
     }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
     VIRT_STATE.observer.observe(sentinel);
@@ -427,8 +427,3 @@ function closePopup(popupId) {
 // authButton.addEventListener('click', () => {
 //     window.location.href = '/auth/strava';
 // });
-
-
-
-
-  

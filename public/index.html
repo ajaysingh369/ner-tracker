@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
     <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
     <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> -->
 </head>
+
 <body>
     <div class="app-container">
         <header class="app-header">
@@ -21,27 +23,29 @@
                     <p data-i18n="banner-description"></p>
                     <span data-i18n="event-date" class="date-range"></span>
                     <!-- <p>👣 Step Up. Stand Out. 👣</p> -->
-                </div> 
+                </div>
             </div>
             <div class="theme-toggle"><input type="checkbox" id="theme"></div>
         </header>
 
         <!-- Main Content -->
-        <main class="app-main">
+        <main class="app-main hidden">
             <div class="lang-toggle">
                 <button id="lang-en" class="lang-btn" data-lang="en">English</button>
                 <button id="lang-hi" class="lang-btn" data-lang="hi">हिन्दी</button>
-              </div>
+            </div>
 
             <div id="leaderboard-container">
                 <!-- <button id="authButton" class="auth-button">
                     <span>Authorize with Strava</span><p class="auth-subtext">*if your name is missing from the list. Your name & data will be display from 1st Aug</p>
                 </button> -->
                 <!-- Loader -->
-                <div id="loader" class="loader"><span class="running-emoji">🏃‍♂️</span><span data-i18n="ui.loading" class="loading-text"></span></div>
+                <div id="loader" class="loader" style="display: flex;"><span class="running-emoji">🏃‍♂️</span><span
+                        data-i18n="ui.loading" class="loading-text"></span></div>
 
                 <div id="categoryFilters" class="category-filters">
-                    <button class="filter-button selected" data-category="100" data-i18n="ui.category.100"></button>
+                    <button class="filter-button selected" data-category="50" data-i18n="ui.category.50"></button>
+                    <button class="filter-button" data-category="100" data-i18n="ui.category.100"></button>
                     <button class="filter-button" data-category="150" data-i18n="ui.category.150"></button>
                     <button class="filter-button" data-category="200" data-i18n="ui.category.200"></button>
                 </div>
@@ -59,13 +63,13 @@
                 <!-- <div class="medals-container" id="medallist">
                     <h2>🏅 Leaderboard</h2><div id="medals" class="medals-grid"><p></p><p></p><p></p></div>
                 </div> -->
-            
+
                 <!-- Calendar Table -->
                 <div class="activity-table">
                     <h2 data-i18n="ui.leaderboard"></h2>
                     <!-- <h2>Team Activities</h2> -->
                     <!-- <p class="points-info"><strong>5 mins activity rewards:</strong> 🏃Run - <b>0.9</b>, 🧘/💪 Yoga/Strength - <b>1pts</b></p> -->
-                     <p class="glowing-note" data-i18n="ui.note.sync"></p>
+                    <p class="glowing-note" data-i18n="ui.note.sync"></p>
                     <input type="text" id="searchAthlete" placeholder="🔍 Search Athlete..." class="search-box">
                 </div>
                 <div class="calendar-container" id="actlist">
@@ -80,7 +84,7 @@
             <div class="MuiCardContent-root css-15q2cw4">
                 <h4>बढ़ते कदम Virtual Run</h4>
                 <div>
-                    <p>Aug 1 - Aug 31, 2025 | Anytime</p>
+                    <p>Feb 1 - Feb 28, 2026 | Anytime</p>
                 </div>
                 <div class="event-description">
                     <p data-i18n="ui.event.desc"></p>
@@ -89,8 +93,8 @@
                         <li data-i18n="ui.event.desc2"></li>
                         <li data-i18n="ui.event.desc3"></li>
                     </ol>
-                    <p  data-i18n="ui.event.subdesc"></p>
-            
+                    <p data-i18n="ui.event.subdesc"></p>
+
                     <strong data-i18n="ui.ins.activity"></strong>
                     <ul style="padding: 1rem;">
                         <li data-i18n="ui.ins.activity1"></li>
@@ -107,18 +111,18 @@
                     </ul>
                     <strong data-i18n="ui.ins.deliverables"></strong>
                     <ul style="padding: 1rem;">
-                        <li  data-i18n="ui.ins.deliverables1"></li>
-                        <li  data-i18n="ui.ins.deliverables2"></li>
-                        <li  data-i18n="ui.ins.deliverables3"></li> 
-                        <li  data-i18n="ui.ins.deliverables4"></li>
+                        <li data-i18n="ui.ins.deliverables1"></li>
+                        <li data-i18n="ui.ins.deliverables2"></li>
+                        <li data-i18n="ui.ins.deliverables3"></li>
+                        <li data-i18n="ui.ins.deliverables4"></li>
                     </ul>
                     <strong data-i18n="ui.ins.app"></strong>
                     <ul style="padding: 1rem;">
-                    <li data-i18n="ui.ins.app1"></li>
-                    <li data-i18n="ui.ins.app2"></li>
-                    <li data-i18n="ui.ins.app3"></li>
-                    <li data-i18n="ui.ins.app4"></li>
-                    <li data-i18n="ui.ins.app5"></li>
+                        <li data-i18n="ui.ins.app1"></li>
+                        <li data-i18n="ui.ins.app2"></li>
+                        <li data-i18n="ui.ins.app3"></li>
+                        <li data-i18n="ui.ins.app4"></li>
+                        <li data-i18n="ui.ins.app5"></li>
                     </ul>
         </main>
 
@@ -127,8 +131,10 @@
             <div class="social-links">
                 <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
                 <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
-                <a href="https://www.instagram.com/noidaextensionrunners/#" target="_blank"><i class="fab fa-instagram"></i></a>
-                <a href="https://strava.com/athletes/123859756" class="strava-badge- strava-badge-follow" target="_blank"><img src="icons/echelon-sprite-24.png" alt="Strava" /></a>
+                <a href="https://www.instagram.com/noidaextensionrunners/#" target="_blank"><i
+                        class="fab fa-instagram"></i></a>
+                <a href="https://strava.com/athletes/123859756" class="strava-badge- strava-badge-follow"
+                    target="_blank"><img src="icons/echelon-sprite-24.png" alt="Strava" /></a>
             </div>
             <div>&copy; 2025 Tej Kadam Foundation. All rights reserved.</div>
         </footer>
@@ -176,7 +182,7 @@
             const profileActivities = document.getElementById('profileActivities');
             const themeToggle = document.getElementById('theme');
 
-            
+
             // Toggle dark mode and save setting
             themeToggle.addEventListener("change", () => {
                 const isDarkMode = themeToggle.checked;
@@ -184,10 +190,10 @@
                 localStorage.setItem("darkMode", isDarkMode);
             });
             const darkModeEnabled = localStorage.getItem("darkMode") === "true";
-            
+
             themeToggle.checked = darkModeEnabled;
-            document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");   
-                
+            document.body.setAttribute("data-theme", darkModeEnabled ? "dark" : "light");
+
             // Attach search event listener
             document.getElementById('searchAthlete').addEventListener('input', debounced(filterAthletes, 250));
             //document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
@@ -197,11 +203,11 @@
                     document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('selected'));
                     btn.classList.add('selected');
                     const selectedCategory = btn.dataset.category;
-                    fetchEventData("tkfvr", "7", selectedCategory);
+                    fetchEventData("tkfvr2", "1", selectedCategory);
                 });
             });
 
-            document.getElementById("calendarHeader").innerHTML = buildHeader(2025, 8);
+            document.getElementById("calendarHeader").innerHTML = buildHeader(2026, 2);
 
             // const headerRow = document.createElement('tr');
             // headerRow.innerHTML = `
@@ -218,30 +224,38 @@
             // });
 
             // Initial load
-            await fetchEventData("tkfvr", "7", "100");
+            await fetchEventData("tkfvr2", "1", "50");
         });
 
         async function fetchEventData(eventId, month, category) {
             try {
-                let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
-            
+                // let loaderTimeout = setTimeout(() => loader.style.display = 'flex', 500); // Only show if it takes longer than 500ms
+
                 const [athleteRes, activityRes] = await Promise.all([
-                    fetch(`/athletesByEvent?eventid=${eventId}&month=${month}&category=${category}`),
+                    fetch(`/athletesByEvent?eventid=${eventId}&month=${month}&category=${category}&pageSize=5000`),
                     fetch(`/activitiesByEvent?eventid=${eventId}&month=${month}&category=${category}`)
                 ]);
 
-                const athletesData  = await athleteRes.json();
+                const athletesData = await athleteRes.json();
                 const activityData = await activityRes.json();
 
-                clearTimeout(loaderTimeout);
+                // clearTimeout(loaderTimeout);
                 loader.style.display = 'none'; // Hide loader
+                document.querySelector('.app-main').classList.remove('hidden'); // Show content
 
                 // ✅ Defensive check
                 const athletes = Array.isArray(athletesData.athletes) ? athletesData.athletes : athletesData;
 
+                console.log(`✅ Fetched ${athletes.length} athletes for category ${category}`);
+
                 if (!Array.isArray(athletes)) {
-                console.error("❌ Unexpected athlete response:", athletesData);
-                return;
+                    console.error("❌ Unexpected athlete response:", athletesData);
+                    return;
+                }
+
+                if (athletes.length === 0) {
+                    document.getElementById("calendarBody").innerHTML = `<tr><td colspan="100%" style="border:none; padding:0;"><div class="empty-state">No athletes found for category ${category}</div></td></tr>`;
+                    return;
                 }
 
                 renderCalendar(athletes, activityData.activities);
@@ -263,4 +277,5 @@
     <!-- <script src='https://www.noupe.com/embed/0198ae6285747716a0ad807817842530f55b.js'></script> -->
     <script src='https://www.noupe.com/embed/0198ae99e30c7defabfff814601e305befda.js'></script>
 </body>
+
 </html>
