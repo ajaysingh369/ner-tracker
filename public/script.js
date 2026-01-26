@@ -1,4 +1,3 @@
-// ---- virtualization state (module-level)
 let VIRT_STATE = {
     athletes: [],
     activityMap: new Map(),
@@ -165,7 +164,7 @@ function renderCalendar(athletes, activities) {
         `${MONTH_KEY}-${String(i + 1).padStart(2, "0")}`
     );
 
-// Initialize Worker
+    // Initialize Worker
     const worker = new Worker("worker.js");
 
     worker.postMessage({
@@ -401,6 +400,7 @@ const showActivityDetails = (activities, athleteName = "Unknown Athlete") => {
 
 // Show athlete profile in a popup
 const showProfilePopup = (athlete) => {
+    const profilePopup = document.getElementById('profilePopup');
     profilePhoto.src = athlete.profile;
     profileName.textContent = athlete.name;
     const activityCounts = {};
