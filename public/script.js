@@ -165,7 +165,7 @@ function renderCalendar(athletes, activities) {
         `${MONTH_KEY}-${String(i + 1).padStart(2, "0")}`
     );
 
-    // Initialize Worker
+// Initialize Worker
     const worker = new Worker("worker.js");
 
     worker.postMessage({

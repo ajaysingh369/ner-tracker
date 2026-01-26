@@ -675,7 +675,7 @@ body[data-theme="dark"] {
 
 /* the stamp */
 .qualified-stamp {
-  position: absolute;
+position: absolute;
   top: 25px;
   left: 25px;
   padding: 4px 8px;
@@ -716,7 +716,6 @@ body[data-theme="dark"] {
     opacity: 1;
   }
 }
-
 .qualified-stamp.stamp-animate {
   animation: stamp-pop 1520ms cubic-bezier(.2, .9, .2, 1) both;
 }

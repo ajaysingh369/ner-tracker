@@ -203,7 +203,7 @@ updates().catch(console.error);
 //100 - 104
 //150 - 53
 //200 - 62
-//34629659 - Teena, 179496390 - Manu, 146462753-Prashant  180913389, // 146462753, 30181449, 34629659
+//146462753-Prashant, 30181449-Vishal Kamra, 34629659-Teena Sharma,
 
 /*
 curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr","month":"7", "date":"2025-08-01"}'
@@ -212,7 +212,7 @@ curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: 
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
   -H "Content-Type: application/json" \
-  -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-18","endDate":"2025-08-18","categories":["100", "150", "200"]}'
+-d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-18","endDate":"2025-08-18","categories":["100", "150", "200"]}'
 
 
 
@@ -224,6 +224,11 @@ curl -X POST http://localhost:3003/admin/clearSyncStatus \
     "dates": ["2025-08-15", "2025-08-16"], "athleteIds": ["123859756","34629659"]
     "dryRun": true
   }'
+
+
+  curl -H "x-admin-secret: ajaysingh369" \
+  -L "http://localhost:3003/admin/exportActivities?eventId=tkfvr&month=7&from=2025-08-01&to=2025-08-23" \
+  -o activities_2025-08_01-23.csv
 
 
 /*
