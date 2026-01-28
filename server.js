@@ -131,17 +131,45 @@ app.get('/auth/strava/callback', async (req, res) => {
       grant_type: 'authorization_code'
     });
 
-    await Athlete.findOneAndUpdate(
-      { athleteId: tokenResponse.data.athlete.id },
+    const stravaAthlete = tokenResponse.data.athlete;
+    const stravaEmail = stravaAthlete.email; // Requires read_all scope
+
+    console.log(`🔹 Strava Auth: Received callback for athlete ${stravaAthlete.id} (${stravaAthlete.firstname} ${stravaAthlete.lastname})`);
+    if (stravaEmail) console.log(`🔹 Strava Auth: Email from Strava: ${stravaEmail}`);
+    else console.warn(`⚠️ Strava Auth: No email received from Strava. Check scopes.`);
+
+    // 1. Try to find by Strava ID
+    let athlete = await Athlete.findOne({ athleteId: stravaAthlete.id });
+    if (athlete) console.log(`✅ Strava Auth: Found existing athlete by ID: ${athlete.athleteId}`);
+
+    // 2. If not found by ID, try to find by Email (to link dummy records)
+    if (!athlete && stravaEmail) {
+      console.log(`🔍 Strava Auth: Athlete not found by ID. Searching by email: ${stravaEmail}...`);
+      athlete = await Athlete.findOne({ email: stravaEmail });
+      if (athlete) {
+        console.log(`🔗 Strava Auth: Linking Strava user ${stravaAthlete.id} to existing record via email ${stravaEmail} (Old ID: ${athlete.athleteId})`);
+        // Update the ID to the real Strava ID
+        athlete.athleteId = stravaAthlete.id;
+      } else {
+        console.log(`ℹ️ Strava Auth: No existing record found by email.`);
+      }
+    }
+
+    // 3. Upsert (Update existing or Create new)
+    const updatedAthlete = await Athlete.findOneAndUpdate(
+      { athleteId: stravaAthlete.id },
       {
         accessToken: tokenResponse.data.access_token,
         refreshToken: tokenResponse.data.refresh_token,
-        firstname: tokenResponse.data.athlete.firstname,
-        lastname: tokenResponse.data.athlete.lastname,
-        profile: tokenResponse.data.athlete.profile
+        firstname: stravaAthlete.firstname,
+        lastname: stravaAthlete.lastname,
+        profile: stravaAthlete.profile,
+        email: stravaEmail, // Ensure email is saved
+        dummy: false
       },
       { upsert: true, new: true }
     );
+    console.log(`✅ Strava Auth: Successfully updated/created athlete record for ${updatedAthlete.athleteId}. Dummy: ${updatedAthlete.dummy}`);
 
     res.redirect('/');
   } catch (error) {
