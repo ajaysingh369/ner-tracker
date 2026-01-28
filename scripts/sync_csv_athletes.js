@@ -71,7 +71,7 @@ async function syncAthletes() {
         await mongoose.connect(MONGO_URI, { useUnifiedTopology: true });
         console.log('✅ Connected to MongoDB');
 
-        const csvPath = path.join(__dirname, '../google_sheet_data2.csv');
+        const csvPath = path.join(__dirname, '../google_sheet_data5.csv');
         const csvData = fs.readFileSync(csvPath, 'utf8');
         const records = parseCSV(csvData);
 

@@ -114,7 +114,7 @@ function istDayKey(iso) {
 
 // OAuth Authentication with Strava
 app.get('/auth/strava', (req, res) => {
-  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,read_all`;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all`;
   res.redirect(url);
 });
 
@@ -135,6 +135,7 @@ app.get('/auth/strava/callback', async (req, res) => {
     const stravaEmail = stravaAthlete.email; // Requires read_all scope
 
     console.log(`🔹 Strava Auth: Received callback for athlete ${stravaAthlete.id} (${stravaAthlete.firstname} ${stravaAthlete.lastname})`);
+    console.log(`🔹 Strava Auth: Athlete from Strava: ${JSON.stringify(stravaAthlete)}`);
     if (stravaEmail) console.log(`🔹 Strava Auth: Email from Strava: ${stravaEmail}`);
     else console.warn(`⚠️ Strava Auth: No email received from Strava. Check scopes.`);
 
@@ -143,15 +144,33 @@ app.get('/auth/strava/callback', async (req, res) => {
     if (athlete) console.log(`✅ Strava Auth: Found existing athlete by ID: ${athlete.athleteId}`);
 
     // 2. If not found by ID, try to find by Email (to link dummy records)
-    if (!athlete && stravaEmail) {
-      console.log(`🔍 Strava Auth: Athlete not found by ID. Searching by email: ${stravaEmail}...`);
-      athlete = await Athlete.findOne({ email: stravaEmail });
-      if (athlete) {
-        console.log(`🔗 Strava Auth: Linking Strava user ${stravaAthlete.id} to existing record via email ${stravaEmail} (Old ID: ${athlete.athleteId})`);
-        // Update the ID to the real Strava ID
-        athlete.athleteId = stravaAthlete.id;
-      } else {
-        console.log(`ℹ️ Strava Auth: No existing record found by email.`);
+    if (!athlete) {
+      if (stravaEmail) {
+        console.log(`🔍 Strava Auth: Athlete not found by ID. Searching by email: ${stravaEmail}...`);
+        athlete = await Athlete.findOne({ email: stravaEmail });
+        if (athlete) {
+          console.log(`🔗 Strava Auth: Linking Strava user ${stravaAthlete.id} to existing record via email ${stravaEmail} (Old ID: ${athlete.athleteId})`);
+          athlete.athleteId = stravaAthlete.id;
+        }
+      }
+
+      // 2.1 Fallback: Try to find by Name if Email failed or is missing
+      if (!athlete) {
+        const fullName = `${stravaAthlete.firstname} ${stravaAthlete.lastname}`.trim();
+        console.log(`🔍 Strava Auth: Athlete not found by Email. Searching by Name: "${fullName}"...`);
+
+        // Case-insensitive search for name in firstname field (where CSV stored full name)
+        athlete = await Athlete.findOne({
+          firstname: { $regex: new RegExp(`^${fullName}$`, 'i') },
+          dummy: true // Only link to dummy records to avoid accidental takeovers
+        });
+
+        if (athlete) {
+          console.log(`🔗 Strava Auth: Linking Strava user ${stravaAthlete.id} to existing dummy record via Name "${fullName}" (Old ID: ${athlete.athleteId})`);
+          athlete.athleteId = stravaAthlete.id;
+        } else {
+          console.log(`ℹ️ Strava Auth: No existing dummy record found by Name.`);
+        }
       }
     }
 
