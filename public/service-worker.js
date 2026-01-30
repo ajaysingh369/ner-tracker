@@ -1,4 +1,4 @@
-const CACHE_NAME = "runner-tracker-cache-v17"; // Increment to bust previous cache
+const CACHE_NAME = "runner-tracker-cache-v18"; // Increment to bust previous cache
 const CACHE_LIFETIME = 30 * 60 * 1000; // 30 mins
 
 const urlsToCache = [

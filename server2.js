@@ -70,7 +70,7 @@ Athlete.createIndexes().then(() => {
 EventActivity.schema.index({ eventId: 1, month: 1, athleteId: 1 }, { unique: false });
 
 
-  const athletesCache = new Map(); // key -> { expiresAt: number, payload: object }
+const athletesCache = new Map(); // key -> { expiresAt: number, payload: object }
 
 // Function to Refresh Access Token
 const refreshAccessToken = async (athlete) => {
@@ -173,7 +173,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
     let page = 1;
     const perPage = 100;
     const MAX_RETRIES = 2;
-    const adjustEndTimeStamp = endTimestamp+86400;
+    const adjustEndTimeStamp = endTimestamp + 86400;
 
     try {
         while (true) {
@@ -186,33 +186,33 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
 
             // Process activities with athlete data
             const enrichedActivities = response.data
-            .filter(activity => activity.distance >= 2000 && activity.type == "Run") // ✅ Filter first to reduce unnecessary iterations
-            .map(({ id, name, distance, moving_time, start_date, type }) => {
-                const utcDate = new Date(start_date);
-                const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
-                const exts = [0, "🏃‍♂️"]; //CalculatePoints(type, moving_time);
-            
-                return {
-                    id, // Activity ID
-                    name, // Activity Name
-                    distance: parseFloat((distance / 1000).toFixed(2)), // Distance covered
-                    moving_time, // Time in motion,
-                    start_date: istDate.toISOString(), // Store in IST format
-                    type,
-                    points: exts[0],
-                    emoji: exts[1], 
-                    athlete: {
-                        id: athlete.athleteId,
-                        firstname: athlete.firstname,
-                        lastname: athlete.lastname,
-                        profile: athlete.profile,
-                        gender: athlete.gender,
-                        restDay: athlete.restDay || "Monday",
-                        team: athlete.team || "blue",
-                        category: athlete.category || "100"
-                    }
-                };
-            });
+                .filter(activity => activity.distance >= 2000 && activity.type == "Run") // ✅ Filter first to reduce unnecessary iterations
+                .map(({ id, name, distance, moving_time, start_date, type }) => {
+                    const utcDate = new Date(start_date);
+                    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
+                    const exts = [0, "🏃‍♂️"]; //CalculatePoints(type, moving_time);
+
+                    return {
+                        id, // Activity ID
+                        name, // Activity Name
+                        distance: parseFloat((distance / 1000).toFixed(2)), // Distance covered
+                        moving_time, // Time in motion,
+                        start_date: istDate.toISOString(), // Store in IST format
+                        type,
+                        points: exts[0],
+                        emoji: exts[1],
+                        athlete: {
+                            id: athlete.athleteId,
+                            firstname: athlete.firstname,
+                            lastname: athlete.lastname,
+                            profile: athlete.profile,
+                            gender: athlete.gender,
+                            restDay: athlete.restDay || "Monday",
+                            team: athlete.team || "blue",
+                            category: athlete.category || "100"
+                        }
+                    };
+                });
 
             activities.push(...enrichedActivities);
             if (response.data.length < perPage) break;
@@ -226,7 +226,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
     } catch (error) {
         // 🛑 If error is 401, refresh token
         if (error.response && error.response.status === 401) {
-            
+
             console.log(`🔄 Access token expired for athlete ${athlete.athleteId}, refreshing...`);
 
             if (!retry) {
@@ -438,22 +438,22 @@ function* dateRangeIter(startISO, endISO) {
     const cur = new Date(startISO + 'T00:00:00.000+05:30');
     const end = new Date(endISO + 'T00:00:00.000+05:30');
     while (cur <= end) {
-      const y = cur.getFullYear();
-      const m = String(cur.getMonth() + 1).padStart(2, '0');
-      const d = String(cur.getDate()).padStart(2, '0');
-      yield `${y}-${m}-${d}`;
-      cur.setDate(cur.getDate() + 1);
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        const d = String(cur.getDate()).padStart(2, '0');
+        yield `${y}-${m}-${d}`;
+        cur.setDate(cur.getDate() + 1);
     }
-  }
-  
-  function toUnixRangeForIST(dateISO) {
+}
+
+function toUnixRangeForIST(dateISO) {
     const start = new Date(dateISO + 'T00:00:00.000+05:30');
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
     return {
-      after: Math.floor(start.getTime() / 1000),
-      before: Math.floor(end.getTime() / 1000)
+        after: Math.floor(start.getTime() / 1000),
+        before: Math.floor(end.getTime() / 1000)
     };
-  }
+}
 
 // POST /syncEventActivitiesRange
 // Body:
@@ -466,211 +466,211 @@ function* dateRangeIter(startISO, endISO) {
 // }
 app.post('/syncEventActivitiesRange', async (req, res) => {
     try {
-      const {
-        eventId,
-        month,
-        startDate,
-        endDate,
-        categories
-      } = req.body;
-  
-      if (!eventId || month === undefined) {
-        return res.status(400).json({ error: 'eventId and month are required' });
-      }
-  
-      const todayIST = (() => {
-        const istOffset = 5.5 * 60 * 60 * 1000;
-        const now = new Date(Date.now() + istOffset);
-        return now.toISOString().split('T')[0];
-      })();
-  
-      const startISO = startDate || '2025-08-01';
-      const endISO = endDate || todayIST;
-      const cats = Array.isArray(categories) && categories.length ? categories : ['100', '150', '200'];
-  
-      const summary = [];
-      const MAX_REQUESTS_PER_WINDOW = 95; // safety margin
-      const DEFAULT_BATCH = 10;
-  
-      // Iterate dates outer → reduces memory + lets us skip fast per-date
-      for (const dateISO of dateRangeIter(startISO, endISO)) {
-        console.log(`\n📅 Syncing date ${dateISO}`);
-  
-        for (const category of cats) {
-          console.log(` ▶️ Category ${category}`);
-  
-          const athletes = await Athlete.find({ category });
-          if (!athletes.length) {
-            console.log(`  ⚠️ No athletes in ${category}`);
-            summary.push({ date: dateISO, category, processed: 0, skipped: 0, fetched: 0 });
-            continue;
-          }
-  
-          // Find athleteIds already synced for this date (present or empty)
-          const alreadySyncedDocs = await EventActivity.find(
-            {
-              eventId,
-              month,
-              $or: [
-                { [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] } },
-                // legacy safety: if activitiesByDate exists (even empty), treat as synced
-                { [`activitiesByDate.${dateISO}`]: { $exists: true } }
-              ]
-            },
-            { athleteId: 1 }
-          );
-  
-          const alreadySynced = new Set(alreadySyncedDocs.map(d => d.athleteId));
-          const toProcess = athletes.filter(a => !alreadySynced.has(a.athleteId));
-  
-          const skipped = athletes.length - toProcess.length;
-          console.log(`  Athletes total: ${athletes.length}, to process: ${toProcess.length}, skipped: ${skipped}`);
-  
-          if (toProcess.length === 0) {
-            summary.push({ date: dateISO, category, processed: 0, skipped, fetched: 0 });
-            continue;
-          }
-  
-          // Adaptive batch + delay
-          const BATCH_SIZE = toProcess.length > 50 ? Math.min(DEFAULT_BATCH, 8) : DEFAULT_BATCH;
-          const estDelayMs = Math.ceil((15 * 60 * 1000) / (MAX_REQUESTS_PER_WINDOW / BATCH_SIZE)); // coarse budget
-          let fetchedCount = 0;
-  
-          const updates = {}; // athleteId -> upsert payload
-  
-          const { after, before } = toUnixRangeForIST(dateISO);
-          const beforeAdjusted = before + 86400; // your earlier buffer; keep if you need it
-  
-          for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
-            const batch = toProcess.slice(i, i + BATCH_SIZE);
-            console.log(`  • Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toProcess.length / BATCH_SIZE)}`);
-  
-            const results = await Promise.allSettled(
-              batch.map(a => fetchAthleteActivitiesByEvent(a, after, before)) // you can switch to beforeAdjusted if needed
-            );
-  
-            results.forEach(result => {
-              if (result.status !== 'fulfilled') return;
-              const activityList = result.value || [];
-              if (activityList.length > 0) fetchedCount++;
-  
-              // We expect only activities of this *exact* date
-              // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
-              activityList.forEach(activity => {
-                const dayKey = new Date(activity.start_date).toISOString().split('T')[0];
-                const athleteId = activity.athlete.id;
-  
-                if (!updates[athleteId]) {
-                  updates[athleteId] = {
-                    athleteId,
-                    eventId,
-                    month,
-                    athlete: activity.athlete,
-                    activitiesByDate: {},
-                    syncStatusByDate: {}
-                  };
-                }
-                if (!updates[athleteId].activitiesByDate[dayKey]) {
-                  updates[athleteId].activitiesByDate[dayKey] = [];
-                }
-                updates[athleteId].activitiesByDate[dayKey].push({
-                  id: activity.id,
-                  name: activity.name,
-                  distance: activity.distance,
-                  moving_time: activity.moving_time,
-                  start_date: activity.start_date,
-                  type: activity.type,
-                  points: activity.points,
-                  emoji: activity.emoji
-                });
-                updates[athleteId].syncStatusByDate[dayKey] = 'present';
-              });
-            });
-  
-            // Mark EMPTY for any athlete in this batch that returned zero activities
-            for (const a of batch) {
-              if (updates[a.athleteId]) continue; // has present data for some dayKey
-              // Explicitly mark this date as empty
-              if (!updates[a.athleteId]) {
-                updates[a.athleteId] = {
-                  athleteId: a.athleteId,
-                  eventId,
-                  month,
-                  athlete: {
-                    id: a.athleteId,
-                    firstname: a.firstname,
-                    lastname: a.lastname,
-                    profile: a.profile,
-                    gender: a.gender,
-                    restDay: a.restDay || 'Monday',
-                    team: a.team || 'blue',
-                    category: a.category || '100'
-                  },
-                  activitiesByDate: {},
-                  syncStatusByDate: {}
-                };
-              }
-              updates[a.athleteId].activitiesByDate[dateISO] = [];
-              updates[a.athleteId].syncStatusByDate[dateISO] = 'empty';
-            }
-  
-            if (i + BATCH_SIZE < toProcess.length) {
-              console.log(`  ⏳ Waiting ${estDelayMs}ms before next batch...`);
-              await new Promise(r => setTimeout(r, estDelayMs));
-            }
-          }
-  
-          // Build bulk upserts
-          const bulkOps = Object.values(updates).map(entry => {
-            const setOps = {
-              athlete: entry.athlete
-            };
-            // merge multiple dayKeys this pass may have touched
-            for (const [k, v] of Object.entries(entry.activitiesByDate)) {
-              setOps[`activitiesByDate.${k}`] = v;
-            }
-            for (const [k, v] of Object.entries(entry.syncStatusByDate)) {
-              setOps[`syncStatusByDate.${k}`] = v; // "present" | "empty"
-            }
-  
-            return {
-              updateOne: {
-                filter: { eventId, month, athleteId: entry.athleteId },
-                update: { $set: setOps },
-                upsert: true
-              }
-            };
-          });
-  
-          if (bulkOps.length > 0) {
-            await EventActivity.bulkWrite(bulkOps);
-          }
-  
-          summary.push({
-            date: dateISO,
-            category,
-            processed: bulkOps.length,
-            skipped,
-            fetched: fetchedCount,
-            batchSize: BATCH_SIZE,
-            delayMs: estDelayMs
-          });
-  
-          // Small pause between categories per date
-          await new Promise(r => setTimeout(r, 2000));
+        const {
+            eventId,
+            month,
+            startDate,
+            endDate,
+            categories
+        } = req.body;
+
+        if (!eventId || month === undefined) {
+            return res.status(400).json({ error: 'eventId and month are required' });
         }
-  
-        // Optional: a short pause between dates to be polite
-        await new Promise(r => setTimeout(r, 2000));
-      }
-  
-      res.json({ message: '✅ Range sync complete', range: { startISO, endISO }, summary });
+
+        const todayIST = (() => {
+            const istOffset = 5.5 * 60 * 60 * 1000;
+            const now = new Date(Date.now() + istOffset);
+            return now.toISOString().split('T')[0];
+        })();
+
+        const startISO = startDate || '2025-08-01';
+        const endISO = endDate || todayIST;
+        const cats = Array.isArray(categories) && categories.length ? categories : ['100', '150', '200'];
+
+        const summary = [];
+        const MAX_REQUESTS_PER_WINDOW = 95; // safety margin
+        const DEFAULT_BATCH = 10;
+
+        // Iterate dates outer → reduces memory + lets us skip fast per-date
+        for (const dateISO of dateRangeIter(startISO, endISO)) {
+            console.log(`\n📅 Syncing date ${dateISO}`);
+
+            for (const category of cats) {
+                console.log(` ▶️ Category ${category}`);
+
+                const athletes = await Athlete.find({ category });
+                if (!athletes.length) {
+                    console.log(`  ⚠️ No athletes in ${category}`);
+                    summary.push({ date: dateISO, category, processed: 0, skipped: 0, fetched: 0 });
+                    continue;
+                }
+
+                // Find athleteIds already synced for this date (present or empty)
+                const alreadySyncedDocs = await EventActivity.find(
+                    {
+                        eventId,
+                        month,
+                        $or: [
+                            { [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] } },
+                            // legacy safety: if activitiesByDate exists (even empty), treat as synced
+                            { [`activitiesByDate.${dateISO}`]: { $exists: true } }
+                        ]
+                    },
+                    { athleteId: 1 }
+                );
+
+                const alreadySynced = new Set(alreadySyncedDocs.map(d => d.athleteId));
+                const toProcess = athletes.filter(a => !alreadySynced.has(a.athleteId));
+
+                const skipped = athletes.length - toProcess.length;
+                console.log(`  Athletes total: ${athletes.length}, to process: ${toProcess.length}, skipped: ${skipped}`);
+
+                if (toProcess.length === 0) {
+                    summary.push({ date: dateISO, category, processed: 0, skipped, fetched: 0 });
+                    continue;
+                }
+
+                // Adaptive batch + delay
+                const BATCH_SIZE = toProcess.length > 50 ? Math.min(DEFAULT_BATCH, 8) : DEFAULT_BATCH;
+                const estDelayMs = Math.ceil((15 * 60 * 1000) / (MAX_REQUESTS_PER_WINDOW / BATCH_SIZE)); // coarse budget
+                let fetchedCount = 0;
+
+                const updates = {}; // athleteId -> upsert payload
+
+                const { after, before } = toUnixRangeForIST(dateISO);
+                const beforeAdjusted = before + 86400; // your earlier buffer; keep if you need it
+
+                for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+                    const batch = toProcess.slice(i, i + BATCH_SIZE);
+                    console.log(`  • Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toProcess.length / BATCH_SIZE)}`);
+
+                    const results = await Promise.allSettled(
+                        batch.map(a => fetchAthleteActivitiesByEvent(a, after, before)) // you can switch to beforeAdjusted if needed
+                    );
+
+                    results.forEach(result => {
+                        if (result.status !== 'fulfilled') return;
+                        const activityList = result.value || [];
+                        if (activityList.length > 0) fetchedCount++;
+
+                        // We expect only activities of this *exact* date
+                        // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
+                        activityList.forEach(activity => {
+                            const dayKey = new Date(activity.start_date).toISOString().split('T')[0];
+                            const athleteId = activity.athlete.id;
+
+                            if (!updates[athleteId]) {
+                                updates[athleteId] = {
+                                    athleteId,
+                                    eventId,
+                                    month,
+                                    athlete: activity.athlete,
+                                    activitiesByDate: {},
+                                    syncStatusByDate: {}
+                                };
+                            }
+                            if (!updates[athleteId].activitiesByDate[dayKey]) {
+                                updates[athleteId].activitiesByDate[dayKey] = [];
+                            }
+                            updates[athleteId].activitiesByDate[dayKey].push({
+                                id: activity.id,
+                                name: activity.name,
+                                distance: activity.distance,
+                                moving_time: activity.moving_time,
+                                start_date: activity.start_date,
+                                type: activity.type,
+                                points: activity.points,
+                                emoji: activity.emoji
+                            });
+                            updates[athleteId].syncStatusByDate[dayKey] = 'present';
+                        });
+                    });
+
+                    // Mark EMPTY for any athlete in this batch that returned zero activities
+                    for (const a of batch) {
+                        if (updates[a.athleteId]) continue; // has present data for some dayKey
+                        // Explicitly mark this date as empty
+                        if (!updates[a.athleteId]) {
+                            updates[a.athleteId] = {
+                                athleteId: a.athleteId,
+                                eventId,
+                                month,
+                                athlete: {
+                                    id: a.athleteId,
+                                    firstname: a.firstname,
+                                    lastname: a.lastname,
+                                    profile: a.profile,
+                                    gender: a.gender,
+                                    restDay: a.restDay || 'Monday',
+                                    team: a.team || 'blue',
+                                    category: a.category || '100'
+                                },
+                                activitiesByDate: {},
+                                syncStatusByDate: {}
+                            };
+                        }
+                        updates[a.athleteId].activitiesByDate[dateISO] = [];
+                        updates[a.athleteId].syncStatusByDate[dateISO] = 'empty';
+                    }
+
+                    if (i + BATCH_SIZE < toProcess.length) {
+                        console.log(`  ⏳ Waiting ${estDelayMs}ms before next batch...`);
+                        await new Promise(r => setTimeout(r, estDelayMs));
+                    }
+                }
+
+                // Build bulk upserts
+                const bulkOps = Object.values(updates).map(entry => {
+                    const setOps = {
+                        athlete: entry.athlete
+                    };
+                    // merge multiple dayKeys this pass may have touched
+                    for (const [k, v] of Object.entries(entry.activitiesByDate)) {
+                        setOps[`activitiesByDate.${k}`] = v;
+                    }
+                    for (const [k, v] of Object.entries(entry.syncStatusByDate)) {
+                        setOps[`syncStatusByDate.${k}`] = v; // "present" | "empty"
+                    }
+
+                    return {
+                        updateOne: {
+                            filter: { eventId, month, athleteId: entry.athleteId },
+                            update: { $set: setOps },
+                            upsert: true
+                        }
+                    };
+                });
+
+                if (bulkOps.length > 0) {
+                    await EventActivity.bulkWrite(bulkOps);
+                }
+
+                summary.push({
+                    date: dateISO,
+                    category,
+                    processed: bulkOps.length,
+                    skipped,
+                    fetched: fetchedCount,
+                    batchSize: BATCH_SIZE,
+                    delayMs: estDelayMs
+                });
+
+                // Small pause between categories per date
+                await new Promise(r => setTimeout(r, 2000));
+            }
+
+            // Optional: a short pause between dates to be polite
+            await new Promise(r => setTimeout(r, 2000));
+        }
+
+        res.json({ message: '✅ Range sync complete', range: { startISO, endISO }, summary });
     } catch (e) {
-      console.error('❌ /syncEventActivitiesRange failed:', e.message);
-      res.status(500).json({ error: 'Internal error', details: e.message });
+        console.error('❌ /syncEventActivitiesRange failed:', e.message);
+        res.status(500).json({ error: 'Internal error', details: e.message });
     }
-  });
-  
+});
+
 
 
 // POST endpoint to fetch today's activities and store in DB
@@ -861,7 +861,7 @@ app.post('/syncEventActivities_old', async (req, res) => {
     //const athletes = await Athlete.find({ category: { $in: ["200"] } });
     //const athletes = await Athlete.find({ athleteId: { $in: ["61676509", "148869247"] } });
     const athletes = await Athlete.find({ athleteId: "179283352" });
-    
+
     if (!athletes.length) {
         return res.status(404).json({ error: 'No athlete found with given ID' });
     }
@@ -936,87 +936,87 @@ app.post('/syncEventActivities_old', async (req, res) => {
 // Get athletes by event and category
 app.get('/athletesByEvent', async (req, res) => {
     try {
-      const {
-        eventid,   // kept for shape/forward compat
-        month,     // kept for shape/forward compat
-        category,
-        page = '1',
-        pageSize = '200',
-        fields  // optional: "athleteId,firstname,lastname,profile,gender,restDay,team,category"
-      } = req.query;
-  
-      if (!category) {
-        return res.status(400).json({ error: 'category is required' });
-      }
-  
-      // Parse & clamp paging
-      const p = Math.max(1, parseInt(page, 10) || 1);
-      const ps = Math.min(500, Math.max(1, parseInt(pageSize, 10) || 200));
-  
-      // Projection (only what the UI needs by default)
-      const fieldList = (fields || 'athleteId,firstname,lastname,profile,gender,restDay,team,category,status')
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-      const projection = {};
-      for (const f of fieldList) projection[f] = 1;
-  
-      // Cache key
-      const cacheKey = `athletes:${category}:p${p}:ps${ps}:f${fieldList.sort().join('|')}`;
-      const now = Date.now();
-      const cached = athletesCache.get(cacheKey);
-      if (cached && cached.expiresAt > now) {
+        const {
+            eventid,   // kept for shape/forward compat
+            month,     // kept for shape/forward compat
+            category,
+            page = '1',
+            pageSize = '200',
+            fields  // optional: "athleteId,firstname,lastname,profile,gender,restDay,team,category"
+        } = req.query;
+
+        if (!category) {
+            return res.status(400).json({ error: 'category is required' });
+        }
+
+        // Parse & clamp paging
+        const p = Math.max(1, parseInt(page, 10) || 1);
+        const ps = Math.min(500, Math.max(1, parseInt(pageSize, 10) || 200));
+
+        // Projection (only what the UI needs by default)
+        const fieldList = (fields || 'athleteId,firstname,lastname,profile,gender,restDay,team,category,status')
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+        const projection = {};
+        for (const f of fieldList) projection[f] = 1;
+
+        // Cache key
+        const cacheKey = `athletes:${category}:p${p}:ps${ps}:f${fieldList.sort().join('|')}`;
+        const now = Date.now();
+        const cached = athletesCache.get(cacheKey);
+        if (cached && cached.expiresAt > now) {
+            res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+            return res.json(cached.payload);
+        }
+
+        // Filter — if you use status to exclude pending/inactive, keep it
+        const filter = { category };
+        // If you want only active participants, uncomment:
+        // filter.status = 'active';
+
+        // Run count + page query in parallel; lean() + projection keeps it fast/light
+        const [total, docs] = await Promise.all([
+            Athlete.countDocuments(filter).maxTimeMS(5000),
+            Athlete.find(filter, projection)
+                .sort({ lastname: 1, firstname: 1, athleteId: 1 })
+                .skip((p - 1) * ps)
+                .limit(ps)
+                .lean()
+                .maxTimeMS(5000)
+        ]);
+
+        const payload = {
+            page: p,
+            pageSize: ps,
+            total,
+            pages: Math.ceil(total / ps),
+            athletes: docs.map(a => ({
+                id: a.athleteId,
+                firstname: a.firstname || '',
+                lastname: a.lastname || '',
+                profile: a.profile || '',
+                gender: a.gender ?? null,
+                restDay: a.restDay || 'Monday',
+                team: a.team || 'blue',
+                category: a.category || '100',
+                status: a.status || 'pending'
+            }))
+        };
+
+        // Store in memory for 5 min
+        athletesCache.set(cacheKey, { expiresAt: now + 5 * 60 * 1000, payload });
+
+        // Edge cache (Vercel/CloudFront) for 5 min, allow stale for 1h
         res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
-        return res.json(cached.payload);
-      }
-  
-      // Filter — if you use status to exclude pending/inactive, keep it
-      const filter = { category };
-      // If you want only active participants, uncomment:
-      // filter.status = 'active';
-  
-      // Run count + page query in parallel; lean() + projection keeps it fast/light
-      const [total, docs] = await Promise.all([
-        Athlete.countDocuments(filter).maxTimeMS(5000),
-        Athlete.find(filter, projection)
-          .sort({ lastname: 1, firstname: 1, athleteId: 1 })
-          .skip((p - 1) * ps)
-          .limit(ps)
-          .lean()
-          .maxTimeMS(5000)
-      ]);
-  
-      const payload = {
-        page: p,
-        pageSize: ps,
-        total,
-        pages: Math.ceil(total / ps),
-        athletes: docs.map(a => ({
-          id: a.athleteId,
-          firstname: a.firstname || '',
-          lastname: a.lastname || '',
-          profile: a.profile || '',
-          gender: a.gender ?? null,
-          restDay: a.restDay || 'Monday',
-          team: a.team || 'blue',
-          category: a.category || '100',
-          status: a.status || 'pending'
-        }))
-      };
-  
-      // Store in memory for 5 min
-      athletesCache.set(cacheKey, { expiresAt: now + 5 * 60 * 1000, payload });
-  
-      // Edge cache (Vercel/CloudFront) for 5 min, allow stale for 1h
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
-      return res.json(payload);
+        return res.json(payload);
     } catch (err) {
-      console.error('❌ /athletesByEvent failed:', err.message);
-      res.setHeader('Cache-Control', 'public, s-maxage=30');
-      return res.status(500).json({ error: 'Internal Server Error' });
+        console.error('❌ /athletesByEvent failed:', err.message);
+        res.setHeader('Cache-Control', 'public, s-maxage=30');
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
-  });
-  
+});
+
 
 app.get('/athletesByEvent2', async (req, res) => {
     try {
@@ -1044,49 +1044,49 @@ app.get('/athletesByEvent2', async (req, res) => {
 // ✅ New /activitiesByEvent: Fetch from MongoDB
 app.get('/activitiesByEvent', async (req, res) => {
     try {
-      const { eventid, month, category, athleteIds } = req.query;
-      if (!eventid || month === undefined) {
-        return res.status(400).json({ error: "Missing eventid or month" });
-      }
-  
-      let ids = [];
-      if (athleteIds) {
-        ids = athleteIds.split(',').map(s => s.trim()).filter(Boolean);
-      } else if (category) {
-        // fallback: if no athleteIds provided, restrict by category via Athlete collection
-        const catIds = await Athlete.find({ category }, { athleteId: 1, _id: 0 }).lean();
-        ids = catIds.map(a => a.athleteId);
-      }
-  
-      const query = { eventId: eventid, month: parseInt(month, 10) };
-      if (ids.length > 0) query.athleteId = { $in: ids };
-  
-      // lean() to reduce overhead
-      const docs = await EventActivity.find(query, {
-        _id: 0, athleteId: 1, athlete: 1, activitiesByDate: 1
-      })
-      .lean()
-      .maxTimeMS(5000);
-  
-      // Cache headers for CDN; safe because data only changes when you sync
-      res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=1800');
-  
-      return res.json({
-        activities: docs.map(d => ({
-          athleteId: d.athleteId,
-          athlete: d.athlete,
-          activitiesByDate: d.activitiesByDate || {}
-        })),
-        medals: {} // (optional)
-      });
-    } catch (err) {
-      console.error('❌ /activitiesByEvent error:', err.message);
-      res.setHeader('Cache-Control', 'public, s-maxage=30');
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
-  });
+        const { eventid, month, category, athleteIds } = req.query;
+        if (!eventid || month === undefined) {
+            return res.status(400).json({ error: "Missing eventid or month" });
+        }
 
-  
+        let ids = [];
+        if (athleteIds) {
+            ids = athleteIds.split(',').map(s => s.trim()).filter(Boolean);
+        } else if (category) {
+            // fallback: if no athleteIds provided, restrict by category via Athlete collection
+            const catIds = await Athlete.find({ category }, { athleteId: 1, _id: 0 }).lean();
+            ids = catIds.map(a => a.athleteId);
+        }
+
+        const query = { eventId: eventid, month: parseInt(month, 10) };
+        if (ids.length > 0) query.athleteId = { $in: ids };
+
+        // lean() to reduce overhead
+        const docs = await EventActivity.find(query, {
+            _id: 0, athleteId: 1, athlete: 1, activitiesByDate: 1
+        })
+            .lean()
+            .maxTimeMS(5000);
+
+        // Cache headers for CDN; safe because data only changes when you sync
+        res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=1800');
+
+        return res.json({
+            activities: docs.map(d => ({
+                athleteId: d.athleteId,
+                athlete: d.athlete,
+                activitiesByDate: d.activitiesByDate || {}
+            })),
+            medals: {} // (optional)
+        });
+    } catch (err) {
+        console.error('❌ /activitiesByEvent error:', err.message);
+        res.setHeader('Cache-Control', 'public, s-maxage=30');
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 app.get('/activitiesByEvent2', async (req, res) => {
     try {
         const { eventid, month, category } = req.query;
@@ -1126,3 +1126,13 @@ app.get('/activitiesByEvent2', async (req, res) => {
 // Start Server
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+/*
+{$or:[{email:''},{email:{$exists:false}}]}
+
+Reena Runner
+Ritika Bhakuni
+Strava Athlete
+
+*/
+
