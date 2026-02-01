@@ -206,7 +206,7 @@ updates().catch(console.error);
 //146462753-Prashant, 30181449-Vishal Kamra, 34629659-Teena Sharma,
 
 /*
-curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr","month":"7", "date":"2025-08-01"}'
+curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":"1", "date":"2026-02-01"}'
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-01","endDate":"2025-08-14","categories":["100", "150", "200"]}'
 

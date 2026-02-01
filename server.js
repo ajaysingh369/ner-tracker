@@ -513,7 +513,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
 
     const startISO = startDate || '2026-02-01';
     const endISO = endDate || todayIST;
-    const cats = Array.isArray(categories) && categories.length ? categories : ['100', '150', '200'];
+    const cats = Array.isArray(categories) && categories.length ? categories : ['50', '100', '150', '200'];
 
     const summary = [];
     const MAX_REQUESTS_PER_WINDOW = 95; // safety margin
@@ -526,7 +526,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
       for (const category of cats) {
         console.log(` ▶️ Category ${category}`);
 
-        const athletes = await Athlete.find({ category });
+        const athletes = await Athlete.find({ category, status: 'confirmed', dummy: false });
         if (!athletes.length) {
           console.log(`  ⚠️ No athletes in ${category}`);
           summary.push({ date: dateISO, category, processed: 0, skipped: 0, fetched: 0 });
@@ -725,7 +725,7 @@ app.post('/syncEventActivities', async (req, res) => {
   const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
   const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
-  const allCategories = ["100", "150", "200"];  //["100", "150", "200"];
+  const allCategories = ["50", "100", "150", "200"];  //["100", "150", "200"];
 
   // Fetch all athletes of selected category
   //const athletes = await Athlete.find({ category: { $in: ["100", "150", "200"] } });
@@ -737,7 +737,7 @@ app.post('/syncEventActivities', async (req, res) => {
     console.log(`\n=== Starting sync for category ${category} ===`);
 
     //const athletes = await Athlete.find({ athleteId: { $in: ["180767613", "179474640", "178581154", "178886643", "179553849", "179079797", "175300317", 113441625", "116199491", "178718682", ""] } });
-    let athletes = await Athlete.find({ category });
+    let athletes = await Athlete.find({ category, status: 'confirmed', dummy: false });
     //const athletes = await Athlete.find({ athleteId: "34629659" });
     if (!athletes.length) {
       console.log(`⚠️ No athletes found for category ${category}`);

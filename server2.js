@@ -1129,10 +1129,31 @@ app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 /*
 {$or:[{email:''},{email:{$exists:false}}]}
+{firstname:{$regex:'Bibha|Ritu|Poonam',$options:'i'}}
 
 Reena Runner
 Ritika Bhakuni
 Strava Athlete
+
+firstname: { $regex: "Bibha|Ritu|Poonam", $options: "i" }
+
+
+mahishrm@gmail.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 */
 
