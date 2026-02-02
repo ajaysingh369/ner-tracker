@@ -28,10 +28,15 @@ self.onmessage = function (e) {
         }
     }
 
-    // ---- Sort athletes by total distance (desc)
+    // ---- Sort athletes: 1) Real Accounts First, 2) Total Distance (desc)
     const sortedAthletes = [...athletes].sort((a, b) => {
-        const db = distanceTotals.get(b.athleteId) || 0;
-        const da = distanceTotals.get(a.athleteId) || 0;
+        // Dummy check: false < true (so false comes first)
+        const aDum = !!a.dummy;
+        const bDum = !!b.dummy;
+        if (aDum !== bDum) return aDum ? 1 : -1;
+
+        const db = distanceTotals.get(b.id) || 0;
+        const da = distanceTotals.get(a.id) || 0;
         return db - da;
     });
 

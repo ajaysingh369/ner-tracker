@@ -157,7 +157,7 @@ function renderCalendar(athletes, activities) {
     calendarBody.innerHTML = "";
 
     // ---- Precompute constants
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const MONTH_KEY = "2026-02";
     const DAYS_IN_MONTH = 28;
     const dateStrs = Array.from({ length: DAYS_IN_MONTH }, (_, i) =>
@@ -165,7 +165,7 @@ function renderCalendar(athletes, activities) {
     );
 
     // Initialize Worker
-    const worker = new Worker("worker.js");
+    const worker = new Worker("worker.js?v=2");
 
     worker.postMessage({
         athletes,
@@ -234,10 +234,10 @@ function buildAthleteRow(athlete) {
 
     const lowResUrl = getLowResImageUrl(athlete.profile || "");
     const athleteName = `${athlete.firstname || 'Unknown'} ${athlete.lastname || ''}`.trim() || 'Athlete';
-    const monthTotal = distanceTotals.get(athlete.athleteId) || 0;
+    const monthTotal = distanceTotals.get(athlete.id) || 0;
     const DISTANCE_GOAL = parseInt(athlete.category, 10) || 100;
     const progressPercent = Math.min(100, (monthTotal / DISTANCE_GOAL) * 100).toFixed(1);
-    const daysActive = activeDays.get(athlete.athleteId) || 0;
+    const daysActive = activeDays.get(athlete.id) || 0;
 
     // load per-category qualified state (first render per fetch)
     const qualifiedState = loadQualifiedState(athlete.category || "100");
@@ -245,7 +245,7 @@ function buildAthleteRow(athlete) {
     const meetsDistance = monthTotal >= DISTANCE_GOAL;
     const meetsDays = daysActive >= 20;
     const isQualified = meetsDistance && meetsDays;
-    const wasQualified = !!qualifiedState[athlete.athleteId];
+    const wasQualified = !!qualifiedState[athlete.id];
     const shouldAnimateStamp = isQualified && !wasQualified;
     const txt = I18N.t("ui.qualified.stamp");
 
@@ -268,7 +268,7 @@ function buildAthleteRow(athlete) {
     // Build compact activities map for popup
     const popupActivitiesByDate = {};
     for (const dStr of dateStrs) {
-        const acts = activityMap.get(`${athlete.athleteId}-${dStr}`);
+        const acts = activityMap.get(`${athlete.id}-${dStr}`);
         if (acts && acts.length) {
             popupActivitiesByDate[dStr] = acts;
             athleteCell.dataset.acts = JSON.stringify(acts);
@@ -280,7 +280,7 @@ function buildAthleteRow(athlete) {
     );
 
     if (shouldAnimateStamp) {
-        qualifiedState[athlete.athleteId] = true;
+        qualifiedState[athlete.id] = true;
         saveQualifiedState(athlete.category, qualifiedState);
     }
 
@@ -301,7 +301,7 @@ function buildAthleteRow(athlete) {
                 cell.textContent = "";
                 cell.style.backgroundColor = "transparent";
             } else {
-                const acts = activityMap.get(`${athlete.athleteId}-${dStr}`);
+                const acts = activityMap.get(`${athlete.id}-${dStr}`);
                 if (acts && acts.length) {
                     const totalDist = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
                     cell.innerHTML = `<span class="activity-points">${totalDist.toFixed(2)} ${I18N.t("ui.km")}</span>`;
