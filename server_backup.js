@@ -503,47 +503,6 @@ function toUnixRangeForIST(dateISO) {
 }
 
 
-function processAthleteActivities(athlete, activities, updates, eventId, month, startISO, endISO) {
-  if (!updates[athlete.athleteId]) {
-    updates[athlete.athleteId] = {
-      athleteId: athlete.athleteId,
-      eventId, month,
-      athlete: {
-        id: athlete.athleteId,
-        firstname: athlete.firstname,
-        lastname: athlete.lastname,
-        profile: athlete.profile,
-        gender: athlete.gender,
-        restDay: athlete.restDay || "Monday",
-        team: athlete.team || "blue",
-        category: athlete.category || "100"
-      },
-      activitiesByDate: {},
-      syncStatusByDate: {}
-    };
-  }
-
-  activities.forEach(act => {
-    const dayKey = istDayKey(act.start_date);
-    if (dayKey >= startISO && dayKey <= endISO) {
-      if (!updates[athlete.athleteId].activitiesByDate[dayKey]) {
-        updates[athlete.athleteId].activitiesByDate[dayKey] = [];
-      }
-      updates[athlete.athleteId].activitiesByDate[dayKey].push({
-        id: act.id,
-        name: act.name,
-        distance: act.distance,
-        moving_time: act.moving_time,
-        start_date: act.start_date,
-        type: act.type,
-        points: act.points,
-        emoji: act.emoji
-      });
-      updates[athlete.athleteId].syncStatusByDate[dayKey] = 'present';
-    }
-  });
-}
-
 app.post('/syncEventActivitiesRange', async (req, res) => {
   await connectToDatabase();
   try {
@@ -569,173 +528,166 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
     const endISO = endDate || todayIST;
     const cats = Array.isArray(categories) && categories.length ? categories : ['50', '100', '150', '200'];
 
-    // Generate all date strings in the range for verification/empty checks
-    const allDayKeys = [];
-    for (const d of dateRangeIter(startISO, endISO)) {
-      allDayKeys.push(d);
-    }
-
     const summary = [];
-    const MAX_REQUESTS_PER_WINDOW = 95; // safety margin (limit is 100/15min)
-    const DEFAULT_BATCH = 10; // Process 10 athletes at a time
+    const MAX_REQUESTS_PER_WINDOW = 95; // safety margin
+    const DEFAULT_BATCH = 10;
 
-    // Calculate UNIX timestamps for the FULL range (IST aligned)
-    const rangeStart = new Date(startISO + 'T00:00:00.000+05:30');
-    const rangeEnd = new Date(endISO + 'T23:59:59.999+05:30');
-    const after = Math.floor(rangeStart.getTime() / 1000);
-    const before = Math.floor(rangeEnd.getTime() / 1000);
+    // Iterate dates outer → reduces memory + lets us skip fast per-date
+    for (const dateISO of dateRangeIter(startISO, endISO)) {
+      console.log(`\n📅 Syncing date ${dateISO}`);
 
-    console.log(`\n📅 Syncing Range: ${startISO} to ${endISO} (Epoch: ${after} - ${before})`);
+      for (const category of cats) {
+        console.log(` ▶️ Category ${category}`);
 
-    for (const category of cats) {
-      console.log(`\n ▶️ Category ${category}`);
-
-      const athletes = await Athlete.find({ category, status: 'confirmed', $or: [{ dummy: false }, { dummy: { $exists: false } }] });
-      //const athletes = await Athlete.find({ athleteId: { $in: ["179110646", "179125380"] } });
-      //const athletes = await Athlete.find({ athleteId: "179282852" });
-      if (!athletes.length) {
-        console.log(`  ⚠️ No athletes in ${category}`);
-        summary.push({ category, processed: 0, skipped: 0, fetched: 0 });
-        continue;
-      }
-
-      // Check which athletes are already fully synced for this range
-      // We assume if they have data (present or empty) for ALL days, they are synced.
-      const existingDocs = await EventActivity.find(
-        {
-          eventId,
-          month,
-          athleteId: { $in: athletes.map(a => a.athleteId) }
+        const athletes = await Athlete.find({ category, status: 'confirmed', dummy: false });
+        //const athletes = await Athlete.find({ athleteId: { $in: ["", "38976447", "", "", ""] } });
+        //const athletes = await Athlete.find({ athleteId: "179282852" });
+        if (!athletes.length) {
+          console.log(`  ⚠️ No athletes in ${category}`);
+          summary.push({ date: dateISO, category, processed: 0, skipped: 0, fetched: 0 });
+          continue;
         }
-      );
 
-      // Map: athleteId -> Set of synced dayKeys
-      const athleteSyncMap = new Map();
-      existingDocs.forEach(doc => {
-        if (!athleteSyncMap.has(doc.athleteId)) athleteSyncMap.set(doc.athleteId, new Set());
-
-        const set = athleteSyncMap.get(doc.athleteId);
-        // Check 'syncStatusByDate' for explicit status
-        if (doc.syncStatusByDate) {
-          Object.keys(doc.syncStatusByDate).forEach(k => set.add(k));
-        }
-        // Fallback: check 'activitiesByDate' for legacy data presence
-        if (doc.activitiesByDate) {
-          Object.keys(doc.activitiesByDate).forEach(k => set.add(k));
-        }
-      });
-
-      const toProcess = athletes.filter(a => {
-        const syncedDays = athleteSyncMap.get(a.athleteId);
-        if (!syncedDays) return true;
-        // If athlete has sync status for ALL days in range, skip.
-        const missingDay = allDayKeys.find(day => !syncedDays.has(day));
-        return !!missingDay; // Process if any day is missing
-      });
-
-      const skipped = athletes.length - toProcess.length;
-      console.log(`  Athletes total: ${athletes.length}, to process: ${toProcess.length}, skipped: ${skipped}`);
-
-      if (toProcess.length === 0) {
-        summary.push({ category, processed: 0, skipped, fetched: 0 });
-        continue;
-      }
-
-      // Adaptive batch size & delay calculation
-      // If we process BATCH_SIZE athletes, that's BATCH_SIZE requests.
-      // We budget 95 requests per 15 mins (900 seconds).
-      // Delay per batch = (900s * BATCH_SIZE) / 95
-      const BATCH_SIZE = DEFAULT_BATCH;
-      // Adaptive Delay: Go fast (2s) if queue is small, slow down (10s) if large queue to avoid 429s.
-      const delayPerBatchMs = toProcess.length > 40 ? 10000 : 2000;
-
-      console.log(`  🚀 Batch Size: ${BATCH_SIZE}, Delay between batches: ${(delayPerBatchMs / 1000).toFixed(1)}s`);
-
-      let fetchedCount = 0;
-
-      for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
-        const batch = toProcess.slice(i, i + BATCH_SIZE);
-        console.log(`  • Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toProcess.length / BATCH_SIZE)} (${batch.length} athletes)`);
-
-        const results = await Promise.allSettled(
-          batch.map(a => fetchAthleteActivitiesByEvent(a, after, before))
+        // Find athleteIds already synced for this date (present or empty)
+        const alreadySyncedDocs = await EventActivity.find(
+          {
+            eventId,
+            month, // or monthNum if you normalized
+            $or: [
+              { [`syncStatusByDate.${dateISO}`]: { $in: ['present', 'empty'] } },
+              { [`activitiesByDate.${dateISO}`]: { $exists: true } } // legacy guard
+            ]
+          },
+          { athleteId: 1 }
         );
 
-        const updates = {}; // athleteId -> payload
-        const failedAthleteIds = new Set();
+        const alreadySynced = new Set(alreadySyncedDocs.map(d => d.athleteId));
+        const toProcess = athletes.filter(a => !alreadySynced.has(a.athleteId));
 
-        const retryList = [];
+        const skipped = athletes.length - toProcess.length;
+        console.log(`  Athletes total: ${athletes.length}, to process: ${toProcess.length}, skipped: ${skipped}`);
 
-        results.forEach((result, idx) => {
-          const athlete = batch[idx];
-          if (result.status !== 'fulfilled' || result.value === null) {
-            retryList.push(athlete);
-            return;
+        if (toProcess.length === 0) {
+          summary.push({ date: dateISO, category, processed: 0, skipped, fetched: 0 });
+          continue;
+        }
+
+        // Adaptive batch + delay
+        const BATCH_SIZE = toProcess.length > 50 ? Math.min(DEFAULT_BATCH, 8) : DEFAULT_BATCH;
+        const estDelayMs = Math.ceil((15 * 60 * 1000) / (MAX_REQUESTS_PER_WINDOW / BATCH_SIZE)); // coarse budget
+        let fetchedCount = 0;
+
+        const updates = {}; // athleteId -> upsert payload
+
+        const { after, before } = toUnixRangeForIST(dateISO);
+
+        for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+          const batch = toProcess.slice(i, i + BATCH_SIZE);
+          console.log(`  • Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toProcess.length / BATCH_SIZE)}`);
+
+          const results = await Promise.allSettled(
+            batch.map(a => fetchAthleteActivitiesByEvent(a, after, before))
+          );
+
+          const failedAthleteIds = new Set();
+
+          results.forEach((result, idx) => {
+            if (result.status !== 'fulfilled') {
+              failedAthleteIds.add(batch[idx].athleteId);
+              return;
+            }
+
+            // If null, it means sync failed (e.g. token error). Do NOT process, Do NOT mark empty.
+            if (result.value === null) {
+              failedAthleteIds.add(batch[idx].athleteId);
+              return;
+            }
+
+            const activityList = result.value;
+            if (activityList.length > 0) fetchedCount++;
+
+            // We expect only activities of this *exact* date
+            // But we’ll bucket by the actual activity.start_date date (IST) to be safe.
+            activityList.forEach(activity => {
+              const dayKey = istDayKey(activity.start_date);
+              if (dayKey !== dateISO) {
+                console.log("date differes in sync::", dayKey, dateISO, activity.start_date);
+                return;
+              }
+              const athleteId = activity.athlete.id;
+
+              if (!updates[athleteId]) {
+                updates[athleteId] = {
+                  athleteId,
+                  eventId,
+                  month,
+                  athlete: activity.athlete,
+                  activitiesByDate: {},
+                  syncStatusByDate: {}
+                };
+              }
+              if (!updates[athleteId].activitiesByDate[dateISO]) {
+                updates[athleteId].activitiesByDate[dateISO] = [];
+              }
+              updates[athleteId].activitiesByDate[dateISO].push({
+                id: activity.id,
+                name: activity.name,
+                distance: activity.distance,
+                moving_time: activity.moving_time,
+                start_date: activity.start_date,
+                type: activity.type,
+                points: activity.points,
+                emoji: activity.emoji
+              });
+              updates[athleteId].syncStatusByDate[dateISO] = 'present';
+            });
+          });
+
+          // Mark EMPTY for any athlete in this batch that returned zero activities (and didn't fail)
+          for (const a of batch) {
+            if (failedAthleteIds.has(a.athleteId)) continue; // SKIP if sync failed
+            if (updates[a.athleteId]) continue; // has present data for some dayKey
+            // Explicitly mark this date as empty
+            if (!updates[a.athleteId]) {
+              updates[a.athleteId] = {
+                athleteId: a.athleteId,
+                eventId,
+                month,
+                athlete: {
+                  id: a.athleteId,
+                  firstname: a.firstname,
+                  lastname: a.lastname,
+                  profile: a.profile,
+                  gender: a.gender,
+                  restDay: a.restDay || 'Monday',
+                  team: a.team || 'blue',
+                  category: a.category || '100'
+                },
+                activitiesByDate: {},
+                syncStatusByDate: {}
+              };
+            }
+            updates[a.athleteId].activitiesByDate[dateISO] = [];
+            updates[a.athleteId].syncStatusByDate[dateISO] = 'empty';
           }
 
-          const activities = result.value;
-          fetchedCount += activities.length;
-          processAthleteActivities(athlete, activities, updates, eventId, month, startISO, endISO);
-        });
-
-        // 🔄 Serial Retry for Failed Athletes
-        if (retryList.length > 0) {
-          console.log(`  ⚠️ ${retryList.length} athletes failed in batch. Retrying sequentially...`);
-          for (const athlete of retryList) {
-            await new Promise(r => setTimeout(r, 1000)); // 1s delay per retry
-            try {
-              const activities = await fetchAthleteActivitiesByEvent(athlete, after, before);
-              if (activities === null) {
-                failedAthleteIds.add(athlete.athleteId);
-                console.error(`  ❌ Retry failed for ${athlete.firstname} ${athlete.lastname}`);
-              } else {
-                console.log(`  ✅ Retry SUCCESS for ${athlete.firstname} ${athlete.lastname}`);
-                fetchedCount += activities.length;
-                processAthleteActivities(athlete, activities, updates, eventId, month, startISO, endISO);
-              }
-            } catch (err) {
-              failedAthleteIds.add(athlete.athleteId);
-              console.error(`  ❌ Retry exception for ${athlete.firstname}:`, err.message);
-            }
+          if (i + BATCH_SIZE < toProcess.length) {
+            console.log(`  ⏳ Waiting ${estDelayMs}ms before next batch...`);
+            await new Promise(r => setTimeout(r, estDelayMs));
           }
         }
 
-        // Handle Empty Dates for successful athletes
-        batch.forEach(a => {
-          if (failedAthleteIds.has(a.athleteId)) return; // Skip failed
-
-          if (!updates[a.athleteId]) {
-            // Athlete returned 0 activities for the whole range
-            updates[a.athleteId] = {
-              athleteId: a.athleteId,
-              eventId, month,
-              athlete: a, // Use full object or projection
-              activitiesByDate: {},
-              syncStatusByDate: {}
-            };
-          }
-
-          // Ensure every date in range has an entry
-          allDayKeys.forEach(day => {
-            if (!updates[a.athleteId].activitiesByDate[day]) {
-              updates[a.athleteId].activitiesByDate[day] = [];
-              updates[a.athleteId].syncStatusByDate[day] = 'empty';
-            }
-          });
-        });
-
-        // Bulk Write
+        // Build bulk upserts
         const bulkOps = Object.values(updates).map(entry => {
-          const setOps = { athlete: entry.athlete };
-          // Use dotted notation to merge, NOT overwrite entire map if possible?
-          // Actually, for specific dates we definitively know the state (present/empty).
-          // We should set those specific fields.
-
+          const setOps = {
+            athlete: entry.athlete
+          };
+          // merge multiple dayKeys this pass may have touched
           for (const [k, v] of Object.entries(entry.activitiesByDate)) {
             setOps[`activitiesByDate.${k}`] = v;
           }
           for (const [k, v] of Object.entries(entry.syncStatusByDate)) {
-            setOps[`syncStatusByDate.${k}`] = v;
+            setOps[`syncStatusByDate.${k}`] = v; // "present" | "empty"
           }
 
           return {
@@ -744,34 +696,32 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
               update: { $set: setOps },
               upsert: true
             }
-          }
+          };
         });
 
         if (bulkOps.length > 0) {
           await EventActivity.bulkWrite(bulkOps);
         }
 
-        // Delay logic
-        if (i + BATCH_SIZE < toProcess.length) {
-          console.log(`  ⏳ Waiting ${(delayPerBatchMs / 1000).toFixed(1)}s before next batch...`);
-          await new Promise(r => setTimeout(r, delayPerBatchMs));
-        }
+        summary.push({
+          date: dateISO,
+          category,
+          processed: bulkOps.length,
+          skipped,
+          fetched: fetchedCount,
+          batchSize: BATCH_SIZE,
+          delayMs: estDelayMs
+        });
+
+        // Small pause between categories per date
+        await new Promise(r => setTimeout(r, 2000));
       }
 
-      summary.push({
-        category,
-        processed: toProcess.length,
-        skipped,
-        fetched: fetchedCount,
-        batchSize: BATCH_SIZE,
-        delayMs: delayPerBatchMs
-      });
-
-      // Short pause between categories
+      // Optional: a short pause between dates to be polite
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    res.json({ message: '✅ Range sync complete (Optimized)', range: { startISO, endISO }, summary });
+    res.json({ message: '✅ Range sync complete', range: { startISO, endISO }, summary });
   } catch (e) {
     console.error('❌ /syncEventActivitiesRange failed:', e.message);
     res.status(500).json({ error: 'Internal error', details: e.message });

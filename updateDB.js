@@ -198,21 +198,19 @@ const updates = async () => {
 
 updates().catch(console.error);
 
-//{email:{ $exists: false }}  179496390
+//50 - Manjeet Singh Attodiya: 162436647
+//150 - Richa Singla: 203234297
 
-//100 - 104
-//150 - 53
-//200 - 62
-//146462753-Prashant, 30181449-Vishal Kamra, 34629659-Teena Sharma,
+//{email:{ $exists: false }}  179496390
 
 /*
 curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":"1", "date":"2026-02-01"}'
 
-curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-01","endDate":"2025-08-14","categories":["100", "150", "200"]}'
+curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-08","endDate":"2026-02-09","categories":["50", "100", "150", "200"]}'
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
   -H "Content-Type: application/json" \
--d '{"eventId":"tkfvr","month":7,"startDate":"2025-08-18","endDate":"2025-08-18","categories":["100", "150", "200"]}'
+-d '{"eventId":"tkfvr2","month":1,"startDate":"2025-08-18","endDate":"2025-08-18","categories":["100", "150", "200"]}'
 
 
 
@@ -220,14 +218,14 @@ curl -X POST http://localhost:3003/admin/clearSyncStatus \
   -H "Content-Type: application/json" \
   -H "x-admin-secret: ajaysingh369" \
   -d '{
-    "eventId": "tkfvr",
+    "eventId": "tkfvr2",
     "dates": ["2025-08-15", "2025-08-16"], "athleteIds": ["123859756","34629659"]
     "dryRun": true
   }'
 
 
   curl -H "x-admin-secret: ajaysingh369" \
-  -L "http://localhost:3003/admin/exportActivities?eventId=tkfvr&month=7&from=2025-08-01&to=2025-08-23" \
+  -L "http://localhost:3003/admin/exportActivities?eventId=tkfvr2&month=1&from=2025-08-01&to=2025-08-23" \
   -o activities_2025-08_01-23.csv
 
 
@@ -235,12 +233,9 @@ curl -X POST http://localhost:3003/admin/clearSyncStatus \
 
 
 
-
-
-
 curl -X POST http://localhost:3003/syncEventActivities \
   -H "Content-Type: application/json" \
-  -d '{"eventId":"tkfvr", "month":"8", "date":"2025-08-01"}'
+  -d '{"eventId":"tkfvr2", "month":"8", "date":"2025-08-01"}'
 
 [
     {

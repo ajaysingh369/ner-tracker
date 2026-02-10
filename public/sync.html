@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sync Admin Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        input[type="password"],
+        input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="password"]:focus,
+        input[type="date"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+
+        label {
+            display: block;
+            text-align: left;
+            margin-top: 15px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #ui-cont {
+            display: none;
+        }
+
+        #response-msg {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Loader */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container" id="auth-cont">
+        <h2>Admin Access</h2>
+        <input type="password" id="password" placeholder="Enter Password" onkeyup="checkPassword()">
+    </div>
+
+    <div class="container" id="ui-cont">
+        <h2>Manual Sync Trigger</h2>
+
+        <label>From Date</label>
+        <input type="date" id="fromDate" onchange="validateDates()">
+
+        <label>To Date</label>
+        <input type="date" id="toDate" onchange="validateDates()">
+
+        <div class="loader" id="loader"></div>
+        <div id="response-msg"></div>
+
+        <button id="syncBtn" onclick="triggerSync()" disabled>Start Sync</button>
+    </div>
+
+    <script>
+        const AUTH_PASS = "Ajay1503";
+
+        const dateObj = new Date();
+        const firstDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1).toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+
+        // Restrict to current month only
+        document.getElementById('fromDate').setAttribute('min', firstDay);
+        document.getElementById('fromDate').setAttribute('max', today);
+
+        document.getElementById('toDate').setAttribute('min', firstDay);
+        document.getElementById('toDate').setAttribute('max', today);
+
+        // Default values
+        document.getElementById('fromDate').value = firstDay;
+        document.getElementById('toDate').value = today;
+
+
+        function checkPassword() {
+            const val = document.getElementById('password').value;
+            if (val === AUTH_PASS) {
+                document.getElementById('auth-cont').style.display = 'none';
+                document.getElementById('ui-cont').style.display = 'block';
+                validateDates(); // Check initial validity
+            }
+        }
+
+        function validateDates() {
+            const start = document.getElementById('fromDate').value;
+            const end = document.getElementById('toDate').value;
+            const btn = document.getElementById('syncBtn');
+
+            if (start && end && start <= end) {
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+        }
+
+        async function triggerSync() {
+            const startDate = document.getElementById('fromDate').value;
+            const endDate = document.getElementById('toDate').value;
+            const btn = document.getElementById('syncBtn');
+            const loader = document.getElementById('loader');
+            const msgBox = document.getElementById('response-msg');
+
+            // UI State: Loading
+            btn.disabled = true;
+            btn.textContent = "Syncing... (Do NOT close tab)";
+            loader.style.display = 'block';
+            msgBox.style.display = 'none';
+
+            const payload = {
+                eventId: "tkfvr2",
+                month: 1, // Hardcoded as per request
+                startDate: startDate,
+                endDate: endDate,
+                categories: ["50", "100", "150", "200"]
+            };
+
+            try {
+                // Fetch with NO custom timeout (browser default applies)
+                // Since user said "even if I close browser sync should complete", 
+                // we assume server handles async detached execution or just runs it.
+                // But for UI feedback, we await.
+                const response = await fetch('/syncEventActivitiesRange', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                loader.style.display = 'none';
+                msgBox.style.display = 'block';
+
+                if (response.ok) {
+                    msgBox.className = 'success';
+                    msgBox.textContent = `✅ Sync Started/Completed! ${data.message || ''}`;
+                    btn.textContent = "Sync Again";
+                } else {
+                    throw new Error(data.error || 'Server error');
+                }
+            } catch (err) {
+                loader.style.display = 'none';
+                msgBox.style.display = 'block';
+                msgBox.className = 'error';
+                msgBox.textContent = `❌ Sync Failed: ${err.message}`;
+                btn.textContent = "Retry Sync";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
