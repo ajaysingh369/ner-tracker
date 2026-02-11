@@ -1,4 +1,4 @@
-const CACHE_NAME = "runner-tracker-cache-v19"; // Increment to bust previous cache
+const CACHE_NAME = "runner-tracker-cache-v21"; // Increment to bust previous cache
 const CACHE_LIFETIME = 30 * 60 * 1000; // 30 mins
 
 const urlsToCache = [
@@ -71,7 +71,11 @@ self.addEventListener("fetch", (event) => {
 
             // 2. Skip third-party URLs
             if (isExternalRequest(request.url)) {
-                return fetch(request).catch(() => cachedResponse || caches.match("/index.html"));
+                return fetch(request).catch(() => {
+                    if (cachedResponse) return cachedResponse;
+                    if (request.mode === 'navigate') return caches.match("/index.html");
+                    return null;
+                });
             }
 
             // 3. Try fetching from network
@@ -107,7 +111,12 @@ self.addEventListener("fetch", (event) => {
                     cache.put(request.url + "-timestamp", new Response(now.toString()));
                     return networkResponse;
                 })
-                .catch(() => cachedResponse || caches.match("/index.html"));
+                .catch(() => {
+                    if (cachedResponse) return cachedResponse;
+                    // Only return index.html for navigation requests (HTML pages)
+                    if (request.mode === 'navigate') return caches.match("/index.html");
+                    return null;
+                });
         })
     );
 });

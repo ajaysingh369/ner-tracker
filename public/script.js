@@ -165,7 +165,7 @@ function renderCalendar(athletes, activities) {
     );
 
     // Initialize Worker
-    const worker = new Worker("worker.js?v=2");
+    const worker = new Worker("worker-v21.js");
 
     worker.postMessage({
         athletes,
@@ -207,7 +207,7 @@ function renderCalendar(athletes, activities) {
             for (const entry of entries) {
                 if (entry.isIntersecting) renderNextChunk();
             }
-        }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
+        }, { root: null, rootMargin: "200px" });
         VIRT_STATE.observer.observe(sentinel);
 
         // Terminate worker after processing
@@ -375,7 +375,7 @@ function filterAthletes() {
         for (const entry of entries) {
             if (entry.isIntersecting) renderNextChunk();
         }
-    }, { root: document.querySelector(".calendar-container"), rootMargin: "200px" });
+    }, { root: null, rootMargin: "200px" });
     VIRT_STATE.observer.observe(sentinel);
 }
 

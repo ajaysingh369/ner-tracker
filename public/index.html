@@ -56,8 +56,8 @@
         }
     </style>
     <script>document.documentElement.classList.add('i18n-loading');</script>
-    <script src="i18n.js" defer></script>
-    <script src="script.js" defer></script>
+    <script src="i18n.js?v=21" defer></script>
+    <script src="script.js?v=21" defer></script>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="styles.css">
     <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
@@ -305,15 +305,15 @@
             }
         }
 
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("/service-worker.js")
-                .then(() => console.log("✅ Service Worker Registered!"))
-                .catch(error => console.log("❌ Service Worker Registration Failed:", error));
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                for (let registration of registrations) {
+                    console.log('🚨 Unregistering SW:', registration);
+                    registration.unregister();
+                }
+            });
         }
-
     </script>
-    <!-- <script src='https://www.noupe.com/embed/0198ae6285747716a0ad807817842530f55b.js'></script> -->
-    <!-- <script src='https://www.noupe.com/embed/0198ae99e30c7defabfff814601e305befda.js'></script> -->
 </body>
 
 </html>
