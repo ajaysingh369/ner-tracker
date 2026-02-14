@@ -199,49 +199,95 @@
 
             // UI State: Loading
             btn.disabled = true;
-            btn.textContent = "Syncing... (Do NOT close tab)";
             loader.style.display = 'block';
-            msgBox.style.display = 'none';
+            msgBox.style.display = 'block';
+            msgBox.className = '';
+            msgBox.textContent = "Fetching athlete list...";
 
-            const payload = {
-                eventId: "tkfvr2",
-                month: 1, // Hardcoded as per request
-                startDate: startDate,
-                endDate: endDate,
-                categories: ["50", "100", "150", "200"]
-            };
+            const categories = ["50", "100", "150", "200"];
+            let allAthletes = [];
 
             try {
-                // Fetch with NO custom timeout (browser default applies)
-                // Since user said "even if I close browser sync should complete", 
-                // we assume server handles async detached execution or just runs it.
-                // But for UI feedback, we await.
-                const response = await fetch('/syncEventActivitiesRange', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                // 1. Fetch all athletes first
+                for (const cat of categories) {
+                    msgBox.textContent = `Fetching athletes for category ${cat}...`;
+                    const res = await fetch(`/athletesByEvent?eventid=tkfvr2&month=1&category=${cat}&pageSize=5000`);
+                    const data = await res.json();
+                    if (data.athletes) {
+                        allAthletes.push(...data.athletes);
+                    }
+                }
 
-                const data = await response.json();
+                // Dedup just in case
+                const uniqueAthletes = Array.from(new Map(allAthletes.map(a => [a.athleteId, a])).values());
+                const total = uniqueAthletes.length;
+
+                if (total === 0) {
+                    throw new Error("No confirmed athletes found to sync.");
+                }
+
+                msgBox.textContent = `Found ${total} athletes. Starting batch sync...`;
+
+                // 2. Process in Batches
+                const BATCH_SIZE = 5; // Safe for Vercel 10s limit
+                let processed = 0;
+                let errors = 0;
+
+                for (let i = 0; i < total; i += BATCH_SIZE) {
+                    const batch = uniqueAthletes.slice(i, i + BATCH_SIZE);
+                    const athleteIds = batch.map(a => a.athleteId);
+
+                    try {
+                        await syncBatch(startDate, endDate, athleteIds);
+                    } catch (e) {
+                        console.error("Batch failed", e);
+                        errors += batch.length;
+                    }
+
+                    processed += batch.length;
+                    const pct = Math.round((processed / total) * 100);
+                    msgBox.textContent = `Syncing... ${processed}/${total} (${pct}%) - Errors: ${errors}`;
+
+                    // Rate Limit Protection: Wait 5s between batches
+                    if (i + BATCH_SIZE < total) {
+                        msgBox.textContent += " (Waiting 5s to respect rate limits...)";
+                        await new Promise(r => setTimeout(r, 5000));
+                    }
+                }
 
                 loader.style.display = 'none';
-                msgBox.style.display = 'block';
+                msgBox.className = errors > 0 ? 'error' : 'success';
+                msgBox.textContent = `✅ Sync Complete! ${total - errors} success, ${errors} failed.`;
+                btn.textContent = "Sync Again";
 
-                if (response.ok) {
-                    msgBox.className = 'success';
-                    msgBox.textContent = `✅ Sync Started/Completed! ${data.message || ''}`;
-                    btn.textContent = "Sync Again";
-                } else {
-                    throw new Error(data.error || 'Server error');
-                }
             } catch (err) {
                 loader.style.display = 'none';
-                msgBox.style.display = 'block';
                 msgBox.className = 'error';
                 msgBox.textContent = `❌ Sync Failed: ${err.message}`;
                 btn.textContent = "Retry Sync";
             } finally {
                 btn.disabled = false;
+            }
+        }
+
+        async function syncBatch(startDate, endDate, athleteIds) {
+            const payload = {
+                eventId: "tkfvr2",
+                month: 1,
+                startDate: startDate,
+                endDate: endDate,
+                athleteIds: athleteIds // server.js now accepts this!
+            };
+
+            const response = await fetch('/syncEventActivitiesRange', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || "Server error");
             }
         }
     </script>

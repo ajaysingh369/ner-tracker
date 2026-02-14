@@ -282,7 +282,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
         }
       }
 
-      console.log(`🔄 fetchAthleteActivitiesByEvent::Access token expired for athlete ${athlete.athleteId}, refreshing...`);
+      //console.log(`🔄 fetchAthleteActivitiesByEvent::Access token expired for athlete ${athlete.athleteId}, refreshing...`);
 
       if (!retry) {
         console.error(`❌ fetchAthleteActivitiesByEvent::Token refresh failed, stopping retries for athlete ${athlete.athleteId}`);
@@ -294,7 +294,7 @@ async function fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimesta
       if (newTokenData) {
         athlete.accessToken = newTokenData.access_token; // ✅ Important fix
         athlete.refreshToken = newTokenData.refresh_token;
-        console.log(`✅ Token refreshed successfully for athlete ${athlete.athleteId}`);
+        //console.log(`✅ Token refreshed successfully for athlete ${athlete.athleteId}`);
         return fetchAthleteActivitiesByEvent(athlete, startTimestamp, endTimestamp, false); // Retry with new token
       } else {
         console.error(`❌ Token refresh failed for athlete ${athlete.athleteId}`);
@@ -450,12 +450,12 @@ async function fetchAthleteActivitiesWithRefresh(athlete, startTimestamp, endTim
         await refreshLocks.get(athlete.athleteId);
       } else {
         const refreshPromise = (async () => {
-          console.log(`🔄 fetchAthleteActivitiesWithRefresh:: Access token expired for athlete ${athlete.athleteId}, refreshing...`);
+          //console.log(`🔄 fetchAthleteActivitiesWithRefresh:: Access token expired for athlete ${athlete.athleteId}, refreshing...`);
           const newTokenData = await refreshAccessToken(athlete);
           if (newTokenData) {
             athlete.accessToken = newTokenData.access_token;
             athlete.refreshToken = newTokenData.refresh_token;
-            console.log(`✅ fetchAthleteActivitiesWithRefresh :: Token refreshed successfully for athlete ${athlete.athleteId}`);
+            //console.log(`✅ fetchAthleteActivitiesWithRefresh :: Token refreshed successfully for athlete ${athlete.athleteId}`);
           } else {
             console.error(`❌ fetchAthleteActivitiesWithRefresh :: Token refresh failed for athlete ${athlete.athleteId}`);
             throw new Error("Refresh failed");
@@ -567,7 +567,11 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
 
     const startISO = startDate || '2026-02-01';
     const endISO = endDate || todayIST;
-    const cats = Array.isArray(categories) && categories.length ? categories : ['50', '100', '150', '200'];
+
+    // ✅ Logic Update: If athleteIds are provided, ignore categories and sync ONLY them.
+    // This supports the "Client-Driven" batching to avoid Vercel timeouts.
+    const specificIds = Array.isArray(req.body.athleteIds) && req.body.athleteIds.length > 0 ? req.body.athleteIds : null;
+    const cats = specificIds ? ['custom'] : (Array.isArray(categories) && categories.length ? categories : ['50', '100', '150', '200']);
 
     // Generate all date strings in the range for verification/empty checks
     const allDayKeys = [];
@@ -590,9 +594,20 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
     for (const category of cats) {
       console.log(`\n ▶️ Category ${category}`);
 
-      const athletes = await Athlete.find({ category, status: 'confirmed', $or: [{ dummy: false }, { dummy: { $exists: false } }] });
-      //const athletes = await Athlete.find({ athleteId: { $in: ["179110646", "179125380"] } });
-      //const athletes = await Athlete.find({ athleteId: "179282852" });
+      let athletes;
+      if (specificIds) {
+        // Fetch specific athletes (ignoring category/status strictness if needed, or keeping it?)
+        // We'll keep safeguards: must be confirmed and not dummy (unless we want to force sync dummies too? 
+        // usually manual sync implies we want them. Let's stick to standard filters + ID check).
+        athletes = await Athlete.find({
+          athleteId: { $in: specificIds },
+          $or: [{ dummy: false }, { dummy: { $exists: false } }]
+        });
+        console.log(`  🎯 Targeted Sync: ${athletes.length} athletes found from ${specificIds.length} IDs.`);
+      } else {
+        athletes = await Athlete.find({ category, status: 'confirmed', $or: [{ dummy: false }, { dummy: { $exists: false } }] });
+      }
+
       if (!athletes.length) {
         console.log(`  ⚠️ No athletes in ${category}`);
         summary.push({ category, processed: 0, skipped: 0, fetched: 0 });
@@ -965,10 +980,6 @@ app.get('/athletesByEvent', async (req, res) => {
       .filter(Boolean);
     const projection = {};
     for (const f of fieldList) projection[f] = 1;
-
-    console.log('DEBUG: fieldList:', fieldList);
-    console.log('DEBUG: projection:', projection);
-
     // Cache key
     const cacheKey = `athletes:${category}:p${p}:ps${ps}:f${fieldList.sort().join('|')}`;
     const now = Date.now();
