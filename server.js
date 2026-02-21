@@ -595,6 +595,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
       console.log(`\n ▶️ Category ${category}`);
 
       let athletes;
+      //const specificIds = ["61676509"];
       if (specificIds) {
         // Fetch specific athletes (ignoring category/status strictness if needed, or keeping it?)
         // We'll keep safeguards: must be confirmed and not dummy (unless we want to force sync dummies too? 

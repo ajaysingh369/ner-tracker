@@ -245,6 +245,11 @@ function buildAthleteRow(athlete) {
     const meetsDistance = monthTotal >= DISTANCE_GOAL;
     const meetsDays = daysActive >= 20;
     const isQualified = meetsDistance && meetsDays;
+
+    if (isQualified || meetsDistance || meetsDays) {
+        console.log(`DEBUG: Athlete ${athleteName} | Distance: ${monthTotal.toFixed(2)}/${DISTANCE_GOAL} | Days: ${daysActive}/20 | Qualified: ${isQualified}`);
+    }
+
     const wasQualified = !!qualifiedState[athlete.id];
     const shouldAnimateStamp = isQualified && !wasQualified;
     const txt = I18N.t("ui.qualified.stamp");

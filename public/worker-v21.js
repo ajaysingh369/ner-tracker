@@ -23,7 +23,9 @@ self.onmessage = function (e) {
                 distanceTotals.set(athleteId, (distanceTotals.get(athleteId) || 0) + dayKm);
 
                 // active day count
-                activeDays.set(athleteId, (activeDays.get(athleteId) || 0) + 1);
+                if (dayKmRaw > 0) {
+                    activeDays.set(athleteId, (activeDays.get(athleteId) || 0) + 1);
+                }
             }
         }
     }
