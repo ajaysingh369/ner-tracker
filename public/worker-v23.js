@@ -1,4 +1,4 @@
-// worker.js
+// worker-v23.js
 
 self.onmessage = function (e) {
     const { athletes, activities, todayStr, dateStrs } = e.data;
@@ -8,31 +8,56 @@ self.onmessage = function (e) {
     const distanceTotals = new Map(); // athleteId -> total KM up to today
     const activeDays = new Map();     // key: athleteId -> count of distinct days with ≥1 act (≤ today)
 
+    // Pre-process activities into a map for easy lookup by date
+    const actsByAthleteAndDate = new Map(); // `${athleteId}-${dateStr}` -> [acts]
     for (const entry of activities) {
         const athleteId = entry.athleteId;
         const byDate = entry.activitiesByDate || {};
         for (const dateStr in byDate) {
+            actsByAthleteAndDate.set(`${athleteId}-${dateStr}`, byDate[dateStr]);
+        }
+    }
+
+    // Process athletes and their activities day-by-day (chronologically)
+    for (const athlete of athletes) {
+        const athleteId = athlete.id;
+        const category = athlete.category || "100";
+        let totalDist = 0;
+        let daysActiveCount = 0;
+        let hasUsedBonus = false;
+
+        for (const dateStr of dateStrs) {
             const key = `${athleteId}-${dateStr}`;
-            const list = activityMap.get(key);
-            if (list) list.push(...byDate[dateStr]);
-            else activityMap.set(key, [...byDate[dateStr]]);
+            const acts = actsByAthleteAndDate.get(key) || [];
+
+            if (acts.length > 0) {
+                activityMap.set(key, acts);
+            }
 
             if (dateStr <= todayStr) {
-                const dayKmRaw = byDate[dateStr].reduce((sum, a) => sum + (+a.distance || 0), 0);
-                const dayKm = Math.min(dayKmRaw, 12);
-                distanceTotals.set(athleteId, (distanceTotals.get(athleteId) || 0) + dayKm);
+                const dayKmRaw = acts.reduce((sum, a) => sum + (+a.distance || 0), 0);
 
-                // active day count
                 if (dayKmRaw > 0) {
-                    activeDays.set(athleteId, (activeDays.get(athleteId) || 0) + 1);
+                    let dayKm = Math.min(dayKmRaw, 12);
+
+                    // Refined rule for 200 KM category: 
+                    // One-time 21km bonus ONLY if they run >= 21km
+                    if (category === "200" && !hasUsedBonus && dayKmRaw >= 21) {
+                        dayKm = Math.min(dayKmRaw, 21);
+                        hasUsedBonus = true;
+                    }
+
+                    totalDist += dayKm;
+                    daysActiveCount++;
                 }
             }
         }
+        distanceTotals.set(athleteId, totalDist);
+        activeDays.set(athleteId, daysActiveCount);
     }
 
     // ---- Sort athletes: 1) Real Accounts First, 2) Total Distance (desc)
     const sortedAthletes = [...athletes].sort((a, b) => {
-        // Dummy check: false < true (so false comes first)
         const aDum = !!a.dummy;
         const bDum = !!b.dummy;
         if (aDum !== bDum) return aDum ? 1 : -1;
@@ -41,11 +66,6 @@ self.onmessage = function (e) {
         const da = distanceTotals.get(a.id) || 0;
         return db - da;
     });
-
-    // Prepare data for main thread
-    // We can't send Maps directly if we want to use them easily in the same way, 
-    // but structured clone algorithm handles Maps fine.
-    // However, to be safe and consistent with previous logic, we'll keep them as Maps.
 
     // Add _nameLower for search
     const processedAthletes = sortedAthletes.map(a => ({

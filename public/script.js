@@ -165,7 +165,7 @@ function renderCalendar(athletes, activities) {
     );
 
     // Initialize Worker
-    const worker = new Worker("worker-v21.js");
+    const worker = new Worker("worker-v23.js");
 
     worker.postMessage({
         athletes,
