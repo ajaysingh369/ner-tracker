@@ -201,12 +201,17 @@ updates().catch(console.error);
 //50 - Manjeet Singh Attodiya: 162436647
 //150 - Richa Singla: 203234297
 
+//33102559202502
+
 //{email:{ $exists: false }}  179496390
 
 /*
 curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":"1", "date":"2026-02-01"}'
 
-curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-13","endDate":"2026-02-13","categories":["50", "100", "150", "200"]}'
+curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-21","endDate":"2026-02-21","categories":["50", "100", "150", "200"]}'
+
+curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-12","endDate":"2026-02-20","categories":["50"]}'
+
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
   -H "Content-Type: application/json" \
