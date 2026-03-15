@@ -10,6 +10,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Import and use separate routes for the Step Count feature (Fitbit Integration)
+const stepRoutes = require('./step_routes');
+app.use('/steps', stepRoutes);
+
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/strava/callback';
@@ -595,7 +599,7 @@ app.post('/syncEventActivitiesRange', async (req, res) => {
       console.log(`\n ▶️ Category ${category}`);
 
       let athletes;
-      //const specificIds = ["110024354"];
+      const specificIds = ['49158965', '180118886', '203948796'];
       if (specificIds) {
         // Fetch specific athletes (ignoring category/status strictness if needed, or keeping it?)
         // We'll keep safeguards: must be confirmed and not dummy (unless we want to force sync dummies too? 

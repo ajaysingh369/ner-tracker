@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step Count Dashboard</title>
+    <!-- Use the existing CSS for theming consistency -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .step-cell {
+            text-align: center;
+            vertical-align: middle;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .step-cell:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .step-empty {
+            background-color: transparent;
+            color: #aaa;
+            font-size: 11px;
+        }
+
+        .step-active {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .step-active.high {
+            background-color: #c8e6c9;
+            color: #1b5e20;
+            font-weight: 800;
+        }
+
+        .step-active-icon {
+            font-size: 18px;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .steps-val {
+            font-family: monospace;
+        }
+
+        .athlete-progress {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .progress-bar-steps {
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill-steps {
+            height: 100%;
+            background: #ff7a00;
+            width: 0%;
+            transition: width 1s ease-in-out;
+        }
+    </style>
+</head>
+
+<body data-theme="light">
+    <!-- Same App Container as the main app -->
+    <div id="app">
+        <div class="app-container">
+            <header class="app-header">
+                <div class="header-content">
+                    <div class="header-text">
+                        <h1>👣 Step Count Tracker</h1>
+                        <h2>March 2026 Challenge</h2>
+                        <p>Walk your way to health with Fitbit integration!</p>
+                    </div>
+                </div>
+            </header>
+
+            <main class="app-main">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <a href="/steps/auth/fitbit" class="auth-button"
+                        style="display:inline-block; padding: 12px 24px; background-color: #00B0B9; color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-right: 10px;">
+                        🔗 Connect with Fitbit
+                    </a>
+                    <button onclick="syncFitbitSteps()" id="syncBtn" class="auth-button"
+                        style="display:inline-block; padding: 12px 24px; background-color: #ff7a00; color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; border: none;">
+                        🔄 Sync My Steps (Fetch Live Data)
+                    </button>
+                </div>
+
+                <div class="activity-table">
+                    <h2>🏅 Step Leaderboard</h2>
+                    <p class="glowing-note">Daily goal: 10,000 steps</p>
+                </div>
+
+                <div class="calendar-container">
+                    <table id="calendarTable">
+                        <thead id="calendarHeader">
+                            <!-- JS Will Populate -->
+                        </thead>
+                        <tbody id="calendarBody">
+                            <tr>
+                                <td colspan="100%" style="text-align:center; padding: 40px;">⏳ Loading step data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Small Popup for details -->
+    <div id="stepPopup" class="popup" style="display: none;">
+        <div class="popup-content">
+            <span class="close" onclick="document.getElementById('stepPopup').style.display='none'">&times;</span>
+            <h3>Step Details</h3>
+            <div id="stepDetailsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', loadStepDashboard);
+
+        async function loadStepDashboard() {
+            try {
+                // Fetch mock data from our new API
+                const res = await fetch('/steps/dashboard/MARCH_2026_STEPS');
+                const stepData = await res.json();
+
+                renderStepCalendar(stepData);
+            } catch (err) {
+                document.getElementById('calendarBody').innerHTML = `<tr><td style="color:red; text-align:center;">Failed to load data. Run 'node seed_mock_steps.js' and restart server.</td></tr>`;
+                console.error(err);
+            }
+        }
+
+        async function syncFitbitSteps() {
+            const btn = document.getElementById('syncBtn');
+            btn.innerHTML = "⏳ Syncing from Fitbit...";
+            btn.disabled = true;
+            try {
+                const res = await fetch('/steps/syncStepsRange', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        eventId: 'MARCH_2026_STEPS',
+                        month: 3,
+                        startDate: '2026-03-01',
+                        endDate: '2026-03-31'
+                    })
+                });
+                const result = await res.json();
+                console.log(result);
+                btn.innerHTML = "✅ Sync Complete! Reloading...";
+                setTimeout(() => window.location.reload(), 1500);
+            } catch (e) {
+                alert("Sync failed: " + e.message);
+                btn.innerHTML = "❌ Sync Failed";
+                btn.disabled = false;
+            }
+        }
+
+        function renderStepCalendar(data) {
+            const thead = document.getElementById('calendarHeader');
+            const tbody = document.getElementById('calendarBody');
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="100%" style="text-align:center;">No step data found. Run the seed script!</td></tr>`;
+                return;
+            }
+
+            // Build Header for March (31 days)
+            const daysInMarch = 31;
+            let headerHtml = `<tr><th style="min-width: 160px; text-align: left;">Athlete</th>`;
+            for (let i = 1; i <= daysInMarch; i++) {
+                headerHtml += `<th>${i} Mar</th>`;
+            }
+            headerHtml += `</tr>`;
+            thead.innerHTML = headerHtml;
+
+            // Sort athletes by total steps descending
+            data.forEach(athleteRecord => {
+                let total = 0;
+                Object.values(athleteRecord.activitiesByDate || {}).forEach(acts => {
+                    if (acts && acts.length > 0 && acts[0].steps) {
+                        total += acts[0].steps;
+                    }
+                });
+                athleteRecord._totalSteps = total;
+            });
+            data.sort((a, b) => b._totalSteps - a._totalSteps);
+
+            // Build Body
+            let bodyHtml = '';
+            data.forEach(athleteRecord => {
+                const athlete = athleteRecord.athlete || {};
+                const genderEmoji = athlete.gender === 'F' ? '🏃‍♀️' : '🏃‍♂️';
+
+                // Max goal for math (say, 300k steps in a month = 10k/day * 30 days)
+                const GOAL = 300000;
+                const progressPct = Math.min(100, (athleteRecord._totalSteps / GOAL) * 100);
+
+                bodyHtml += `<tr>`;
+
+                // Athlete Profile Cell
+                bodyHtml += `
+                    <td style="background-color: rgba(61, 98, 59, 0.91); border-radius: 8px 0 0 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="font-size: 24px;">${genderEmoji}</div>
+                            <div>
+                                <strong style="color: white; font-size: 14px;">${athlete.firstname || 'Unknown'} ${athlete.lastname || ''}</strong>
+                                <div class="athlete-progress" style="color:#ddd;">${athleteRecord._totalSteps.toLocaleString()} steps</div>
+                                <div class="progress-bar-steps"><div class="progress-fill-steps" style="width: ${progressPct}%"></div></div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+
+                // Days Cells
+                for (let i = 1; i <= daysInMarch; i++) {
+                    const dateStr = `2026-03-${String(i).padStart(2, '0')}`;
+                    const dayDataArr = athleteRecord.activitiesByDate ? athleteRecord.activitiesByDate[dateStr] : null;
+                    const dayData = dayDataArr && dayDataArr.length > 0 ? dayDataArr[0] : null;
+
+                    if (dayData && dayData.steps) {
+                        const isHigh = dayData.steps >= 10000;
+                        const emoji = isHigh ? '🔥' : '🚶';
+
+                        bodyHtml += `
+                            <td class="step-cell step-active ${isHigh ? 'high' : ''}" 
+                                onclick="showStepPopup('${athlete.firstname}', '${dateStr}', ${dayData.steps})">
+                                <span class="step-active-icon">${emoji}</span>
+                                <span class="steps-val">${(dayData.steps / 1000).toFixed(1)}k</span>
+                            </td>
+                        `;
+                    } else {
+                        bodyHtml += `<td class="step-cell step-empty"> - </td>`;
+                    }
+                }
+                bodyHtml += `</tr >`;
+            });
+
+            tbody.innerHTML = bodyHtml;
+        }
+
+        // Expose to window for inline onclick
+        window.showStepPopup = function (name, dateStr, steps) {
+            const popup = document.getElementById('stepPopup');
+            const content = document.getElementById('stepDetailsContent');
+
+            content.innerHTML = `
+                <p><strong>Athlete:</strong> ${name}</p>
+                <hr>
+                <p><strong>Date:</strong> ${dateStr}</p>
+                <p><strong>Steps Logged:</strong> <span style="font-size:18px; color:#ff7a00; font-weight:bold;">${steps.toLocaleString()}</span></p>
+                <p><strong>Status:</strong> ${steps >= 10000 ? '✅ Daily Goal Met' : '⚠️ Keep walking!'}</p>
+            `;
+
+            popup.style.display = 'flex';
+        };
+    </script>
+</body>
+
+</html>

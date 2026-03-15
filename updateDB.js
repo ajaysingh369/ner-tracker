@@ -206,15 +206,28 @@ updates().catch(console.error);
 //{email:{ $exists: false }}  179496390
 
 /*
+
+{
+        "id": 27507827150,
+        "name": "Afternoon Run",
+        "distance": 2.56,
+        "moving_time": 1238,
+        "start_date": "2026-02-23T18:06:06Z",
+        "type": "Run",
+        "points": 0,
+        "emoji": "🏃‍♂️"
+      }
+
+
 curl -X POST http://localhost:3003/syncEventActivities   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":"1", "date":"2026-02-01"}'
 
-curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-21","endDate":"2026-02-21","categories":["50", "100", "150", "200"]}'
+curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-26","endDate":"2026-02-28","categories":["50", "100", "150", "200"]}'
 
-curl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-12","endDate":"2026-02-20","categories":["50"]}'
 
 
 curl -X POST http://localhost:3003/syncEventActivitiesRange \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: appliccurl -X POST http://localhost:3003/syncEventActivitiesRange   -H "Content-Type: application/json"   -d '{"eventId":"tkfvr2","month":1,"startDate":"2026-02-28","endDate":"2026-02-28","categories":["50"]}'
+ation/json" \
 -d '{"eventId":"tkfvr2","month":1,"startDate":"2025-08-18","endDate":"2025-08-18","categories":["100", "150", "200"]}'
 
 

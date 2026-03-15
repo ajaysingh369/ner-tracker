@@ -1128,8 +1128,10 @@ const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 /*
+Jamshedpur@12345
 {$or:[{email:''},{email:{$exists:false}}]}
 {firstname:{$regex:'Bibha|Ritu|Poonam',$options:'i'}}
+{email:{$in:['pratimasinha29637@gmail.com','pratimasinha29637@gmail.com']}}
 
 Reena Runner
 Ritika Bhakuni
