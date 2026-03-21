@@ -14,6 +14,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 const stepRoutes = require('./step_routes');
 app.use('/steps', stepRoutes);
 
+// Import and use V2 Mobile API (React Native Apps - Google SSO & Native Features)
+const mobileApiV2 = require('./api_v2/index');
+app.use('/api/v2', mobileApiV2);
+
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/strava/callback';
@@ -55,8 +59,22 @@ const athleteSchema = new mongoose.Schema({
   source: { type: String, default: "strava" },
   category: { type: String, default: "100" },
   status: { type: String, default: "pending" },
-  dummy: { type: Boolean, default: false }
+    dummy: { type: Boolean, default: false }
 });
+
+// New Schema: Universal Time-Series Step History
+const stepHistorySchema = new mongoose.Schema({
+  athleteId: { type: String, required: true }, // Links to Athlete
+  date: { type: String, required: true },      // Format: "YYYY-MM-DD"
+  steps: { type: Number, default: 0 },
+  distanceKm: { type: Number, default: 0 },
+  source: { type: String, enum: ['health_connect', 'apple_health', 'strava'], default: 'health_connect' },
+  lastSyncedAt: { type: Date, default: Date.now }
+});
+// Ensure one entry per athlete per day
+stepHistorySchema.index({ athleteId: 1, date: 1 }, { unique: true });
+
+const StepHistory = mongoose.model('StepHistory', stepHistorySchema);
 
 const EventActivity = mongoose.model('EventActivity', new mongoose.Schema({
   eventId: String,
@@ -118,13 +136,15 @@ function istDayKey(iso) {
 
 // OAuth Authentication with Strava
 app.get('/auth/strava', (req, res) => {
-  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all`;
+  const state = req.query.state || ''; // capture 'mobile' flag if passed
+  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all&state=${state}`;
   res.redirect(url);
 });
 
 app.get('/auth/strava/callback', async (req, res) => {
   await connectToDatabase();
   const code = req.query.code;
+  const state = req.query.state;
   if (!code) return res.status(400).send('❌ Authorization code not found');
 
   try {
@@ -194,7 +214,13 @@ app.get('/auth/strava/callback', async (req, res) => {
     );
     console.log(`✅ Strava Auth: Successfully updated/created athlete record for ${updatedAthlete.athleteId}. Dummy: ${updatedAthlete.dummy}`);
 
-    res.redirect('/');
+    // If request originated from mobile app, redirect to app scheme, else default web behavior
+    if (state === 'mobile') {
+      console.log('📱 Routing Strava Auth request back to mobile app deep link...');
+      return res.redirect(`mobileapp://callback?athleteId=${updatedAthlete.athleteId}`);
+    }
+
+    return res.redirect('/');
   } catch (error) {
     console.error('❌ Error fetching access token:', error.message);
     res.status(500).send('❌ Error fetching access token');
@@ -1194,6 +1220,109 @@ app.post("/admin/clearSyncStatus", assertAdmin, async (req, res) => {
   }
 });
 
+
+// ============================================================================
+// MOBILE API - UNIVERSAL STEP HISTORY (Health Connect & Apple Health)
+// ============================================================================
+
+// 1. Sync records from Mobile App into StepHistory
+app.post("/api/mobile/sync", async (req, res) => {
+  await connectToDatabase();
+  try {
+    const { athleteId, records } = req.body;
+    
+    if (!athleteId || !Array.isArray(records)) {
+      return res.status(400).json({ error: "Invalid payload. 'athleteId' and 'records[]' required." });
+    }
+
+    const operations = records.map(record => ({
+      updateOne: {
+        filter: { athleteId, date: record.date },
+        update: { 
+          $set: { 
+            steps: record.steps,
+            distanceKm: record.distanceKm || 0,
+            source: record.source || 'health_connect',
+            lastSyncedAt: new Date()
+          } 
+        },
+        upsert: true
+      }
+    }));
+
+    if (operations.length > 0) {
+      await StepHistory.bulkWrite(operations);
+    }
+
+    return res.json({ success: true, syncedCount: operations.length });
+  } catch (error) {
+    console.error("Mobile Sync Error:", error);
+    return res.status(500).json({ error: "Failed to sync mobile steps", details: error.message });
+  }
+});
+
+// 2. Fetch Aggregated History (Weekly, Monthly, Yearly)
+app.get("/api/mobile/history", async (req, res) => {
+  await connectToDatabase();
+  try {
+    const { athleteId, range } = req.query;
+    if (!athleteId) return res.status(400).json({ error: "'athleteId' is required" });
+
+    // Ensure we parse dates properly for grouping
+    // Add date filter depending on range to optimize (e.g., last 12 months for Monthly)
+    let dateFilter = {};
+    let groupBy = {};
+    const now = new Date();
+
+    if (range === 'weekly') {
+      // Last 7 or 14 days
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 14);
+      dateFilter = { $gte: lastWeek.toISOString().split('T')[0] };
+      groupBy = { date: "$date" }; 
+    } 
+    else if (range === 'monthly') {
+      // Last 12 months
+      const lastYear = new Date();
+      lastYear.setMonth(lastYear.getMonth() - 12);
+      dateFilter = { $gte: lastYear.toISOString().split('T')[0] };
+      groupBy = { 
+        year: { $substr: ["$date", 0, 4] },
+        month: { $substr: ["$date", 5, 2] } 
+      };
+    } 
+    else if (range === 'yearly') {
+      groupBy = { year: { $substr: ["$date", 0, 4] } };
+    }
+    else {
+      // Default daily
+      groupBy = { date: "$date" };
+    }
+
+    const matchQuery = { athleteId };
+    if (Object.keys(dateFilter).length > 0) {
+      matchQuery.date = dateFilter;
+    }
+
+    const pipeline = [
+      { $match: matchQuery },
+      { 
+        $group: {
+          _id: groupBy,
+          totalSteps: { $sum: "$steps" }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ];
+
+    const data = await StepHistory.aggregate(pipeline);
+    return res.json({ success: true, data });
+
+  } catch (error) {
+    console.error("Mobile History Error:", error);
+    res.status(500).json({ error: "Failed to fetch step history", details: error.message });
+  }
+});
 
 // Start Server
 const PORT = process.env.PORT || 3003;
