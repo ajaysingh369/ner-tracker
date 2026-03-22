@@ -9,6 +9,11 @@ node_modules/
 mock_response.json
 mock_response2.json
 mock_response3.json
+server_backup.js
+server2.js
+
+# Exclude Mobile App heavy folder from Vercel deployment scans
+mobile-app/
 
 # Debug scripts
 scripts/check_dummy.js
