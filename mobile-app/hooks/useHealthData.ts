@@ -60,50 +60,18 @@ export function useHealthData() {
   const appState = useRef(AppState.currentState);
   const initDone = useRef(false);
 
-  // ── Android step fetch ─────────────────────────────────────────────────
-  const fetchAndroidSteps = useCallback(async () => {
-    if (!HealthConnect) return;
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const result = await HealthConnect.aggregateRecord({
-        recordType: 'Steps',
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: today.toISOString(),
-          endTime: tomorrow.toISOString(),
-        },
-      });
-
-      const total = result.COUNT_TOTAL ?? 0;
-      console.log(`📊 Aggregated Steps: ${total}`);
-      setDailySteps(total);
-      
-      // Attempt background sync of history
-      syncAndroidStepsHistory();
-    } catch (e: any) {
-      console.error('Error fetching steps:', e);
-    }
-  }, []);
-
   // ── Background Sync Step History ─────────────────────────────────────────
   const syncAndroidStepsHistory = useCallback(async () => {
     try {
       if (!isAuthorized || !HealthConnect) return;
 
       const today = new Date();
-      // Ensure we hit exactly the end of the day locally before sending
       today.setHours(23, 59, 59, 999);
       
       const lastWeek = new Date(today);
-      lastWeek.setDate(lastWeek.getDate() - 7); // Last 7 days
+      lastWeek.setDate(lastWeek.getDate() - 7);
       lastWeek.setHours(0, 0, 0, 0);
 
-      // We MUST use aggregateGroupByDuration, because the RN bridge has a bug parsing LocalDateTime strings. 
-      // aggregateGroupByDuration natively accepts java.time.Instant which is default JS behavior.
       const result = await HealthConnect.aggregateGroupByDuration({
         recordType: 'Steps',
         timeRangeFilter: {
@@ -117,35 +85,68 @@ export function useHealthData() {
         }
       });
 
-      // Remap the Android output syntax to our structured input syntax
+      if (!result || !Array.isArray(result)) return;
+
       const records = result.map((group: any) => ({
-        date: group.startTime.split('T')[0], // Extract YYYY-MM-DD reliably
-        steps: group.result.COUNT_TOTAL || 0,
+        date: group.startTime?.split('T')[0] || new Date().toISOString().split('T')[0],
+        steps: group.result?.COUNT_TOTAL || 0,
         source: 'health_connect'
       }));
 
-      // Securely fetch dynamic Auth Context ID
       const athleteId = await AsyncStorage.getItem('athleteId');
-      if (!athleteId) {
-        console.warn('Sync aborted: User not authenticated.');
-        return;
-      }
-      // Fallback API URL since prod Vercel domain isn't strictly set yet. Using Local laptop IP.
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.8:3003"; 
+      if (!athleteId) return;
+      
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app"; 
       
       await fetch(`${API_URL}/api/mobile/sync`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ athleteId, records })
       });
-      console.log('✅ Background sync complete for 7 days history.');
+      console.log('✅ 7-day Background sync complete.');
     } catch (e) {
-      // Fail silently for background sync
       console.log('Sync to backend failed or unavailable:', e);
     }
-  }, []);
+  }, [isAuthorized]);
+
+  // ── Android step fetch ─────────────────────────────────────────────────
+  const fetchAndroidSteps = useCallback(async () => {
+    if (!HealthConnect) return;
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      console.log(`🕒 Fetching Today's steps: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
+
+      // Use aggregateGroupByDuration for Today's steps to avoid Android 14 timezone overlap bugs
+      const result = await HealthConnect.aggregateGroupByDuration({
+        recordType: 'Steps',
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: startOfDay.toISOString(),
+          endTime: endOfDay.toISOString(),
+        },
+        timeRangeSlicer: {
+          duration: 'DAYS',
+          length: 1
+        }
+      });
+
+      const total = Array.isArray(result) 
+        ? result.reduce((acc: number, group: any) => acc + (group.result?.COUNT_TOTAL || 0), 0)
+        : 0;
+      
+      console.log(`📊 Today's Steps Calculated: ${total}`);
+      setDailySteps(total);
+      
+      syncAndroidStepsHistory();
+    } catch (e: any) {
+      console.error('Error fetching today steps:', e);
+    }
+  }, [syncAndroidStepsHistory]);
 
   // ── Check if steps permission is currently granted ─────────────────────
   const checkPermissions = useCallback(async (): Promise<boolean> => {

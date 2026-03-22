@@ -6,28 +6,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// GoogleSignin.configure({
-//   iosClientId: '<YOUR_IOS_CLIENT_ID>',
-//   webClientId: '<YOUR_WEB_CLIENT_ID>', // From GCP Console
-//   offlineAccess: true,
-// });
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '259225054743-ruepf7b9lprfdjqfih3o56a499p1r8dk.apps.googleusercontent.com', // Must match Vercel
+  offlineAccess: true,
+});
 
 export default function LoginScreen() {
   const router = useRouter();
 
   const handleGoogleSignIn = async () => {
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.8:3003';
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
 
-      // 1. Google Native Auth (Commented out until GCP config is ready)
-      /*
+      // 1. Live Google Authentication
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo.idToken;
-      */
+      const idToken = userInfo.data?.idToken;
 
-      // 2. Transmit to Backend - MOCK MODE FOR DEV
-      const idToken = `mock_${Date.now()}`;
+      if (!idToken) {
+        throw new Error('Could not retrieve Google ID Token. Please try again.');
+      }
+
+      // 2. Transmit Real Token to Vercel Backend
+      console.log("📱 Initiating Google SSO Auth via Backend...");
       
       const response = await fetch(`${API_URL}/api/v2/auth/google`, {
         method: 'POST',

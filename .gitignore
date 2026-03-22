@@ -13,7 +13,7 @@ server_backup.js
 server2.js
 
 # Exclude Mobile App heavy folder from Vercel deployment scans
-mobile-app/
+#mobile-app/
 
 # Debug scripts
 scripts/check_dummy.js
