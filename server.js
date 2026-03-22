@@ -1085,6 +1085,55 @@ app.get('/athletesByEvent', async (req, res) => {
 });
 
 
+// Fast lookups per event + month + athlete
+EventActivity.schema.index({ eventId: 1, month: 1, athleteId: 1 }, { unique: false });
+// ✅ New Index for optimized category fetch
+EventActivity.schema.index({ eventId: 1, month: 1, "athlete.category": 1 });
+
+// ✅ New /activitiesByEvent: Fetch from MongoDB
+app.get('/activitiesByEvent', async (req, res) => {
+  await connectToDatabase();
+  try {
+    const { eventid, month, category, athleteIds } = req.query;
+    if (!eventid || month === undefined) {
+      return res.status(400).json({ error: "Missing eventid or month" });
+    }
+
+    const query = { eventId: eventid, month: parseInt(month, 10) };
+
+    if (athleteIds) {
+      const ids = athleteIds.split(',').map(s => s.trim()).filter(Boolean);
+      if (ids.length > 0) query.athleteId = { $in: ids };
+    } else if (category) {
+      // ✅ Optimized: Query directly by embedded category
+      query["athlete.category"] = category;
+    }
+
+    // lean() to reduce overhead
+    const docs = await EventActivity.find(query, {
+      _id: 0, athleteId: 1, athlete: 1, activitiesByDate: 1
+    })
+      .lean()
+      .maxTimeMS(5000);
+
+    // Cache headers for CDN; safe because data only changes when you sync
+    res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=1800');
+
+    return res.json({
+      activities: docs.map(d => ({
+        athleteId: d.athleteId,
+        athlete: d.athlete,
+        activitiesByDate: d.activitiesByDate || {}
+      })),
+      medals: {} // (optional)
+    });
+  } catch (err) {
+    console.error('❌ /activitiesByEvent error:', err.message);
+    res.setHeader('Cache-Control', 'public, s-maxage=30');
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // Use an environment variable for admin protection
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "ajaysingh369";
 
