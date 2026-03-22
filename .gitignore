@@ -6,7 +6,9 @@ node_modules/
 .env.test.local
 .env.production.local
 .env.development
-
+mock_response.json
+mock_response2.json
+mock_response3.json
 
 # Debug scripts
 scripts/check_dummy.js
