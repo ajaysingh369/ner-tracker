@@ -1,0 +1,10 @@
+mobile-app/
+node_modules/
+.git/
+mock_response.json
+mock_response2.json
+mock_response3.json
+server_backup.js
+server2.js
+scripts/
+sizes.txt
