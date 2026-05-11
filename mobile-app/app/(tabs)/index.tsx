@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, Alert, Modal, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -505,4 +505,6 @@ const styles = StyleSheet.create({
   zenithStatVal: { color: '#fff', fontSize: 20, fontWeight: '900' },
   zenithModalBtn: { width: '100%', paddingVertical: 18, borderRadius: 20, marginTop: 40, alignItems: 'center' },
   zenithModalBtnText: { color: '#000', fontWeight: '900', fontSize: 16 }
+});
+xt: { color: '#000', fontWeight: '900', fontSize: 16 }
 });

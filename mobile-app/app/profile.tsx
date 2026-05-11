@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch, Modal, FlatList, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch, Modal, FlatList, Platform, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -350,3 +350,4 @@ const styles = StyleSheet.create({
   modalClose: { marginTop: 20, paddingVertical: 15, alignItems: 'center' },
   modalCloseText: { color: '#ff453a', fontSize: 16, fontWeight: '800' }
 });
+
