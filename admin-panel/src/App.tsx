@@ -14,12 +14,17 @@ import {
   Link,
   FileImage,
   Camera,
-  CheckCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 import axios from 'axios';
 
 // --- Configuration ---
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+const INTERNAL_SECRET = import.meta.env.VITE_INTERNAL_SECRET || 'runastra_internal_sync_secret';
+
+// Configure Axios Defaults
+axios.defaults.headers.common['x-internal-secret'] = INTERNAL_SECRET;
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'challenges' | 'banners' | 'events' | 'registrations'>('dashboard');
@@ -28,6 +33,9 @@ function App() {
   const [events, setEvents] = useState<any[]>([]);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState<'challenge' | 'banner' | 'event' | null>(null);
+  const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
     fetchData();
@@ -58,47 +66,20 @@ function App() {
     setLoading(false);
   };
 
-  const handleAddChallenge = async () => {
-    const name = prompt('Challenge Name:');
-    if (!name) return;
+  const handleSave = async () => {
     try {
-      await axios.post(`${API_URL}/challenges`, { name, type: 'STEPS', goal: 10000 });
-      fetchData();
-    } catch (e) { alert('Save failed'); }
-  };
+      let endpoint = '';
+      if (modalType === 'challenge') endpoint = 'challenges';
+      else if (modalType === 'banner') endpoint = 'banners';
+      else if (modalType === 'event') endpoint = 'events';
 
-  const handleAddBanner = async () => {
-    const title = prompt('Banner Title:');
-    if (!title) return;
-    try {
-      await axios.post(`${API_URL}/banners`, { title, subtitle: 'New Sponsor Offer' });
+      await axios.post(`${API_URL}/${endpoint}`, formData);
+      setShowModal(false);
+      setFormData({});
       fetchData();
-    } catch (e) { alert('Save failed'); }
-  };
-
-  const handleAddEvent = async () => {
-    const title = prompt('Event Title:');
-    if (!title) return;
-    const registrationUrl = prompt('Registration URL (optional):');
-    const flyerTemplateUrl = prompt('Flyer Template URL (optional):');
-    const status = confirm('Is this a Past Event?') ? 'past' : 'upcoming';
-    const type = confirm('Is this an INTERNAL tracked event?') ? 'INTERNAL' : 'EXTERNAL';
-    const photosUrl = status === 'past' ? prompt('Photos URL (optional):') : null;
-
-    try {
-      await axios.post(`${API_URL}/events`, { 
-        title, 
-        date: 'June 15, 2026', 
-        subtitle: 'New Community Run',
-        registrationUrl,
-        flyerTemplateUrl,
-        photosUrl,
-        status,
-        type,
-        color: status === 'past' ? 'rgba(255,255,255,0.05)' : 'rgba(52, 199, 89, 0.15)'
-      });
-      fetchData();
-    } catch (e) { alert('Save failed'); }
+    } catch (e) {
+      alert('Save failed');
+    }
   };
 
   const handleApprove = async (userId: string, challengeId: string) => {
@@ -111,14 +92,15 @@ function App() {
   const handleDelete = async (pk: string, sk: string) => {
     if (!confirm('Are you sure?')) return;
     try {
-      let endpoint = '';
-      if (pk === 'CHALLENGE') endpoint = 'challenges';
-      else if (pk === 'BANNER') endpoint = 'banners';
-      else if (pk === 'EVENT') endpoint = 'events';
-      
-      await axios.delete(`${API_URL}/${endpoint}?id=${sk}`);
+      await axios.delete(`${API_URL}/item?pk=${pk}&sk=${sk}`);
       fetchData();
     } catch (e) { alert('Delete failed'); }
+  };
+
+  const openAddModal = (type: 'challenge' | 'banner' | 'event') => {
+    setModalType(type);
+    setFormData({});
+    setShowModal(true);
   };
 
   return (
@@ -248,7 +230,7 @@ function App() {
                         <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
                           <td className="px-6 py-6 font-bold">{reg.userName || reg.userId}</td>
                           <td className="px-6 py-6 text-sm text-white/40">{reg.challengeId}</td>
-                          <td className="px-6 py-6 text-sm text-white/40">{new Date(reg.requestedAt).toLocaleDateString()}</td>
+                          <td className="px-6 py-6 text-sm text-white/40">{new Date(reg.joinedAt || reg.requestedAt).toLocaleDateString()}</td>
                           <td className="px-6 py-6 text-right">
                              <button 
                                 onClick={() => handleApprove(reg.userId, reg.challengeId)}
@@ -271,10 +253,7 @@ function App() {
                <div className="flex justify-between items-center">
                   <p className="text-white/40 text-sm">Manage all platform {activeTab} content.</p>
                   <button 
-                    onClick={
-                        activeTab === 'challenges' ? handleAddChallenge : 
-                        activeTab === 'banners' ? handleAddBanner : handleAddEvent
-                    }
+                    onClick={() => openAddModal(activeTab === 'challenges' ? 'challenge' : activeTab === 'banners' ? 'banner' : 'event')}
                     className="bg-[#ff7a00] hover:bg-[#ff8c20] text-black px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 transition-transform active:scale-95"
                   >
                     <Plus size={18} /> Add {activeTab === 'challenges' ? 'Challenge' : activeTab === 'banners' ? 'Banner' : 'Event'}
@@ -308,7 +287,16 @@ function App() {
                           </td>
                           <td className="px-6 py-6">
                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                               <button className="p-2 hover:bg-white/5 rounded-lg transition-colors"><Save size={16} className="text-white/40" /></button>
+                               <button 
+                                onClick={() => {
+                                    setFormData(item);
+                                    setModalType(activeTab === 'challenges' ? 'challenge' : activeTab === 'banners' ? 'banner' : 'event');
+                                    setShowModal(true);
+                                }}
+                                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                               >
+                                <Save size={16} className="text-white/40" />
+                               </button>
                                <button 
                                 onClick={() => handleDelete(item.PK, item.SK)}
                                 className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
@@ -335,6 +323,173 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* MODAL FOR ADDING/EDITING */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+           <div className="bg-[#1c1c28] w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+              <div className="p-8 border-b border-white/5 flex items-center justify-between">
+                 <h3 className="text-xl font-bold uppercase tracking-tight">
+                    {formData.SK ? 'Edit' : 'Add New'} {modalType}
+                 </h3>
+                 <button onClick={() => setShowModal(false)} className="text-white/40 hover:text-white transition-colors">
+                    <X size={24} />
+                 </button>
+              </div>
+
+              <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
+                 {modalType === 'challenge' && (
+                    <>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Challenge Name</label>
+                          <input 
+                            value={formData.name || ''} 
+                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="e.g. 100k Steps Monthly"
+                          />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Type</label>
+                          <select 
+                            value={formData.type || 'STEPS'} 
+                            onChange={(e) => setFormData({...formData, type: e.target.value})}
+                            className="w-full bg-[#16161e] border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors text-white"
+                          >
+                            <option value="STEPS">Steps Based</option>
+                            <option value="DISTANCE">Distance Based</option>
+                            <option value="WEB_TRACKER">Web Tracker (Manual)</option>
+                          </select>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Goal</label>
+                          <input 
+                            type="number"
+                            value={formData.goal || ''} 
+                            onChange={(e) => setFormData({...formData, goal: parseInt(e.target.value)})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="10000"
+                          />
+                       </div>
+                       {formData.type === 'WEB_TRACKER' && (
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Web URL</label>
+                            <input 
+                                value={formData.url || ''} 
+                                onChange={(e) => setFormData({...formData, url: e.target.value})}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                                placeholder="https://..."
+                            />
+                         </div>
+                       )}
+                    </>
+                 )}
+
+                 {modalType === 'banner' && (
+                    <>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Banner Title</label>
+                          <input 
+                            value={formData.title || ''} 
+                            onChange={(e) => setFormData({...formData, title: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="e.g. Get 20% Off at Reebok"
+                          />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Subtitle</label>
+                          <input 
+                            value={formData.subtitle || ''} 
+                            onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="Exclusive Runner Offer"
+                          />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Image URL</label>
+                          <input 
+                            value={formData.imageUrl || ''} 
+                            onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="https://..."
+                          />
+                       </div>
+                    </>
+                 )}
+
+                 {modalType === 'event' && (
+                    <>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Event Title</label>
+                          <input 
+                            value={formData.title || ''} 
+                            onChange={(e) => setFormData({...formData, title: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="e.g. Noida Monsoon Run"
+                          />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Date Text</label>
+                          <input 
+                            value={formData.date || ''} 
+                            onChange={(e) => setFormData({...formData, date: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                            placeholder="August 24, 2026"
+                          />
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Status</label>
+                             <select 
+                                value={formData.status || 'upcoming'} 
+                                onChange={(e) => setFormData({...formData, status: e.target.value})}
+                                className="w-full bg-[#16161e] border border-white/10 rounded-xl px-4 py-3 text-white"
+                             >
+                               <option value="upcoming">Upcoming</option>
+                               <option value="past">Past</option>
+                             </select>
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Track Type</label>
+                             <select 
+                                value={formData.type || 'EXTERNAL'} 
+                                onChange={(e) => setFormData({...formData, type: e.target.value})}
+                                className="w-full bg-[#16161e] border border-white/10 rounded-xl px-4 py-3 text-white"
+                             >
+                               <option value="EXTERNAL">External Link</option>
+                               <option value="INTERNAL">RunAstra Tracked</option>
+                             </select>
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Registration URL</label>
+                          <input 
+                            value={formData.registrationUrl || ''} 
+                            onChange={(e) => setFormData({...formData, registrationUrl: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3"
+                          />
+                       </div>
+                    </>
+                 )}
+              </div>
+
+              <div className="p-8 border-t border-white/5 flex gap-4">
+                 <button 
+                    onClick={() => setShowModal(false)}
+                    className="flex-1 px-6 py-4 rounded-2xl border border-white/10 font-bold hover:bg-white/5 transition-colors"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                    onClick={handleSave}
+                    className="flex-1 px-6 py-4 rounded-2xl bg-[#ff7a00] text-black font-black hover:bg-[#ff8c20] transition-colors shadow-lg shadow-[#ff7a00]/20"
+                 >
+                   Save {modalType}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

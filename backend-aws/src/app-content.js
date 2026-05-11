@@ -19,6 +19,8 @@ exports.handler = async (event) => {
         let response;
         if (path.endsWith("/banners") && method === "GET") {
             response = await handleGetBanners();
+        } else if (path.endsWith("/community/hero") && method === "GET") {
+            response = await handleGetCommunityHero();
         } else if (path.endsWith("/challenges") && method === "GET") {
             response = await handleGetChallenges();
         } else if (path.endsWith("/events") && method === "GET") {
@@ -44,12 +46,23 @@ exports.handler = async (event) => {
 };
 
 async function handleGetBanners() {
+    // PK starts with BANNER# or is exactly BANNER
     const result = await ddbDocClient.send(new ScanCommand({
         TableName: TABLE_NAME,
-        FilterExpression: "PK = :pk",
+        FilterExpression: "begins_with(PK, :pk) OR PK = :pk",
         ExpressionAttributeValues: { ":pk": "BANNER" }
     }));
     return { statusCode: 200, body: JSON.stringify({ status: "success", banners: result.Items }) };
+}
+
+async function handleGetCommunityHero() {
+    const hero = {
+        name: "Ajay Singh",
+        avatar: "https://ui-avatars.com/api/?name=Ajay+Singh&background=ff7a00&color=fff",
+        achievement: "Hit 25,000 steps for 3 consecutive days!",
+        message: "Consistency is the key to progress. Keep moving, RunAstra community!"
+    };
+    return { statusCode: 200, body: JSON.stringify({ status: "success", hero }) };
 }
 
 async function handleGetChallenges() {

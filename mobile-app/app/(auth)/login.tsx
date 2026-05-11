@@ -20,18 +20,6 @@ export default function LoginScreen() {
     });
   }, []);
 
-  const handleBypassLogin = async () => {
-    try {
-      const mockId = `guest_${Date.now()}`;
-      await AsyncStorage.setItem('athleteId', mockId);
-      await AsyncStorage.setItem('authToken', `mock_${mockId}`);
-      console.log(`🕒 [DEV] Bypassing Google. ID: ${mockId}`);
-      router.replace('/(tabs)');
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleGoogleSignIn = async () => {
     try {
       const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
@@ -102,14 +90,6 @@ export default function LoginScreen() {
           >
             <Ionicons name="logo-google" size={24} color="#000" style={styles.btnIcon} />
             <Text style={styles.googleBtnText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.bypassButton}
-            onPress={handleBypassLogin}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.bypassBtnText}>Preview as Guest (Bypass)</Text>
           </TouchableOpacity>
 
           <Text style={styles.disclosureText}>
@@ -189,17 +169,6 @@ const styles = StyleSheet.create({
     elevation: 5,
     marginBottom: 15,
   },
-  bypassButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 30,
-    marginBottom: 20,
-  },
   btnIcon: {
     marginRight: 10,
   },
@@ -207,12 +176,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 18,
     fontWeight: '700',
-  },
-  bypassBtnText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    opacity: 0.9,
   },
   disclosureText: {
     color: '#666677',

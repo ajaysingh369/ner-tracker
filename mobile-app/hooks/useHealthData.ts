@@ -152,15 +152,44 @@ export function useHealthData() {
         timeRangeSlicer: { duration: 'DAYS', length: 1 }
       });
 
-      const total = Array.isArray(result) 
-        ? result.reduce((acc: number, group: any) => acc + (group.result?.count || group.result?.COUNT_TOTAL || 0), 0)
-        : 0;
+      console.log('📊 Aggregate Result:', JSON.stringify(result));
+
+      let total = 0;
+      if (Array.isArray(result)) {
+        total = result.reduce((acc: number, group: any) => {
+          // Fallback for different SDK response formats
+          const val = group.result?.count || 
+                      group.result?.COUNT_TOTAL || 
+                      group.result?.steps?.count || 0;
+          return acc + val;
+        }, 0);
+      }
       
+      console.log('👣 Calculated Total Steps:', total);
       setDailySteps(total);
       setDailyDistance(total * 0.000762);
       
-      syncAndroidStepsHistory();
-    } catch (e: any) { console.log('Fetch Error:', e); }
+      if (total > 0) syncAndroidStepsHistory();
+    } catch (e: any) { 
+        console.log('Fetch Error:', e);
+        // Fallback: Try reading records directly if aggregation fails
+        try {
+            const { records } = await HealthConnect!.readRecords('Steps', {
+                timeRangeFilter: {
+                    operator: 'between',
+                    startTime: startOfDay.toISOString(),
+                    endTime: endOfDay.toISOString(),
+                }
+            });
+            const directTotal = records.reduce((acc, curr) => acc + (curr.count || 0), 0);
+            if (directTotal > 0) {
+                setDailySteps(directTotal);
+                setDailyDistance(directTotal * 0.000762);
+            }
+        } catch (innerE) {
+            console.log('Fallback Fetch Error:', innerE);
+        }
+    }
   }, [syncAndroidStepsHistory]);
 
   const checkPermissions = useCallback(async (): Promise<boolean> => {

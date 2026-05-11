@@ -28,6 +28,10 @@ exports.handler = async (event) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const userId = decoded.id;
 
+        if (!path.includes("/ai/coach")) {
+            return { statusCode: 404, headers: CORS_HEADERS, body: "Not Found" };
+        }
+        
         const now = new Date();
         const startDate = new Date(now.setDate(now.getDate() - 7)).toISOString().split('T')[0];
         

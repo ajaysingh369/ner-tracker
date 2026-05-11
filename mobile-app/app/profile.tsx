@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch, Modal, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +14,7 @@ export default function ProfileScreen() {
   const [isStravaConnected, setIsStravaConnected] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  const [showGenderPicker, setShowGenderPicker] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -87,6 +88,8 @@ export default function ProfileScreen() {
     { name: 'Nebula' as AstraTheme, colors: ['#a855f7', '#3b82f6'], icon: 'sparkles' }
   ];
 
+  const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
+
   if (loading && !profile) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background[1] }]}>
@@ -154,11 +157,26 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Physical Metrics</Text>
           <View style={styles.infoGrid}>
-            <InfoItem colors={colors} label="Gender" value={profile?.gender} isEditing={isEditing} onChange={(v: string) => setFormData({...formData, gender: v})} />
-            <InfoItem colors={colors} label="Date of Birth" value={profile?.dob} isEditing={isEditing} onChange={(v: string) => setFormData({...formData, dob: v})} />
-            <InfoItem colors={colors} label="Height (cm)" value={profile?.height} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, height: v})} />
-            <InfoItem colors={colors} label="Weight (kg)" value={profile?.weight} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, weight: v})} />
-            <InfoItem colors={colors} label="Daily Step Goal" value={profile?.dailyStepGoal} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, dailyStepGoal: v})} />
+            <TouchableOpacity 
+                disabled={!isEditing} 
+                style={styles.infoItem} 
+                onPress={() => setShowGenderPicker(true)}
+            >
+                <Text style={styles.infoLabel}>Gender</Text>
+                <Text style={[styles.infoValue, isEditing && { color: colors.primary }]}>{formData.gender || '--'}</Text>
+            </TouchableOpacity>
+
+            <InfoItem 
+                colors={colors} 
+                label="Date of Birth" 
+                value={formData.dob} 
+                isEditing={isEditing} 
+                placeholder="YYYY-MM-DD"
+                onChange={(v: string) => setFormData({...formData, dob: v})} 
+            />
+            <InfoItem colors={colors} label="Height (cm)" value={formData.height} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, height: v})} />
+            <InfoItem colors={colors} label="Weight (kg)" value={formData.weight} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, weight: v})} />
+            <InfoItem colors={colors} label="Daily Step Goal" value={formData.dailyStepGoal} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, dailyStepGoal: v})} />
           </View>
         </View>
 
@@ -218,21 +236,49 @@ export default function ProfileScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Gender Picker Modal */}
+      <Modal visible={showGenderPicker} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.background[0] }]}>
+                <Text style={styles.modalTitle}>Select Gender</Text>
+                <FlatList 
+                    data={genderOptions}
+                    keyExtractor={(item) => item}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            style={styles.modalItem} 
+                            onPress={() => {
+                                setFormData({...formData, gender: item});
+                                setShowGenderPicker(false);
+                            }}
+                        >
+                            <Text style={[styles.modalItemText, formData.gender === item && { color: colors.primary, fontWeight: '800' }]}>{item}</Text>
+                            {formData.gender === item && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                        </TouchableOpacity>
+                    )}
+                />
+                <TouchableOpacity style={styles.modalClose} onPress={() => setShowGenderPicker(false)}>
+                    <Text style={styles.modalCloseText}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
 
-function InfoItem({ label, value, isEditing, onChange, colors, keyboardType = 'default' }: any) {
+function InfoItem({ label, value, isEditing, onChange, colors, keyboardType = 'default', placeholder }: any) {
   return (
     <View style={styles.infoItem}>
       <Text style={styles.infoLabel}>{label}</Text>
       {isEditing ? (
         <TextInput 
           style={[styles.infoInput, { color: colors.primary }]} 
-          defaultValue={value?.toString()} 
+          value={value?.toString()} 
           onChangeText={onChange} 
           keyboardType={keyboardType}
-          placeholder={`Enter ${label}`}
+          placeholder={placeholder || `Enter ${label}`}
           placeholderTextColor="#444"
         />
       ) : (
@@ -277,5 +323,12 @@ const styles = StyleSheet.create({
   infoRowText: { color: '#a0a0ab', fontSize: 15, fontWeight: '500' },
   logoutBtn: { marginTop: 20, padding: 20, alignItems: 'center', backgroundColor: 'rgba(255, 69, 58, 0.1)', borderRadius: 20 },
   logoutText: { color: '#ff453a', fontWeight: '700', fontSize: 16 },
-  versionText: { color: '#444', fontSize: 12, textAlign: 'center', marginTop: 30, fontWeight: '600' }
+  versionText: { color: '#444', fontSize: 12, textAlign: 'center', marginTop: 30, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '50%' },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginBottom: 20 },
+  modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  modalItemText: { color: '#a0a0ab', fontSize: 16, fontWeight: '600' },
+  modalClose: { marginTop: 20, paddingVertical: 15, alignItems: 'center' },
+  modalCloseText: { color: '#ff453a', fontSize: 16, fontWeight: '800' }
 });

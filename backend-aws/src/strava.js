@@ -74,7 +74,8 @@ async function handleInternalLink(event) {
         }
     }));
 
-    await refreshAndCacheLastActivity(awsUserId, stravaData);
+    // Non-blocking or deferred: The activity will be fetched when the user lands on the Home Screen.
+    // Removing blocking call to prevent Vercel/API Gateway timeouts during OAuth flow.
     return { statusCode: 200, body: JSON.stringify({ status: "success" }) };
 }
 

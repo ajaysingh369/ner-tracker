@@ -210,6 +210,22 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* HEALTH CONNECT PERMISSION BANNER */}
+        {needsPermission && (
+          <Animated.View entering={FadeInDown} style={[styles.permissionBanner, { backgroundColor: `${colors.primary}1A`, borderColor: `${colors.primary}33` }]}>
+            <View style={styles.permissionInfo}>
+              <Ionicons name="fitness" size={24} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.permissionTitle}>Sync Your Steps</Text>
+                <Text style={styles.permissionDesc}>Enable Health Connect to track your daily progress and hit your goals.</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={[styles.permissionBtn, { backgroundColor: colors.primary }]} onPress={requestAuthorization}>
+              <Text style={styles.permissionBtnText}>Enable Now</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
         {/* 1. STEP RING */}
         <View style={styles.ringContainer}>
           <Animated.View style={[styles.svgWrapper, animatedPulseStyle]}>
@@ -302,6 +318,26 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )) : <Text style={styles.emptyText}>No active challenges.</Text>}
 
+        {/* SPONSOR BANNERS */}
+        {loadingBanners ? (
+          <View style={{ marginBottom: 35 }}><Skeleton width="100%" height={120} borderRadius={20} /></View>
+        ) : banners.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+            {banners.map((banner, idx) => (
+              <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => { Haptics.selectionAsync(); }}>
+                <View style={styles.bannerCard}>
+                  <Image source={{ uri: banner.imageUrl || 'https://via.placeholder.com/400x200?text=Sponsor' }} style={styles.bannerImage} />
+                  <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.bannerGradient}>
+                    <Text style={styles.bannerTitle}>{banner.title}</Text>
+                    <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
+                  </LinearGradient>
+                </View>
+              </TouchableOpacity>
+            ))}
+            <View style={{ width: 20 }} />
+          </ScrollView>
+        )}
+
         {/* UPCOMING EVENTS */}
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Upcoming</Text></View>
         {loadingEvents ? (
@@ -379,6 +415,20 @@ const styles = StyleSheet.create({
   notifBadge: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: '#1c1d2e' },
   brandTitle: { fontSize: 24, color: '#ffffff', fontWeight: '800', letterSpacing: -0.5 },
   subGreeting: { fontSize: 14, color: '#a0a0ab', marginTop: 2 },
+  permissionBanner: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    padding: 20, 
+    borderRadius: 24, 
+    marginBottom: 35, 
+    borderWidth: 1 
+  },
+  permissionInfo: { flexDirection: 'row', alignItems: 'center', gap: 15, flex: 1 },
+  permissionTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  permissionDesc: { color: '#a0a0ab', fontSize: 12, marginTop: 4, lineHeight: 18 },
+  permissionBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginLeft: 10 },
+  permissionBtnText: { color: '#000', fontWeight: '900', fontSize: 13 },
   ringContainer: { alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
   svgWrapper: { alignItems: 'center', justifyContent: 'center' },
   ringCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },

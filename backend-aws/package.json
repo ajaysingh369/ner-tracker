@@ -11,7 +11,8 @@
     "deploy-content": "npm run zip && aws lambda update-function-code --function-name RunAstraContent --zip-file fileb://lambda.zip",
     "deploy-strava": "npm run zip && aws lambda update-function-code --function-name RunAstraStrava --zip-file fileb://lambda.zip",
     "deploy-social": "npm run zip && aws lambda update-function-code --function-name RunAstraSocial --zip-file fileb://lambda.zip",
-    "deploy-all": "npm run zip && npm run deploy-auth && npm run deploy-sync && npm run deploy-content && npm run deploy-strava && npm run deploy-social"
+    "deploy-admin": "npm run zip && aws lambda update-function-code --function-name RunAstraAdmin --zip-file fileb://lambda.zip",
+    "deploy-all": "npm run zip && npm run deploy-auth && npm run deploy-sync && npm run deploy-content && npm run deploy-strava && npm run deploy-social && npm run deploy-admin"
   },
   "keywords": [],
   "author": "",
