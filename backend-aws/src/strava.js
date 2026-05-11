@@ -2,10 +2,9 @@ const { GetCommand, PutCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb
 const { ddbDocClient, TABLE_NAME } = require("./db");
 const axios = require("axios");
 
-const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID;
-const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET;
-const STRAVA_REDIRECT_URI = process.env.STRAVA_REDIRECT_URI;
-const INTERNAL_SECRET = process.env.INTERNAL_SECRET || "runastra_internal_sync_secret";
+// Native RunAstra Credentials
+const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || "239306";
+const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET || "4ae5f1b29f76497e96343ce3f95a23278b0640f2";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -25,8 +24,8 @@ exports.handler = async (event) => {
         let response;
         if (path.endsWith("/auth/strava") && method === "GET") {
             response = handleStravaRedirect(event);
-        } else if (path.endsWith("/internal/strava/link") && method === "POST") {
-            response = await handleInternalLink(event);
+        } else if (path.endsWith("/strava/callback") && method === "GET") {
+            response = await handleStravaCallback(event);
         } else if (path.endsWith("/strava/last-activity") && method === "GET") {
             response = await handleGetLastActivity(event);
         } else {
@@ -47,36 +46,79 @@ exports.handler = async (event) => {
     }
 };
 
+function getApiGatewayUrl(event) {
+    const host = event.headers.host || event.requestContext?.domainName;
+    // Handle both custom domains and default execute-api domains
+    if (host.includes('execute-api')) {
+        const stage = event.requestContext?.stage || 'prod';
+        return `https://${host}/${stage}`;
+    }
+    return `https://${host}`;
+}
+
 function handleStravaRedirect(event) {
     const { userId } = event.queryStringParameters || {};
     if (!userId) return { statusCode: 400, body: JSON.stringify({ error: "userId required" }) };
-    const VERCEL_URL = "https://ner-tracker.vercel.app";
+    
+    const API_URL = getApiGatewayUrl(event);
+    const REDIRECT_URI = `${API_URL}/strava/callback`;
+    
+    const url = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all&state=${userId}`;
+    
     return {
         statusCode: 302,
-        headers: { Location: `${VERCEL_URL}/auth/strava?state=runastra_${userId}` },
+        headers: { Location: url },
     };
 }
 
-async function handleInternalLink(event) {
-    const secret = event.headers["x-internal-secret"] || event.headers["X-Internal-Secret"];
-    if (secret !== INTERNAL_SECRET) return { statusCode: 401, body: "Unauthorized" };
+async function handleStravaCallback(event) {
+    const { code, state: awsUserId } = event.queryStringParameters || {};
+    
+    if (!code) {
+        return { statusCode: 400, body: "Authorization code not found" };
+    }
+    if (!awsUserId) {
+        return { statusCode: 400, body: "User ID (state) not found" };
+    }
 
-    const body = JSON.parse(event.body || "{}");
-    const { awsUserId, ...stravaData } = body;
+    try {
+        const tokenResponse = await axios.post("https://www.strava.com/oauth/token", {
+            client_id: STRAVA_CLIENT_ID,
+            client_secret: STRAVA_CLIENT_SECRET,
+            code: code,
+            grant_type: "authorization_code"
+        });
 
-    await ddbDocClient.send(new PutCommand({
-        TableName: TABLE_NAME,
-        Item: {
-            PK: `USER#${awsUserId}`,
-            SK: "STRAVA_AUTH",
-            ...stravaData,
-            lastSyncedAt: new Date().toISOString()
-        }
-    }));
+        const stravaAthlete = tokenResponse.data.athlete;
+        
+        await ddbDocClient.send(new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+                PK: `USER#${awsUserId}`,
+                SK: "STRAVA_AUTH",
+                stravaId: stravaAthlete.id.toString(),
+                accessToken: tokenResponse.data.access_token,
+                refreshToken: tokenResponse.data.refresh_token,
+                expiresAt: tokenResponse.data.expires_at,
+                profile: stravaAthlete.profile,
+                firstname: stravaAthlete.firstname,
+                lastname: stravaAthlete.lastname,
+                lastSyncedAt: new Date().toISOString()
+            }
+        }));
 
-    // Non-blocking or deferred: The activity will be fetched when the user lands on the Home Screen.
-    // Removing blocking call to prevent Vercel/API Gateway timeouts during OAuth flow.
-    return { statusCode: 200, body: JSON.stringify({ status: "success" }) };
+        console.log(`✅ Native AWS Bridge: Token sync successful for user ${awsUserId}`);
+        return {
+            statusCode: 302,
+            headers: { Location: `mobileapp://strava-callback?status=success&userId=${awsUserId}` },
+        };
+    } catch (error) {
+        console.error("❌ Native Strava Callback Error:", error.message);
+        return {
+            statusCode: 302,
+            headers: { Location: `mobileapp://strava-callback?status=error` },
+        };
+    }
 }
 
 async function handleGetLastActivity(event) {

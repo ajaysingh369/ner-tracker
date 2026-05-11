@@ -80,8 +80,8 @@ export default function ProfileScreen() {
 
   const handleStravaConnect = async () => {
     const athleteId = await AsyncStorage.getItem('athleteId');
-    const API_URL = "https://ner-tracker.vercel.app";
-    router.push(`${API_URL}/auth/strava?state=runastra_${athleteId}`);
+    const API_URL = process.env.EXPO_PUBLIC_API_URL;
+    Linking.openURL(`${API_URL}/auth/strava?userId=${athleteId}`);
   };
 
   const astraThemes = [
