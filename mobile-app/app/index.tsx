@@ -8,8 +8,8 @@ export default function Index() {
 
   useEffect(() => {
     async function checkAuth() {
-      const storedAthleteId = await AsyncStorage.getItem('athleteId');
-      setIsAuthenticated(!!storedAthleteId);
+      const storedToken = await AsyncStorage.getItem('authToken');
+      setIsAuthenticated(!!storedToken);
     }
     checkAuth();
   }, []);

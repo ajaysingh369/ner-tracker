@@ -197,7 +197,6 @@ app.get('/auth/strava', (req, res) => {
 });
 
 app.get('/auth/strava/callback', async (req, res) => {
-  await connectToDatabase();
   const code = req.query.code;
   const state = req.query.state;
   if (!code) return res.status(400).send('❌ Authorization code not found');
@@ -212,6 +211,39 @@ app.get('/auth/strava/callback', async (req, res) => {
 
     const stravaAthlete = tokenResponse.data.athlete;
     const stravaEmail = stravaAthlete.email; // Requires read_all scope
+
+    // ── RunAstra Bridge Logic (BYPASS MONGODB FOR AWS APP) ──────────────────
+    if (state && state.startsWith('runastra_')) {
+      const awsUserId = state.replace('runastra_', '');
+      console.log(`🔗 Bridge: Syncing Strava tokens to AWS for User: ${awsUserId}`);
+      
+      const AWS_API_URL = 'https://dcf3ug0lfl.execute-api.us-east-1.amazonaws.com';
+      const INTERNAL_SECRET = process.env.INTERNAL_SECRET || 'runastra_internal_sync_secret';
+
+      try {
+        await axios.post(`${AWS_API_URL}/internal/strava/link`, {
+          awsUserId,
+          stravaId: stravaAthlete.id.toString(),
+          accessToken: tokenResponse.data.access_token,
+          refreshToken: tokenResponse.data.refresh_token,
+          expiresAt: tokenResponse.data.expires_at,
+          profile: stravaAthlete.profile,
+          firstname: stravaAthlete.firstname,
+          lastname: stravaAthlete.lastname
+        }, {
+          headers: { 'x-internal-secret': INTERNAL_SECRET },
+          timeout: 4000 // Prevent Vercel 504 if AWS backend is down or asleep
+        });
+        console.log('✅ Bridge: AWS Token sync successful.');
+      } catch (err) {
+        console.error('❌ Bridge: AWS Token sync failed:', err.message);
+      }
+
+      return res.redirect(`mobileapp://strava-callback?status=success&userId=${awsUserId}`);
+    }
+
+    // ── Legacy NER Tracker Logic ──────────────────────────────────────────
+    await connectToDatabase();
 
     console.log(`🔹 Strava Auth: Received callback for athlete ${stravaAthlete.id} (${stravaAthlete.firstname} ${stravaAthlete.lastname})`);
     console.log(`🔹 Strava Auth: Athlete from Strava: ${JSON.stringify(stravaAthlete)}`);
@@ -268,36 +300,6 @@ app.get('/auth/strava/callback', async (req, res) => {
       { upsert: true, new: true }
     );
     console.log(`✅ Strava Auth: Successfully updated/created athlete record for ${updatedAthlete.athleteId}.`);
-
-    // ── RunAstra Bridge Logic ──────────────────────────────────────────────
-    if (state && state.startsWith('runastra_')) {
-      const awsUserId = state.replace('runastra_', '');
-      console.log(`🔗 Bridge: Syncing Strava tokens to AWS for User: ${awsUserId}`);
-      
-      const AWS_API_URL = process.env.AWS_API_URL || 'http://localhost:3005';
-      const INTERNAL_SECRET = process.env.INTERNAL_SECRET || 'runastra_internal_sync_secret';
-
-      try {
-        await axios.post(`${AWS_API_URL}/internal/strava/link`, {
-          awsUserId,
-          stravaId: stravaAthlete.id.toString(),
-          accessToken: tokenResponse.data.access_token,
-          refreshToken: tokenResponse.data.refresh_token,
-          expiresAt: tokenResponse.data.expires_at,
-          profile: stravaAthlete.profile,
-          firstname: stravaAthlete.firstname,
-          lastname: stravaAthlete.lastname
-        }, {
-          headers: { 'x-internal-secret': INTERNAL_SECRET },
-          timeout: 4000 // Prevent Vercel 504 if AWS backend is down or asleep
-        });
-        console.log('✅ Bridge: AWS Token sync successful.');
-      } catch (err) {
-        console.error('❌ Bridge: AWS Token sync failed:', err.message);
-      }
-
-      return res.redirect(`mobileapp://strava-callback?status=success&userId=${awsUserId}`);
-    }
 
     // If request originated from mobile app (legacy mode), redirect to app scheme
     if (state === 'mobile') {
