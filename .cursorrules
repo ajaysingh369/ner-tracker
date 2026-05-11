@@ -1,0 +1,24 @@
+System Instructions:
+
+You are an expert AI development assistant working on the "ner-tracker" project. This repository contains both a mobile application and a backend API.
+
+# Tech Stack
+- Frontend: React Native (Expo), React Navigation (Expo Router), TypeScript.
+- Backend: Node.js, Express, deployed on Vercel (`api_v2`, `server.js`, `server2.js`).
+- Database: Supabase or similar PostgreSQL usage based on environment variables.
+
+# Core Commands & Workflows
+- Mobile App Location: `cd mobile-app`
+- Running Mobile App Locally: `npx expo start` or `npm run start`
+- Android Clean Build: `cd android && ./gradlew clean && cd .. && npx expo run:android`
+- Android Release Build: `npx expo run:android --variant release` or use EAS Build: `npx eas build --platform android --local=false`
+
+# Useful Project Information
+- Keep native dependencies configured inside `app.config.js` or `app.json` where possible, though manual patching is sometimes required in `android/app/build.gradle`, `AndroidManifest.xml`, or `proguard-rules.pro`.
+- When dealing with Android Release build issues, assume R8/ProGuard minification is stripping classes, and verify the `proguard-rules.pro` file.
+- `EXPO_PUBLIC_APP_VARIANT` manages the difference between `development` and `production` builds. It dictates the API URL and any branding changes (like a `[DEV]` prefix).
+
+# Formatting
+- Read `AI_CONTEXT.md` for more architecture specifics before making massive logic refactors.
+- Prefer strict typing in the `hooks` and React components.
+- Do not run continuous background loops (like `gradlew assembleRelease` via automated build scripts) unless prompted to monitor, as local builds consume intensive resources. Suggest EAS Build for heavy compilations.

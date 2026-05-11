@@ -23,61 +23,73 @@ export default function HistoryScreen() {
       setLoading(true);
       const athleteId = await AsyncStorage.getItem('athleteId');
       if (!athleteId) {
-        console.warn('No athlete ID found for history');
         setLoading(false);
         return;
       }
 
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.8:3003";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
       const res = await fetch(`${API_URL}/api/mobile/history?athleteId=${athleteId}&range=${range}`);
-      const json = await res.json();
+      
+      if (!res.ok) {
+        console.log(`⚠️ History unavailable for guest: ${res.status}`);
+        processChartData([], range);
+        return;
+      }
 
+      const json = await res.json();
       if (json.success && json.data) {
         processChartData(json.data, range);
       }
     } catch (e) {
-      console.error('Failed to load history:', e);
+      console.log('History data fetch skipped:', e);
+      processChartData([], range);
     } finally {
       setLoading(false);
     }
   };
 
   const processChartData = (data: any[], currentRange: RangeType) => {
-    // We format data for react-native-chart-kit
     let labels: string[] = [];
     let values: number[] = [];
 
     if (data.length === 0) {
-      // Empty mock state
       labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       values = [0, 0, 0, 0, 0, 0, 0];
     } else {
+      // Sort data by date just in case
+      const sortedData = [...data].sort((a, b) => a.date.localeCompare(b.date));
+
       if (currentRange === 'weekly') {
-        // Data format: { _id: { date: '2026-03-21' }, totalSteps: 5000 }
-        data.forEach((d) => {
-          const dt = new Date(d._id.date);
+        sortedData.forEach((d) => {
+          const dt = new Date(d.date);
           const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
           labels.push(days[dt.getDay()]);
-          values.push(d.totalSteps);
+          values.push(d.steps || d.totalSteps || 0);
         });
       } else if (currentRange === 'monthly') {
-        // Data format: { _id: { year: '2026', month: '03' }, totalSteps: ... }
-        data.forEach((d) => {
-          labels.push(`${d._id.month}/${d._id.year.substring(2)}`);
-          values.push(d.totalSteps);
+        sortedData.forEach((d) => {
+          const dt = new Date(d.date);
+          labels.push(`${dt.getMonth() + 1}/${d.date.substring(8, 10)}`);
+          values.push(d.steps || d.totalSteps || 0);
         });
       } else {
-        // Yearly
-        data.forEach((d) => {
-          labels.push(d._id.year);
-          values.push(d.totalSteps);
+        // Yearly - group by month if data is daily
+        const monthlyAggregation: {[key: string]: number} = {};
+        sortedData.forEach(d => {
+           const monthYear = d.date.substring(0, 7); // YYYY-MM
+           monthlyAggregation[monthYear] = (monthlyAggregation[monthYear] || 0) + (d.steps || d.totalSteps || 0);
+        });
+        Object.keys(monthlyAggregation).sort().forEach(key => {
+           labels.push(key.split('-')[1]);
+           values.push(monthlyAggregation[key]);
         });
       }
 
-      // Cap at 7 visible points for UX
-      if (labels.length > 7) {
-        labels = labels.slice(-7);
-        values = values.slice(-7);
+      // UX: Show last 7 or 12 points
+      const limit = currentRange === 'weekly' ? 7 : 12;
+      if (labels.length > limit) {
+        labels = labels.slice(-limit);
+        values = values.slice(-limit);
       }
     }
 

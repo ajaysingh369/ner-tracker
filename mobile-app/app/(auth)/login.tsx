@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -6,31 +6,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '259225054743-ruepf7b9lprfdjqfih3o56a499p1r8dk.apps.googleusercontent.com', // Must match Vercel
-  offlineAccess: true,
-});
 
 export default function LoginScreen() {
   const router = useRouter();
 
+  useEffect(() => {
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '259225054743-ruepf7b9lprfdjqfih3o56a499p1r8dk.apps.googleusercontent.com';
+    console.log(`📱 Configuring Google Flow for Release...`);
+    GoogleSignin.configure({ 
+      webClientId, 
+      offlineAccess: true,
+      forceCodeForRefreshToken: true 
+    });
+  }, []);
+
+  const handleBypassLogin = async () => {
+    try {
+      const mockId = `guest_${Date.now()}`;
+      await AsyncStorage.setItem('athleteId', mockId);
+      await AsyncStorage.setItem('authToken', `mock_${mockId}`);
+      console.log(`🕒 [DEV] Bypassing Google. ID: ${mockId}`);
+      router.replace('/(tabs)');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     try {
       const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
-
-      // 1. Live Google Authentication
+      
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
       const idToken = userInfo.data?.idToken;
 
-      if (!idToken) {
-        throw new Error('Could not retrieve Google ID Token. Please try again.');
-      }
-
-      // 2. Transmit Real Token to Vercel Backend
-      console.log("📱 Initiating Google SSO Auth via Backend...");
+      if (!idToken) throw new Error('ID Token not found');
       
-      const response = await fetch(`${API_URL}/api/v2/auth/google`, {
+      const response = await fetch(`${API_URL}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken })
@@ -39,19 +51,29 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (data.status === 'success') {
-        const userId = data.user.id;
-        console.log(`✅ Google Auth successful! Logged in as: ${data.user.email} (ID: ${userId})`);
-        
-        await AsyncStorage.setItem('athleteId', userId); // Re-using athleteId key so Health Sync uses Google Auth ID
+        await AsyncStorage.setItem('athleteId', data.user.id);
         await AsyncStorage.setItem('authToken', data.token);
-
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Auth Failed', data.error);
+        Alert.alert('Backend Error', data.error);
       }
-    } catch (error) {
-      console.error('Google Sign-In Error:', error);
-      Alert.alert('Error', 'Failed to reach backend server.');
+    } catch (error: any) {
+      const errMsg = error?.message || String(error);
+      const errCode = error?.code || 'UNKNOWN';
+      
+      console.log('❌ Sign-In Error Code:', errCode, 'Message:', errMsg);
+      
+      if (errCode === '10') {
+        Alert.alert(
+          'Google Error (10)', 
+          'This usually means your SHA-1 fingerprint does not match the one in Google Cloud Console. Please verify your release credentials.'
+        );
+      } else {
+        Alert.alert(
+          'Google Error', 
+          `Code: ${errCode}\n${errMsg}\n\nPlease check your Google Cloud Console configuration.`
+        );
+      }
     }
   };
 
@@ -82,6 +104,14 @@ export default function LoginScreen() {
             <Text style={styles.googleBtnText}>Continue with Google</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity 
+            style={styles.bypassButton}
+            onPress={handleBypassLogin}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.bypassBtnText}>Preview as Guest (Bypass)</Text>
+          </TouchableOpacity>
+
           <Text style={styles.disclosureText}>
             By signing in, you agree to our Terms of Service and Privacy Policy. RunAstra securely requests permission to view your device's local pedometer data.
           </Text>
@@ -103,7 +133,6 @@ const styles = StyleSheet.create({
     width: 350,
     height: 350,
     borderRadius: 175,
-    filter: 'blur(50px)', // For web rendering context, React Native achieves blur via blurred image underlays or blur layers
     opacity: 0.6,
   },
   content: {
@@ -158,7 +187,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
-    marginBottom: 25,
+    marginBottom: 15,
+  },
+  bypassButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 30,
+    marginBottom: 20,
   },
   btnIcon: {
     marginRight: 10,
@@ -167,6 +207,12 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 18,
     fontWeight: '700',
+  },
+  bypassBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    opacity: 0.9,
   },
   disclosureText: {
     color: '#666677',

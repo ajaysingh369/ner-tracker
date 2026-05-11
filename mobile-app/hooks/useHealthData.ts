@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { Platform, AppState, AppStateStatus, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,6 +16,10 @@ type HealthConnectAPI = {
 
 let AppleHealthKit: any = null;
 let HealthConnect: HealthConnectAPI | null = null;
+
+// SDK Status Constants
+const SDK_NOT_INSTALLED = 1;
+const SDK_INSTALLED = 2;
 const SDK_AVAILABLE = 3;
 
 // ─── Lazy loaders ─────────────────────────────────────────────────────────────
@@ -34,15 +38,17 @@ async function loadHealthConnect() {
   if (!HealthConnect) {
     try {
       const module = await import('react-native-health-connect');
+      const api = module as any;
+      
       if (
-        typeof (module as any).getSdkStatus === 'function' &&
-        typeof (module as any).initialize === 'function' &&
-        typeof (module as any).readRecords === 'function'
+        typeof api.getSdkStatus === 'function' &&
+        typeof api.initialize === 'function' &&
+        typeof api.requestPermission === 'function'
       ) {
-        HealthConnect = module as unknown as HealthConnectAPI;
-        console.log('✅ react-native-health-connect loaded');
+        HealthConnect = api as HealthConnectAPI;
+        console.log('✅ react-native-health-connect loaded & verified');
       } else {
-        console.warn('⚠️ react-native-health-connect missing exports');
+        console.warn('⚠️ react-native-health-connect missing critical functions');
       }
     } catch (e) {
       console.warn('⚠️ react-native-health-connect failed:', e);
@@ -53,12 +59,12 @@ async function loadHealthConnect() {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useHealthData() {
   const [dailySteps, setDailySteps] = useState<number>(0);
+  const [dailyDistance, setDailyDistance] = useState<number>(0);
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  // needsPermission = true means we opened HC settings, waiting for user to return
   const [needsPermission, setNeedsPermission] = useState<boolean>(false);
   const appState = useRef(AppState.currentState);
-  const initDone = useRef(false);
+  const initAttempted = useRef(false);
 
   // ── Background Sync Step History ─────────────────────────────────────────
   const syncAndroidStepsHistory = useCallback(async () => {
@@ -72,41 +78,58 @@ export function useHealthData() {
       lastWeek.setDate(lastWeek.getDate() - 7);
       lastWeek.setHours(0, 0, 0, 0);
 
-      const result = await HealthConnect.aggregateGroupByDuration({
-        recordType: 'Steps',
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: lastWeek.toISOString(),
-          endTime: today.toISOString(),
-        },
-        timeRangeSlicer: {
-          duration: 'DAYS',
-          length: 1
+      const [stepResult, distanceResult] = await Promise.all([
+        HealthConnect.aggregateGroupByDuration({
+          recordType: 'Steps',
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: lastWeek.toISOString(),
+            endTime: today.toISOString(),
+          },
+          timeRangeSlicer: { duration: 'DAYS', length: 1 }
+        }),
+        HealthConnect.aggregateGroupByDuration({
+          recordType: 'Distance',
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: lastWeek.toISOString(),
+            endTime: today.toISOString(),
+          },
+          timeRangeSlicer: { duration: 'DAYS', length: 1 }
+        })
+      ]).catch(() => [[], []]);
+
+      if (!Array.isArray(stepResult)) return;
+
+      const records = stepResult.map((group: any, index: number) => {
+        const date = group.startTime?.split('T')[0] || new Date().toISOString().split('T')[0];
+        const steps = group.result?.count || group.result?.COUNT_TOTAL || 0;
+        
+        let distanceKm = 0;
+        if (Array.isArray(distanceResult) && distanceResult[index]) {
+          const distMeters = distanceResult[index].result?.distance?.inMeters || 
+                             distanceResult[index].result?.DISTANCE_TOTAL?.inMeters || 0;
+          distanceKm = distMeters / 1000;
         }
+        
+        if (distanceKm === 0 && steps > 0) {
+          distanceKm = steps * 0.000762; 
+        }
+
+        return { date, steps, distanceKm: parseFloat(distanceKm.toFixed(3)), source: 'health_connect' };
       });
-
-      if (!result || !Array.isArray(result)) return;
-
-      const records = result.map((group: any) => ({
-        date: group.startTime?.split('T')[0] || new Date().toISOString().split('T')[0],
-        steps: group.result?.COUNT_TOTAL || 0,
-        source: 'health_connect'
-      }));
 
       const athleteId = await AsyncStorage.getItem('athleteId');
       if (!athleteId) return;
       
       const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app"; 
-      
       await fetch(`${API_URL}/api/mobile/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ athleteId, records })
-      });
-      console.log('✅ 7-day Background sync complete.');
-    } catch (e) {
-      console.log('Sync to backend failed or unavailable:', e);
-    }
+      }).catch(() => null);
+
+    } catch (e) { console.log('Sync Error:', e); }
   }, [isAuthorized]);
 
   // ── Android step fetch ─────────────────────────────────────────────────
@@ -119,9 +142,6 @@ export function useHealthData() {
       const endOfDay = new Date(now);
       endOfDay.setHours(23, 59, 59, 999);
 
-      console.log(`🕒 Fetching Today's steps: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
-
-      // Use aggregateGroupByDuration for Today's steps to avoid Android 14 timezone overlap bugs
       const result = await HealthConnect.aggregateGroupByDuration({
         recordType: 'Steps',
         timeRangeFilter: {
@@ -129,200 +149,162 @@ export function useHealthData() {
           startTime: startOfDay.toISOString(),
           endTime: endOfDay.toISOString(),
         },
-        timeRangeSlicer: {
-          duration: 'DAYS',
-          length: 1
-        }
+        timeRangeSlicer: { duration: 'DAYS', length: 1 }
       });
 
       const total = Array.isArray(result) 
-        ? result.reduce((acc: number, group: any) => acc + (group.result?.COUNT_TOTAL || 0), 0)
+        ? result.reduce((acc: number, group: any) => acc + (group.result?.count || group.result?.COUNT_TOTAL || 0), 0)
         : 0;
       
-      console.log(`📊 Today's Steps Calculated: ${total}`);
       setDailySteps(total);
+      setDailyDistance(total * 0.000762);
       
       syncAndroidStepsHistory();
-    } catch (e: any) {
-      console.error('Error fetching today steps:', e);
-    }
+    } catch (e: any) { console.log('Fetch Error:', e); }
   }, [syncAndroidStepsHistory]);
 
-  // ── Check if steps permission is currently granted ─────────────────────
   const checkPermissions = useCallback(async (): Promise<boolean> => {
     if (!HealthConnect) return false;
     try {
       const granted = await HealthConnect.getGrantedPermissions();
-      const hasSteps = granted.some(
-        (p: any) => p.recordType === 'Steps' && p.accessType === 'read',
-      );
-      console.log('Steps granted:', hasSteps, JSON.stringify(granted));
-      return hasSteps;
-    } catch (e) {
-      console.warn('getGrantedPermissions failed:', e);
-      return false;
-    }
+      return granted.some((p: any) => p.recordType === 'Steps' && p.accessType === 'read');
+    } catch (e) { return false; }
   }, []);
 
-  // ── iOS ────────────────────────────────────────────────────────────────
-  const fetchIOSSteps = useCallback(() => {
-    if (!AppleHealthKit) return;
-    const options = { date: new Date().toISOString() };
-    AppleHealthKit.getStepCount(options, (err: any, results: any) => {
-      if (err) { console.error('iOS steps error:', err); return; }
-      setDailySteps(results.value || 0);
-    });
-  }, []);
-
-  // ── Open Health Connect settings as last-resort fallback ───────────────
   const openHealthConnectForPermission = useCallback(() => {
     if (HealthConnect && typeof HealthConnect.openHealthConnectSettings === 'function') {
-      console.log('📱 Opening Health Connect settings (fallback)...');
       HealthConnect.openHealthConnectSettings();
+    } else {
+        Linking.openURL("market://details?id=com.google.android.apps.healthdata");
     }
   }, []);
 
-  // ── Main authorization flow ────────────────────────────────────────────
   const requestAuthorization = useCallback(async () => {
-    if (initDone.current) return; // prevent re-entry
-    initDone.current = true;
-
     try {
-      // ── iOS ──────────────────────────────────────────────────────────
+      console.log('🔄 Requesting Health Authorization...');
+      
       if (Platform.OS === 'ios') {
         await loadAppleHealthKit();
-        if (!AppleHealthKit) { setError('Apple HealthKit not available.'); return; }
+        if (!AppleHealthKit) return;
         const permissions = {
           permissions: {
-            read: [AppleHealthKit.Constants.Permissions.StepCount],
+            read: [AppleHealthKit.Constants.Permissions.StepCount, AppleHealthKit.Constants.Permissions.DistanceWalkingRunning],
             write: [],
           },
         };
         AppleHealthKit.initHealthKit(permissions, (err: any) => {
-          if (err) { setError('Failed to initialize Apple HealthKit'); return; }
-          setIsAuthorized(true);
-          fetchIOSSteps();
+          if (!err) { setIsAuthorized(true); fetchIOSSteps(); }
         });
         return;
       }
 
       if (Platform.OS !== 'android') return;
 
-      // ── Android ──────────────────────────────────────────────────────
       await loadHealthConnect();
-      if (!HealthConnect) {
-        setError('Health Connect not available on this device.');
+      if (!HealthConnect) { 
+        Alert.alert("Debug", "Health Connect module NOT found."); 
+        return; 
+      }
+
+      const sdkStatus = await HealthConnect.getSdkStatus();
+      console.log('📊 SDK Status:', sdkStatus);
+
+      if (sdkStatus === SDK_NOT_INSTALLED) {
+        Alert.alert("Install Required", "Please install Health Connect to track steps.", [
+            { text: "Install", onPress: () => Linking.openURL("market://details?id=com.google.android.apps.healthdata") }
+        ]);
         return;
       }
 
-      // 1. Check SDK
-      let sdkStatus = SDK_AVAILABLE;
-      try {
-        sdkStatus = await HealthConnect.getSdkStatus();
-        console.log('SDK status:', sdkStatus);
-      } catch { /* proceed */ }
-
-      if (sdkStatus !== SDK_AVAILABLE) {
-        setError('Please install "Health Connect" from the Play Store.');
-        return;
-      }
-
-      // 2. Initialize
-      console.log('🔑 Initializing Health Connect...');
       const initialized = await HealthConnect.initialize();
-      console.log('Health Connect initialized:', initialized);
-      if (!initialized) {
-        setError('Health Connect could not be initialized.');
-        return;
+      if (!initialized) { 
+        Alert.alert("Debug", "Health Connect init failed."); 
+        return; 
       }
 
-      // 3. Check if already granted
       const alreadyGranted = await checkPermissions();
       if (alreadyGranted) {
+        console.log('✅ Permissions already granted.');
         setIsAuthorized(true);
         fetchAndroidSteps();
         return;
       }
 
-      // 4. Try requestPermission — this is the proper system dialog.
-      //    It previously crashed due to a route bug (now fixed).
-      //    If it still crashes/rejects, we fall back to openHealthConnectSettings.
-      console.log('🔑 Requesting permission via dialog...');
-      try {
-        const granted = await HealthConnect.requestPermission([
-          { recordType: 'Steps', accessType: 'read' },
-        ]);
-        console.log('requestPermission result:', JSON.stringify(granted));
+      // Explicit Permission Dialog
+      console.log('🔑 Triggering native permission dialog...');
+      const granted = await HealthConnect.requestPermission([
+        { recordType: 'Steps', accessType: 'read' },
+        { recordType: 'Distance', accessType: 'read' }
+      ]);
+      
+      console.log('✅ Granted array:', JSON.stringify(granted));
 
-        if (granted && granted.length > 0) {
-          setIsAuthorized(true);
-          setNeedsPermission(false);
-          fetchAndroidSteps();
-        } else {
-          // Dialog shown but user denied — open settings as fallback guidance
-          console.warn('Permission denied in dialog, opening HC settings...');
-          setNeedsPermission(true);
-          openHealthConnectForPermission();
-        }
-      } catch (permErr: any) {
-        // requestPermission threw — fall back to settings page
-        console.warn('requestPermission threw, falling back to settings:', permErr?.message);
+      if (granted && granted.length > 0) {
+        setIsAuthorized(true);
+        setNeedsPermission(false);
+        fetchAndroidSteps();
+      } else {
         setNeedsPermission(true);
-        openHealthConnectForPermission();
+        Alert.alert("Permission Required", "RunAstra needs step access to work correctly. Please enable 'Steps' and 'Distance' in the next screen.", [
+            { text: "Open Settings", onPress: openHealthConnectForPermission }
+        ]);
       }
-    } catch (e: any) {
-      console.error('❌ requestAuthorization error:', e);
-      setError(e.message || 'Unknown health auth error');
-      initDone.current = false; // allow retry on error
+    } catch (e: any) { 
+        console.log('Auth Error:', e);
+        Alert.alert("Auth Error", e.message || "Failed to request health permissions.");
     }
-  }, [checkPermissions, fetchAndroidSteps, fetchIOSSteps, openHealthConnectForPermission]);
+  }, [checkPermissions, fetchAndroidSteps, openHealthConnectForPermission]);
 
-  // ── On mount ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      setDailySteps(4821);
-      setIsAuthorized(true);
-      return;
-    }
-    // Small delay so Activity is fully attached
-    const timer = setTimeout(requestAuthorization, 1000);
-    return () => clearTimeout(timer);
+  const fetchIOSSteps = useCallback(() => {
+    if (!AppleHealthKit) return;
+    const options = { date: new Date().toISOString() };
+    AppleHealthKit.getStepCount(options, (err: any, results: any) => {
+      if (!err) { setDailySteps(results.value || 0); setDailyDistance((results.value || 0) * 0.000762); }
+    });
   }, []);
 
-  // ── When app comes back from background: recheck permissions ──────────
-  // Only active when needsPermission=true (user went to HC settings)
+  // ── Auto-Initialize on Mount ──────────────────────────────────────────
   useEffect(() => {
-    if (Platform.OS !== 'android' || !needsPermission) return;
+    if (Platform.OS === 'web') { setDailySteps(4821); setIsAuthorized(true); return; }
+    
+    const autoCheck = async () => {
+        if (initAttempted.current) return;
+        initAttempted.current = true;
+        
+        if (Platform.OS === 'android') {
+            await loadHealthConnect();
+            if (HealthConnect) {
+                const has = await checkPermissions();
+                if (has) { setIsAuthorized(true); fetchAndroidSteps(); }
+            }
+        }
+    };
+    autoCheck();
+  }, [checkPermissions, fetchAndroidSteps]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
     const sub = AppState.addEventListener('change', async (next: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && next === 'active') {
-        console.log('▶️ App foregrounded — rechecking permissions...');
         const has = await checkPermissions();
-        if (has) {
-          setNeedsPermission(false);
-          setIsAuthorized(true);
-          fetchAndroidSteps();
-        } else {
-          // Don't re-open settings automatically — let the banner button handle it
-          console.log('Still no permission after foreground.');
-        }
+        if (has) { setNeedsPermission(false); setIsAuthorized(true); fetchAndroidSteps(); }
       }
       appState.current = next;
     });
-
     return () => sub.remove();
-  }, [needsPermission, checkPermissions, fetchAndroidSteps]);
+  }, [checkPermissions, fetchAndroidSteps]);
 
-  // ── Poll steps every 30 s once authorized ─────────────────────────────
   useEffect(() => {
-    if (Platform.OS !== 'android' || !isAuthorized) return;
-    fetchAndroidSteps(); // immediate fetch
-    const timer = setInterval(fetchAndroidSteps, 30_000);
+    if (!isAuthorized) return;
+    const triggerFetch = Platform.OS === 'android' ? fetchAndroidSteps : fetchIOSSteps;
+    triggerFetch();
+    const timer = setInterval(triggerFetch, 30_000);
     return () => clearInterval(timer);
-  }, [isAuthorized, fetchAndroidSteps]);
+  }, [isAuthorized, fetchAndroidSteps, fetchIOSSteps]);
 
   return {
     dailySteps,
+    dailyDistance,
     isAuthorized,
     needsPermission,
     error,
