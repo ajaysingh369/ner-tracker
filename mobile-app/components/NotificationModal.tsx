@@ -21,7 +21,7 @@ export default function NotificationModal({ visible, onClose }: NotificationModa
     setLoading(true);
     try {
       const athleteId = await AsyncStorage.getItem('athleteId');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       const res = await fetch(`${API_URL}/notifications?userId=${athleteId}`);
       if (res.ok) {
         const data = await res.json();
@@ -33,7 +33,7 @@ export default function NotificationModal({ visible, onClose }: NotificationModa
 
   const markAsRead = async (notifId: string) => {
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       await fetch(`${API_URL}/notifications/read`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

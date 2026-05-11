@@ -106,7 +106,7 @@ export default function HomeScreen() {
     const token = await AsyncStorage.getItem('authToken');
     const athleteId = await AsyncStorage.getItem('athleteId');
     if (!athleteId) return;
-    const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+    const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
     // ── Individual Data Fetches for granular loading ──────────────────────
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};

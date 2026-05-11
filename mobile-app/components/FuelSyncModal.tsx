@@ -21,7 +21,7 @@ export default function FuelSyncModal({ visible, onClose, lastActivity, userProf
     setIsSaving(true);
     try {
       const athleteId = await AsyncStorage.getItem('athleteId');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const res = await fetch(`${API_URL}/nutrition/log`, {
         method: 'POST',

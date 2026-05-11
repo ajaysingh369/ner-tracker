@@ -122,7 +122,7 @@ export function useHealthData() {
       const athleteId = await AsyncStorage.getItem('athleteId');
       if (!athleteId) return;
       
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app"; 
+      const API_URL = process.env.EXPO_PUBLIC_API_URL; 
       await fetch(`${API_URL}/api/mobile/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,20 +291,30 @@ export function useHealthData() {
       if (!err) { setDailySteps(results.value || 0); setDailyDistance((results.value || 0) * 0.000762); }
     });
   }, []);
+// ── Auto-Initialize on Mount ──────────────────────────────────────────
+useEffect(() => {
+  if (Platform.OS === 'web') { setDailySteps(4821); setIsAuthorized(true); return; }
 
-  // ── Auto-Initialize on Mount ──────────────────────────────────────────
-  useEffect(() => {
-    if (Platform.OS === 'web') { setDailySteps(4821); setIsAuthorized(true); return; }
-    
-    const autoCheck = async () => {
-        if (initAttempted.current) return;
-        initAttempted.current = true;
-        
-        if (Platform.OS === 'android') {
-            await loadHealthConnect();
-            if (HealthConnect) {
-                const has = await checkPermissions();
-                if (has) { setIsAuthorized(true); fetchAndroidSteps(); }
+  const autoCheck = async () => {
+      if (initAttempted.current) return;
+      initAttempted.current = true;
+
+      if (Platform.OS === 'android') {
+          await loadHealthConnect();
+          if (HealthConnect) {
+              const has = await checkPermissions();
+              if (has) { 
+                  setIsAuthorized(true); 
+                  fetchAndroidSteps(); 
+              } else {
+                  setNeedsPermission(true);
+              }
+          }
+      }
+  };
+  autoCheck();
+}, [checkPermissions, fetchAndroidSteps]);
+                }
             }
         }
     };

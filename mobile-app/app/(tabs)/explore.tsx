@@ -19,7 +19,7 @@ export default function AICoachScreen() {
   const fetchAIPlan = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       const res = await fetch(`${API_URL}/ai/coach/plan`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });

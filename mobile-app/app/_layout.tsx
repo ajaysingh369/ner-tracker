@@ -60,7 +60,7 @@ function RootLayoutContent() {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
-        const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
+        const API_URL = process.env.EXPO_PUBLIC_API_URL;
         const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.ok) {
           const data = await res.json();
@@ -69,6 +69,9 @@ function RootLayoutContent() {
             router.replace('/onboarding');
           }
         }
+      } else {
+        console.log('🔒 No auth token found, redirecting to login...');
+        router.replace('/(auth)/login');
       }
     } catch (e) { console.error(e); }
     setIsLoadingAuth(false);

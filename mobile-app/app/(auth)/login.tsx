@@ -22,7 +22,7 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();

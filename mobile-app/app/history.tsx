@@ -27,7 +27,7 @@ export default function HistoryScreen() {
         return;
       }
 
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       const res = await fetch(`${API_URL}/api/mobile/history?athleteId=${athleteId}&range=${range}`);
       
       if (!res.ok) {

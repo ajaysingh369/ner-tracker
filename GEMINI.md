@@ -5,17 +5,16 @@ This file contains the core architectural decisions, conventions, and context fo
 ## 1. Project Overview
 **RunAstra** is a hybrid mobile application (React Native) inspired by the existing NER Tracker web app. Its core mission is to track step counts, distances, and calories burned while fostering engagement through challenges, leaderboards, and eventually AI-driven personal training insights.
 
-## 2. Technology Stack
+## 2. Technology Stack & Architectural Mandates
 - **Mobile Client:** React Native with Expo (Managed Workflow, utilizing custom native pre-builds).
   - Navigation: Expo Router.
   - Native APIs: `@react-native-google-signin/google-signin`, `react-native-health-connect` / `react-native-health` (iOS equivalent).
-- **Current Backend (Transitional):** Express.js deployed on Vercel.
-- **Target Backend (AWS Free Tier - Serverless):**
-  - **Compute:** AWS Lambda (Node.js/Express migration).
+  - **MANDATE: Environment Variables:** The mobile app MUST NOT contain hardcoded backend URLs. All API requests must use `process.env.EXPO_PUBLIC_API_URL` exclusively.
+- **Backend (AWS Free Tier - Serverless):** This is the **ONLY** backend for the mobile app and admin panel.
+  - **Compute:** AWS Lambda (`backend-aws/src/`).
   - **API Routing:** Amazon API Gateway.
-  - **Database:** Amazon DynamoDB (NoSQL, high scale, generous free tier) or MongoDB Atlas (if relational/document structure from Vercel is strictly preferred).
-  - **Storage:** Amazon S3 (for Sponsor Banners, User Avatars).
-  - **Authentication:** Amazon Cognito (migrating from or augmenting Google Auth).
+  - **Database:** Amazon DynamoDB.
+- **Legacy Backend (Vercel):** The Express.js server in the root (`server.js`) is strictly for the legacy NER Tracker web app and for handling the initial Strava OAuth redirect. It MUST NOT be modified to serve new mobile app endpoints.
 
 ## 3. Core Features (Phase 1)
 1. **Health Data Sync:** Automatic background/foreground sync with Android/Apple Health Connect to capture daily steps, distance, and calories.

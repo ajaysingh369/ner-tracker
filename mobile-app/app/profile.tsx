@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch, Modal, FlatList, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAstraTheme, AstraTheme } from '../hooks/useAstraTheme';
 
 export default function ProfileScreen() {
@@ -15,6 +16,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
   const [showGenderPicker, setShowGenderPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function ProfileScreen() {
     try {
       const token = await AsyncStorage.getItem('authToken');
       const athleteId = await AsyncStorage.getItem('athleteId');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const [pRes, sRes] = await Promise.all([
         fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -53,7 +55,7 @@ export default function ProfileScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
       const token = await AsyncStorage.getItem('authToken');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const response = await fetch(`${API_URL}/auth/profile`, {
         method: 'PUT',
@@ -264,6 +266,22 @@ export default function ProfileScreen() {
             </View>
         </View>
       </Modal>
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={formData.dob ? new Date(formData.dob) : new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(Platform.OS === 'ios');
+            if (selectedDate) {
+              const formattedDate = selectedDate.toISOString().split('T')[0];
+              setFormData({ ...formData, dob: formattedDate });
+            }
+          }}
+        />
+      )}
     </LinearGradient>
   );
 }

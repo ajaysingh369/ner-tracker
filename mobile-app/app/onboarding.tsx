@@ -32,7 +32,7 @@ export default function OnboardingScreen() {
   const submitOnboarding = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ner-tracker.vercel.app';
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const response = await fetch(`${API_URL}/auth/profile`, {
         method: 'PUT',

@@ -20,7 +20,7 @@ export default function LeaderboardScreen() {
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       const endpoint = activeTab === 'global' ? '/leaderboard/global' : '/leaderboard/challenge';
       const res = await fetch(`${API_URL}${endpoint}`);
       if (res.ok) {

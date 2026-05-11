@@ -22,7 +22,7 @@ export default function EventsScreen() {
     try {
       const token = await AsyncStorage.getItem('authToken');
       const athleteId = await AsyncStorage.getItem('athleteId');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const [eRes, uRes] = await Promise.all([
         fetch(`${API_URL}/events`),
@@ -53,7 +53,7 @@ export default function EventsScreen() {
     try {
       const token = await AsyncStorage.getItem('authToken');
       const athleteId = await AsyncStorage.getItem('athleteId');
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ner-tracker.vercel.app";
+      const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const res = await fetch(`${API_URL}/challenges/join`, {
         method: 'POST',

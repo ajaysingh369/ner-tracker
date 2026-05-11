@@ -288,7 +288,8 @@ app.get('/auth/strava/callback', async (req, res) => {
           firstname: stravaAthlete.firstname,
           lastname: stravaAthlete.lastname
         }, {
-          headers: { 'x-internal-secret': INTERNAL_SECRET }
+          headers: { 'x-internal-secret': INTERNAL_SECRET },
+          timeout: 4000 // Prevent Vercel 504 if AWS backend is down or asleep
         });
         console.log('✅ Bridge: AWS Token sync successful.');
       } catch (err) {
