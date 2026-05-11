@@ -211,7 +211,7 @@ export function useHealthData() {
   const requestAuthorization = useCallback(async () => {
     try {
       console.log('🔄 Requesting Health Authorization...');
-      
+
       if (Platform.OS === 'ios') {
         await loadAppleHealthKit();
         if (!AppleHealthKit) return;
@@ -255,6 +255,7 @@ export function useHealthData() {
       if (alreadyGranted) {
         console.log('✅ Permissions already granted.');
         setIsAuthorized(true);
+        setNeedsPermission(false);
         fetchAndroidSteps();
         return;
       }
@@ -265,7 +266,7 @@ export function useHealthData() {
         { recordType: 'Steps', accessType: 'read' },
         { recordType: 'Distance', accessType: 'read' }
       ]);
-      
+
       console.log('✅ Granted array:', JSON.stringify(granted));
 
       if (granted && granted.length > 0) {
@@ -291,29 +292,30 @@ export function useHealthData() {
       if (!err) { setDailySteps(results.value || 0); setDailyDistance((results.value || 0) * 0.000762); }
     });
   }, []);
-// ── Auto-Initialize on Mount ──────────────────────────────────────────
-useEffect(() => {
-  if (Platform.OS === 'web') { setDailySteps(4821); setIsAuthorized(true); return; }
 
-  const autoCheck = async () => {
-      if (initAttempted.current) return;
-      initAttempted.current = true;
+  // ── Auto-Initialize on Mount ──────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === 'web') { setDailySteps(4821); setIsAuthorized(true); return; }
 
-      if (Platform.OS === 'android') {
-          await loadHealthConnect();
-          if (HealthConnect) {
-              const has = await checkPermissions();
-              if (has) { 
-                  setIsAuthorized(true); 
-                  fetchAndroidSteps(); 
-              } else {
-                  setNeedsPermission(true);
-              }
-          }
-      }
-  };
-  autoCheck();
-}, [checkPermissions, fetchAndroidSteps]);
+    const autoCheck = async () => {
+        if (initAttempted.current) return;
+        initAttempted.current = true;
+
+        if (Platform.OS === 'android') {
+            await loadHealthConnect();
+            if (HealthConnect) {
+                try {
+                  await HealthConnect.initialize();
+                } catch (e) {
+                  console.log("Auto Check Init Error:", e);
+                }
+                const has = await checkPermissions();
+                if (has) { 
+                    setIsAuthorized(true); 
+                    setNeedsPermission(false);
+                    fetchAndroidSteps(); 
+                } else {
+                    setNeedsPermission(true);
                 }
             }
         }
