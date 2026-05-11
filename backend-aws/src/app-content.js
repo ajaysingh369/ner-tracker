@@ -21,6 +21,8 @@ exports.handler = async (event) => {
             response = await handleGetBanners();
         } else if (path.endsWith("/community/hero") && method === "GET") {
             response = await handleGetCommunityHero();
+        } else if (path.includes("/user/challenges") && method === "GET") {
+            response = await handleGetUserChallenges(event);
         } else if (path.endsWith("/challenges") && method === "GET") {
             response = await handleGetChallenges();
         } else if (path.endsWith("/events") && method === "GET") {
@@ -46,23 +48,48 @@ exports.handler = async (event) => {
 };
 
 async function handleGetBanners() {
-    // PK starts with BANNER# or is exactly BANNER
     const result = await ddbDocClient.send(new ScanCommand({
         TableName: TABLE_NAME,
-        FilterExpression: "begins_with(PK, :pk) OR PK = :pk",
-        ExpressionAttributeValues: { ":pk": "BANNER" }
+        FilterExpression: "PK = :pk OR begins_with(PK, :pk_prefix)",
+        ExpressionAttributeValues: { ":pk": "BANNER", ":pk_prefix": "BANNER#" }
     }));
-    return { statusCode: 200, body: JSON.stringify({ status: "success", banners: result.Items }) };
+    
+    // Fallback: If no banners found in BANNER PK, check if any challenges look like banners (legacy data fix)
+    let banners = result.Items || [];
+    if (banners.length === 0) {
+        const altResult = await ddbDocClient.send(new ScanCommand({
+            TableName: TABLE_NAME,
+            FilterExpression: "PK = :pk AND (attribute_exists(imageUrl) OR contains(title, :niva))",
+            ExpressionAttributeValues: { ":pk": "CHALLENGE", ":niva": "Niva" }
+        }));
+        banners = altResult.Items || [];
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ status: "success", banners }) };
 }
 
-async function handleGetCommunityHero() {
-    const hero = {
-        name: "Ajay Singh",
-        avatar: "https://ui-avatars.com/api/?name=Ajay+Singh&background=ff7a00&color=fff",
-        achievement: "Hit 25,000 steps for 3 consecutive days!",
-        message: "Consistency is the key to progress. Keep moving, RunAstra community!"
-    };
-    return { statusCode: 200, body: JSON.stringify({ status: "success", hero }) };
+async function handleGetUserChallenges(event) {
+    const { userId } = event.queryStringParameters || {};
+    if (!userId) return { statusCode: 400, body: "userId required" };
+
+    const result = await ddbDocClient.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: "PK = :pk AND begins_with(SK, :sk)",
+        ExpressionAttributeValues: { ":pk": `USER#${userId}`, ":sk": "CHALLENGE#" }
+    }));
+
+    // For each joined challenge, we need to fetch the challenge details
+    const userChallenges = result.Items || [];
+    const enrichedChallenges = await Promise.all(userChallenges.map(async (uc) => {
+        const challengeId = uc.SK.replace("CHALLENGE#", "");
+        const details = await ddbDocClient.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: "CHALLENGE", SK: challengeId }
+        }));
+        return { ...uc, ...(details.Item || {}), challengeId };
+    }));
+
+    return { statusCode: 200, body: JSON.stringify({ status: "success", challenges: enrichedChallenges }) };
 }
 
 async function handleGetChallenges() {
@@ -71,7 +98,11 @@ async function handleGetChallenges() {
         FilterExpression: "PK = :pk",
         ExpressionAttributeValues: { ":pk": "CHALLENGE" }
     }));
-    return { statusCode: 200, body: JSON.stringify({ status: "success", challenges: result.Items }) };
+    
+    // Filter out items that look like banners if they were mis-seeded
+    const challenges = (result.Items || []).filter(item => !item.imageUrl && !item.title?.includes("Niva Bupa"));
+    
+    return { statusCode: 200, body: JSON.stringify({ status: "success", challenges }) };
 }
 
 async function handleGetEvents() {
