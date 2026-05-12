@@ -1,18 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, ScrollView } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, ScrollView, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BarChart } from 'react-native-chart-kit';
+import { BarChart } from 'react-native-gifted-charts';
+import * as Haptics from 'expo-haptics';
+import { useAstraTheme } from '../hooks/useAstraTheme';
+
+const { width } = Dimensions.get('window');
 
 type RangeType = 'weekly' | 'monthly' | 'yearly';
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { colors } = useAstraTheme();
   const [range, setRange] = useState<RangeType>('weekly');
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState<any>(null);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchHistoryData();
@@ -20,258 +26,197 @@ export default function HistoryScreen() {
 
   const fetchHistoryData = async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       const athleteId = await AsyncStorage.getItem('athleteId');
-      if (!athleteId) {
-        setLoading(false);
-        return;
-      }
+      const token = await AsyncStorage.getItem('authToken');
+      if (!athleteId) return;
 
       const API_URL = process.env.EXPO_PUBLIC_API_URL;
-      const res = await fetch(`${API_URL}/api/mobile/history?athleteId=${athleteId}&range=${range}`);
+      const res = await fetch(`${API_URL}/mobile/history?athleteId=${athleteId}&range=${range}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
       
-      if (!res.ok) {
-        console.log(`⚠️ History unavailable for guest: ${res.status}`);
-        processChartData([], range);
-        return;
-      }
-
       const json = await res.json();
       if (json.success && json.data) {
-        processChartData(json.data, range);
+        setHistoryData(json.data);
       }
     } catch (e) {
-      console.log('History data fetch skipped:', e);
-      processChartData([], range);
+      console.log('History Fetch Error:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const processChartData = (data: any[], currentRange: RangeType) => {
-    let labels: string[] = [];
-    let values: number[] = [];
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchHistoryData();
+  };
 
-    if (data.length === 0) {
-      labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      values = [0, 0, 0, 0, 0, 0, 0];
-    } else {
-      // Sort data by date just in case
-      const sortedData = [...data].sort((a, b) => a.date.localeCompare(b.date));
+  const chartData = useMemo(() => {
+    if (historyData.length === 0) return [];
 
-      if (currentRange === 'weekly') {
-        sortedData.forEach((d) => {
-          const dt = new Date(d.date);
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          labels.push(days[dt.getDay()]);
-          values.push(d.steps || d.totalSteps || 0);
-        });
-      } else if (currentRange === 'monthly') {
-        sortedData.forEach((d) => {
-          const dt = new Date(d.date);
-          labels.push(`${dt.getMonth() + 1}/${d.date.substring(8, 10)}`);
-          values.push(d.steps || d.totalSteps || 0);
-        });
+    return historyData.map((item, index) => {
+      const date = new Date(item.date);
+      let label = '';
+      
+      if (range === 'weekly') {
+        label = date.toLocaleDateString('en-IN', { weekday: 'short' });
+      } else if (range === 'monthly') {
+        label = date.getDate().toString();
       } else {
-        // Yearly - group by month if data is daily
-        const monthlyAggregation: {[key: string]: number} = {};
-        sortedData.forEach(d => {
-           const monthYear = d.date.substring(0, 7); // YYYY-MM
-           monthlyAggregation[monthYear] = (monthlyAggregation[monthYear] || 0) + (d.steps || d.totalSteps || 0);
-        });
-        Object.keys(monthlyAggregation).sort().forEach(key => {
-           labels.push(key.split('-')[1]);
-           values.push(monthlyAggregation[key]);
-        });
+        label = date.toLocaleDateString('en-IN', { month: 'short' });
       }
 
-      // UX: Show last 7 or 12 points
-      const limit = currentRange === 'weekly' ? 7 : 12;
-      if (labels.length > limit) {
-        labels = labels.slice(-limit);
-        values = values.slice(-limit);
-      }
-    }
-
-    setChartData({
-      labels,
-      datasets: [
-        {
-          data: values
-        }
-      ]
+      const steps = item.steps || item.totalSteps || 0;
+      
+      return {
+        value: steps,
+        label: label,
+        frontColor: steps >= 10000 ? colors.primary : '#444',
+        gradientColor: steps >= 10000 ? colors.secondary : '#666',
+        spacing: range === 'monthly' ? 8 : 25,
+        labelTextStyle: { color: '#888', fontSize: 10 },
+      };
     });
-  };
+  }, [historyData, range, colors]);
+
+  const stats = useMemo(() => {
+    if (historyData.length === 0) return { avg: 0, total: 0, max: 0 };
+    const values = historyData.map(d => d.steps || d.totalSteps || 0);
+    const total = values.reduce((a, b) => a + b, 0);
+    return {
+      avg: Math.round(total / historyData.length),
+      total,
+      max: Math.max(...values)
+    };
+  }, [historyData]);
 
   return (
-    <LinearGradient colors={['#1c1d2e', '#131422', '#0d0d16']} style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Step History</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <LinearGradient colors={colors.background} style={styles.container}>
+      <Stack.Screen options={{ 
+        headerShown: true, 
+        title: 'Activity History',
+        headerTransparent: true,
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: '900' }
+      }} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {/* Toggle Range */}
         <View style={styles.toggleContainer}>
-          <TouchableOpacity 
-            style={[styles.toggleBtn, range === 'weekly' && styles.toggleActive]}
-            onPress={() => setRange('weekly')}
-          >
-            <Text style={[styles.toggleText, range === 'weekly' && styles.toggleTextActive]}>Weekly</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.toggleBtn, range === 'monthly' && styles.toggleActive]}
-            onPress={() => setRange('monthly')}
-          >
-            <Text style={[styles.toggleText, range === 'monthly' && styles.toggleTextActive]}>Monthly</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.toggleBtn, range === 'yearly' && styles.toggleActive]}
-            onPress={() => setRange('yearly')}
-          >
-            <Text style={[styles.toggleText, range === 'yearly' && styles.toggleTextActive]}>Yearly</Text>
-          </TouchableOpacity>
+          {(['weekly', 'monthly', 'yearly'] as RangeType[]).map((r) => (
+            <TouchableOpacity 
+              key={r}
+              style={[styles.toggleBtn, range === r && { backgroundColor: colors.primary }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setRange(r);
+              }}
+            >
+              <Text style={[styles.toggleText, range === r && { color: '#000', fontWeight: '900' }]}>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Chart Area */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Overview</Text>
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <StatCard label="AVERAGE" value={stats.avg.toLocaleString()} unit="steps" color={colors.primary} />
+          <StatCard label="TOTAL" value={stats.total.toLocaleString()} unit="steps" color="#fff" />
+        </View>
+
+        {/* Chart Card */}
+        <View style={[styles.chartCard, { borderColor: `${colors.primary}33` }]}>
+          <View style={styles.chartHeader}>
+            <Text style={styles.chartTitle}>{range.toUpperCase()} INSIGHTS</Text>
+            <View style={styles.goalLegend}>
+                <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                <Text style={styles.legendText}>Goal Met</Text>
+            </View>
+          </View>
+
           {loading ? (
-            <ActivityIndicator size="large" color="#ff7a00" style={{ marginVertical: 50 }} />
-          ) : chartData ? (
+            <View style={styles.loaderContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
+          ) : historyData.length > 0 ? (
             <BarChart
               data={chartData}
-              width={Dimensions.get('window').width - 60}
-              height={280}
-              yAxisLabel=""
-              yAxisSuffix=""
-              chartConfig={{
-                backgroundColor: 'transparent',
-                backgroundGradientFrom: '#242538',
-                backgroundGradientTo: '#242538',
-                decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(255, 122, 0, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-                propsForBackgroundLines: {
-                  stroke: 'rgba(255,255,255,0.05)',
-                  strokeDasharray: '0',
-                }
-              }}
-              style={{
-                marginVertical: 10,
-                borderRadius: 16,
-              }}
-              showBarTops={false}
-              fromZero={true}
+              barWidth={range === 'monthly' ? 12 : 22}
+              noOfSections={4}
+              barBorderRadius={6}
+              showGradient
+              yAxisThickness={0}
+              xAxisThickness={0}
+              yAxisTextStyle={{ color: '#666', fontSize: 10 }}
+              xAxisLabelTextStyle={{ color: '#666', fontSize: 10 }}
+              isAnimated
+              animationDuration={500}
+              height={200}
+              width={width - 80}
             />
           ) : (
-            <Text style={{color: '#fff', textAlign: 'center', marginTop: 50}}>No data available yet.</Text>
+            <View style={styles.emptyContainer}>
+                <Ionicons name="stats-chart-outline" size={48} color="#333" />
+                <Text style={styles.emptyText}>No data synced for this period.</Text>
+            </View>
           )}
         </View>
 
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={24} color="#00E5FF" />
-          <Text style={styles.infoText}>
-            This data is aggregated from your phone's secure Health Connect vault, completely seamlessly without active tracking.
-          </Text>
+        {/* Consistency Insights */}
+        <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Consistency Pulse</Text>
         </View>
+        <LinearGradient colors={[`${colors.primary}1A`, 'rgba(0,0,0,0)']} style={styles.insightCard}>
+            <Ionicons name="flash" size={20} color={colors.primary} />
+            <Text style={styles.insightText}>
+                {stats.avg >= 10000 
+                  ? "Elite consistency! You are maintaining an average above your daily goal." 
+                  : "Keep it up! Try to increase your daily average by 500 steps this week."}
+            </Text>
+        </LinearGradient>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
     </LinearGradient>
   );
 }
 
+function StatCard({ label, value, unit, color }: any) {
+    return (
+        <View style={styles.statCard}>
+            <Text style={styles.statLabel}>{label}</Text>
+            <Text style={[styles.statValue, { color }]}>{value}</Text>
+            <Text style={styles.statUnit}>{unit}</Text>
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  backButton: {
-    padding: 10,
-    marginLeft: -10,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1E1E2E',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 25,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  toggleActive: {
-    backgroundColor: '#ff7a00',
-    shadowColor: '#ff7a00',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  toggleText: {
-    color: '#8b8b99',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  toggleTextActive: {
-    color: '#fff',
-  },
-  chartCard: {
-    backgroundColor: '#242538',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 20,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.2)',
-    alignItems: 'flex-start',
-  },
-  infoText: {
-    color: '#00E5FF',
-    fontSize: 14,
-    lineHeight: 20,
-    marginLeft: 12,
-    flex: 1,
-  }
+  container: { flex: 1 },
+  scrollContent: { paddingTop: 120, paddingHorizontal: 20 },
+  toggleContainer: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 5, marginBottom: 30 },
+  toggleBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
+  toggleText: { color: '#888', fontSize: 13, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', gap: 15, marginBottom: 25 },
+  statCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', padding: 20, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  statLabel: { color: '#666', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
+  statValue: { fontSize: 24, fontWeight: '900' },
+  statUnit: { color: '#666', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  chartCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 25, borderRadius: 32, borderWidth: 1, marginBottom: 35 },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
+  chartTitle: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+  goalLegend: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { color: '#666', fontSize: 10, fontWeight: '700' },
+  loaderContainer: { height: 200, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { height: 200, justifyContent: 'center', alignItems: 'center', opacity: 0.5 },
+  emptyText: { color: '#888', fontSize: 14, marginTop: 15, fontWeight: '600' },
+  sectionHeader: { marginBottom: 15 },
+  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  insightCard: { flexDirection: 'row', gap: 15, padding: 20, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  insightText: { color: '#fff', flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '500', opacity: 0.9 }
 });

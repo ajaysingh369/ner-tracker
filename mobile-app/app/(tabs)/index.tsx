@@ -249,8 +249,18 @@ export default function HomeScreen() {
               <Text style={styles.dailyStepGoalText}>{isZenithAchieved ? 'ZENITH ACHIEVED' : 'DAILY STEP GOAL'}</Text>
               <Text style={[styles.stepCount, isZenithAchieved && styles.zenithStepText]}>{dailySteps.toLocaleString()}</Text>
               <Text style={styles.stepsText}>OF {stepGoal.toLocaleString()} STEPS</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/history'); }}
+                style={styles.historyLink}
+              >
+                <Ionicons name="stats-chart" size={12} color={colors.primary} />
+                <Text style={[styles.historyLinkText, { color: colors.primary }]}>View History</Text>
+              </TouchableOpacity>
+
               {loadingHistory ? (
-                <View style={{ marginTop: 25 }}><Skeleton width={120} height={32} borderRadius={20} /></View>
+                <View style={{ marginTop: 15 }}><Skeleton width={120} height={32} borderRadius={20} /></View>
               ) : zenith && (
                 <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowZenithInfo(true); }} style={[styles.zenithStatusBadge, isZenithAchieved && styles.zenithActiveBadge, !isZenithAchieved && { borderColor: `${colors.primary}33` }]}>
                   <View style={styles.zenithAvatarWrapper}><Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/9440/9440938.png' }} style={styles.zenithAvatar} /></View>
@@ -436,6 +446,8 @@ const styles = StyleSheet.create({
   stepCount: { fontSize: 64, fontWeight: '900', color: '#ffffff', letterSpacing: -2 },
   zenithStepText: { color: '#4ade80' },
   stepsText: { fontSize: 12, color: '#a0a0ab', fontWeight: '700', letterSpacing: 1, marginTop: 5 },
+  historyLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 15, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 },
+  historyLinkText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   zenithStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, marginTop: 25, borderWidth: 1 },
   zenithActiveBadge: { backgroundColor: '#4ade80', borderColor: '#4ade80' },
   zenithStatusText: { fontSize: 11, fontWeight: '900' },
@@ -510,6 +522,4 @@ const styles = StyleSheet.create({
   zenithStatVal: { color: '#fff', fontSize: 20, fontWeight: '900' },
   zenithModalBtn: { width: '100%', paddingVertical: 18, borderRadius: 20, marginTop: 40, alignItems: 'center' },
   zenithModalBtnText: { color: '#000', fontWeight: '900', fontSize: 16 }
-});
-xt: { color: '#000', fontWeight: '900', fontSize: 16 }
 });
