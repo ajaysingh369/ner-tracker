@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, Alert, Modal, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop, Path } from 'react-native-svg';
 import Animated, { 
   useSharedValue, 
   withRepeat, 
@@ -21,7 +21,10 @@ import { useAstraTheme } from '../../hooks/useAstraTheme';
 import DigitalBIB from '../../components/DigitalBIB';
 import FuelSyncModal from '../../components/FuelSyncModal';
 import NotificationModal from '../../components/NotificationModal';
+import ZenithAvatar from '../../components/ZenithAvatar';
 import Skeleton from '../../components/Skeleton';
+import { MascotRenderer } from '../../components/Mascots';
+import AdCard from '../../components/AdCard';
 
 const { width, height } = Dimensions.get('window');
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -29,8 +32,8 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 // SVG Ring Settings
 const size = width * 0.85; 
 const strokeWidth = 24;
-const radius = (size - (strokeWidth + 24)) / 2;
-const outerRadius = radius + (strokeWidth / 2) + 6;
+const radius = Math.max(0, (size - (strokeWidth + 24)) / 2);
+const outerRadius = Math.max(0, radius + (strokeWidth / 2) + 6);
 const circumference = radius * 2 * Math.PI;
 
 export default function HomeScreen() {
@@ -46,6 +49,9 @@ export default function HomeScreen() {
   const [stepGoal, setStepGoal] = useState(10000);
   const [zenith, setZenith] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [completedChallenge, setCompletedChallenge] = useState<any>(null);
+  const [forceZenithTrigger, setForceZenithTrigger] = useState(0);
+  const lastTap = useRef(0);
 
   const [loadingStrava, setLoadingStrava] = useState(true);
   const [loadingChallenges, setLoadingChallenges] = useState(true);
@@ -72,6 +78,7 @@ export default function HomeScreen() {
   // ── Reanimated Values ──────────────────────────────────────────────────
   const zenithGlow = useSharedValue(0.3);
   const pulseScale = useSharedValue(1);
+  const ringUiOpacity = useSharedValue(1); // Controls ring text visibility
 
   useEffect(() => {
     zenithGlow.value = withRepeat(withSequence(withTiming(0.8, { duration: 1500 }), withTiming(0.3, { duration: 1500 })), -1, true);
@@ -87,6 +94,12 @@ export default function HomeScreen() {
 
   const animatedPulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }]
+  }));
+
+  const animatedRingTextStyle = useAnimatedStyle(() => ({
+    opacity: ringUiOpacity.value,
+    alignItems: 'center',
+    justifyContent: 'center',
   }));
 
   // ── Greetings ──────────────────────────────────────────────────────────
@@ -139,8 +152,21 @@ export default function HomeScreen() {
     });
 
     // 4. Active Challenges
-    safeFetch(`${API_URL}/user/challenges?userId=${athleteId}`).then(data => {
-        if (data?.status === 'success') setActiveChallenges(data.challenges);
+    safeFetch(`${API_URL}/user/challenges?userId=${athleteId}`).then(async data => {
+        if (data?.status === 'success') {
+          setActiveChallenges(data.challenges);
+          
+          // Check for newly completed challenges
+          const completed = data.challenges.find((c: any) => c.status === 'completed');
+          if (completed) {
+            const celebratedKey = `celebrated_${completed.challengeId}`;
+            const hasCelebrated = await AsyncStorage.getItem(celebratedKey);
+            if (!hasCelebrated) {
+              setCompletedChallenge(completed);
+              await AsyncStorage.setItem(celebratedKey, 'true');
+            }
+          }
+        }
         setLoadingChallenges(false);
     });
 
@@ -167,12 +193,58 @@ export default function HomeScreen() {
 
   const handleStravaConnect = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const API_URL = "https://ner-tracker.vercel.app";
-    router.push(`${API_URL}/auth/strava?state=runastra_${userProfile?.userId}`);
+    const API_URL = process.env.EXPO_PUBLIC_API_URL;
+    Linking.openURL(`${API_URL}/auth/strava?userId=${userProfile?.userId}`);
+  };
+
+  const handleRingPress = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 400;
+    if (lastTap.current && (now - lastTap.current) < DOUBLE_TAP_DELAY) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setForceZenithTrigger(now);
+    } else {
+        lastTap.current = now;
+    }
   };
 
   const handleChallengePress = (challenge: any) => {
     Haptics.selectionAsync();
+    
+    if (challenge.status === 'suggestion') {
+        Alert.alert(
+            "Astra Architect Recommendation",
+            `${challenge.description}\n\nDo you want to accept this 7-day personalized mission?`,
+            [
+                { text: "Later", style: "cancel" },
+                { 
+                    text: "Accept Mission", 
+                    onPress: async () => {
+                        const token = await AsyncStorage.getItem('authToken');
+                        const API_URL = process.env.EXPO_PUBLIC_API_URL;
+                        const res = await fetch(`${API_URL}/challenges/join`, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}` 
+                            },
+                            body: JSON.stringify({ userId: userProfile.userId, challengeId: challenge.challengeId })
+                        });
+                        if (res.ok) {
+                            Alert.alert("Mission Accepted!", "Good luck, Architect. Your progress will be tracked over the next 7 days.");
+                            fetchHomeData();
+                        }
+                    } 
+                }
+            ]
+        );
+        return;
+    }
+
+    if (challenge.status === 'completed') {
+        setCompletedChallenge(challenge);
+        return;
+    }
     if (challenge.type === 'WEB_TRACKER' && challenge.url) {
       router.push({ pathname: '/webview', params: { url: challenge.url, title: challenge.name } });
     }
@@ -228,91 +300,132 @@ export default function HomeScreen() {
 
         {/* 1. STEP RING */}
         <View style={styles.ringContainer}>
-          <Animated.View style={[styles.svgWrapper, animatedPulseStyle]}>
-            <Svg width={size} height={size}>
-              <Defs>
-                <SvgGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0" stopColor={isZenithAchieved ? colors.secondary : colors.primary} stopOpacity="1" />
-                  <Stop offset="1" stopColor={isZenithAchieved ? colors.accent : colors.accent} stopOpacity="1" />
-                </SvgGradient>
-              </Defs>
-              <Circle cx={size / 2} cy={size / 2} r={outerRadius} stroke="rgba(255,255,255,0.05)" strokeWidth={1} fill="none" />
-              <Circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} fill="none" />
-              <AnimatedCircle cx={size / 2} cy={size / 2} r={radius} stroke={isZenithAchieved ? colors.secondary : colors.primary} animatedProps={animatedGlowProps} strokeLinecap="round" fill="none" rotation="-90" originX={size / 2} originY={size / 2} />
-              <Circle cx={size / 2} cy={size / 2} r={radius} stroke="url(#grad)" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffsetValue} fill="none" rotation="-90" originX={size / 2} originY={size / 2} />
-              {zenith && (
-                <Circle cx={size / 2} cy={size / 2} r={radius} stroke={isZenithAchieved ? "#4ade80" : "rgba(255,255,255,0.4)"} strokeWidth={strokeWidth + 4} strokeDasharray={`2, ${circumference}`} strokeDashoffset={zenithOffset} fill="none" rotation="-90" originX={size / 2} originY={size / 2} />
-              )}
-            </Svg>
+          <ZenithAvatar mood={zenith?.mood} isAchieved={isZenithAchieved} steps={dailySteps} target={zenith?.target || stepGoal} forceTrigger={forceZenithTrigger} ringUiOpacity={ringUiOpacity} />
+          <TouchableOpacity activeOpacity={1} onPress={handleRingPress}>
+            <Animated.View style={[styles.svgWrapper, animatedPulseStyle]}>
+                <Svg width={size} height={size}>
+                <Defs>
+                    <SvgGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor={isZenithAchieved ? colors.secondary : colors.primary} stopOpacity="1" />
+                    <Stop offset="1" stopColor={isZenithAchieved ? colors.accent : colors.accent} stopOpacity="1" />
+                    </SvgGradient>
+                </Defs>
+                <Circle cx={size / 2} cy={size / 2} r={outerRadius} stroke="rgba(255,255,255,0.05)" strokeWidth={1} fill="none" />
+                <Circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} fill="none" />
+                <AnimatedCircle cx={size / 2} cy={size / 2} r={radius} stroke={isZenithAchieved ? colors.secondary : colors.primary} animatedProps={animatedGlowProps} strokeLinecap="round" fill="none" rotation="-90" originX={size / 2} originY={size / 2} />
+                <Circle cx={size / 2} cy={size / 2} r={radius} stroke="url(#grad)" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffsetValue} fill="none" rotation="-90" originX={size / 2} originY={size / 2} />
+                {zenith && (
+                    <Circle cx={size / 2} cy={size / 2} r={radius} stroke={isZenithAchieved ? "#4ade80" : "rgba(255,255,255,0.4)"} strokeWidth={strokeWidth + 4} strokeDasharray={`2, ${circumference}`} strokeDashoffset={zenithOffset} fill="none" rotation="-90" originX={size / 2} originY={size / 2} />
+                )}
+                </Svg>
 
-            <View style={styles.ringCenterText}>
-              <Text style={styles.dailyStepGoalText}>{isZenithAchieved ? 'ZENITH ACHIEVED' : 'DAILY STEP GOAL'}</Text>
-              <Text style={[styles.stepCount, isZenithAchieved && styles.zenithStepText]}>{dailySteps.toLocaleString()}</Text>
-              <Text style={styles.stepsText}>OF {stepGoal.toLocaleString()} STEPS</Text>
-              
-              <TouchableOpacity 
-                activeOpacity={0.7} 
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/history'); }}
-                style={styles.historyLink}
-              >
-                <Ionicons name="stats-chart" size={12} color={colors.primary} />
-                <Text style={[styles.historyLinkText, { color: colors.primary }]}>View History</Text>
-              </TouchableOpacity>
-
-              {loadingHistory ? (
-                <View style={{ marginTop: 15 }}><Skeleton width={120} height={32} borderRadius={20} /></View>
-              ) : zenith && (
-                <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowZenithInfo(true); }} style={[styles.zenithStatusBadge, isZenithAchieved && styles.zenithActiveBadge, !isZenithAchieved && { borderColor: `${colors.primary}33` }]}>
-                  <View style={styles.zenithAvatarWrapper}><Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/9440/9440938.png' }} style={styles.zenithAvatar} /></View>
-                  <Text style={[styles.zenithStatusText, { color: isZenithAchieved ? '#000' : colors.primary }]}>{isZenithAchieved ? 'PEAK' : `ZENITH: ${zenith.target.toLocaleString()}`}</Text>
-                  <Ionicons name="information-circle-outline" size={14} color={isZenithAchieved ? "#000" : colors.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </Animated.View>
+                <Animated.View style={[styles.ringCenterText, animatedRingTextStyle]}>
+                <Text style={styles.dailyStepGoalText}>{isZenithAchieved ? 'ZENITH ACHIEVED' : 'DAILY STEP GOAL'}</Text>
+                <Text style={[styles.stepCount, isZenithAchieved && styles.zenithStepText]}>{dailySteps.toLocaleString()}</Text>
+                <Text style={styles.stepsText}>OF {stepGoal.toLocaleString()} STEPS</Text>
+                
+                {loadingHistory ? (
+                    <View style={{ marginTop: 15 }}><Skeleton width={120} height={32} borderRadius={20} /></View>
+                ) : zenith && (
+                    <View style={[styles.zenithStatusBadge, isZenithAchieved && styles.zenithActiveBadge, !isZenithAchieved && { borderColor: `${colors.primary}33` }]}>
+                      <TouchableOpacity activeOpacity={0.8} onPress={() => setForceZenithTrigger(Date.now())}>
+                        <View style={styles.zenithAvatarWrapper}>
+                            <MascotRenderer id={zenith?.mood} size={20} theme={isZenithAchieved ? 'solar' : (zenith?.mood === 'Surge' ? 'nebula' : 'solar')} />
+                        </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowZenithInfo(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.zenithStatusText, { color: isZenithAchieved ? '#000' : colors.primary }]}>{isZenithAchieved ? 'PEAK' : `ZENITH: ${zenith.target.toLocaleString()}`}</Text>
+                        <Ionicons name="information-circle-outline" size={14} color={isZenithAchieved ? "#000" : colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                )}
+                </Animated.View>
+            </Animated.View>
+          </TouchableOpacity>
         </View>
 
         {/* METRICS */}
-        <View style={styles.twoCardsRow}>
-          <View style={styles.glassCard}>
-            <Text style={styles.cardHeader}>DISTANCE</Text>
-            <View style={styles.cardValRow}><Text style={styles.cardMaxVal}>{displayDistance}</Text><Text style={styles.cardMinVal}> km</Text></View>
+        <View style={styles.metricsGrid}>
+          <View style={[styles.metricTile, { marginLeft: 0 }]}>
+            <View style={styles.metricHeader}><Ionicons name="trail-sign-outline" size={12} color="#a0a0ab" /><Text style={styles.metricLabel}>DISTANCE</Text></View>
+            <View style={styles.metricValRow}><Text style={styles.metricVal}>{displayDistance}</Text><Text style={styles.metricUnit}>km</Text></View>
           </View>
-          <View style={styles.glassCard}>
-            <Text style={styles.cardHeader}>CALORIES</Text>
-            <View style={styles.cardValRow}><Text style={styles.cardMaxVal}>{caloriesKcal.toLocaleString()}</Text><Text style={styles.cardMinVal}> kcal</Text></View>
+          <View style={styles.metricTile}>
+            <View style={styles.metricHeader}><Ionicons name="flame-outline" size={12} color="#a0a0ab" /><Text style={styles.metricLabel}>CALORIES</Text></View>
+            <View style={styles.metricValRow}><Text style={styles.metricVal}>{caloriesKcal.toLocaleString()}</Text><Text style={styles.metricUnit}>kcal</Text></View>
+          </View>
+          <View style={[styles.metricTile, { marginRight: 0 }]}>
+            <View style={styles.metricHeader}><Ionicons name="flash-outline" size={12} color="#a0a0ab" /><Text style={styles.metricLabel}>ACTIVE</Text></View>
+            <View style={styles.metricValRow}><Text style={styles.metricVal}>{Math.round(dailySteps * 0.009)}</Text><Text style={styles.metricUnit}>min</Text></View>
           </View>
         </View>
 
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/history'); }} style={styles.historyBtn}>
+            <Text style={styles.historyBtnText}>View Step History</Text>
+            <Ionicons name="arrow-forward" size={14} color="#a0a0ab" />
+        </TouchableOpacity>
+
+        {/* AI COACH MOCK */}
+        <TouchableOpacity style={styles.aiBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/ai'); }}>
+            <View style={styles.aiSpark}><Ionicons name="sparkles" size={14} color="#C8A8FF" /></View>
+            <View style={{flex: 1}}>
+                <View style={styles.aiBannerHeader}>
+                    <Text style={styles.aiBannerTag}>AI Coach</Text>
+                    <View style={styles.liveDot} />
+                </View>
+                <Text style={styles.aiBannerText}>
+                    You're {(stepGoal - dailySteps > 0) ? (stepGoal - dailySteps).toLocaleString() : 0} steps short of your goal. <Text style={{color: '#FFB991'}}>A 15-min walk after dinner does it.</Text>
+                </Text>
+                <View style={styles.aiBannerFooter}>
+                    <Text style={styles.aiBannerFooterText}>See full plan</Text>
+                    <Ionicons name="arrow-forward" size={12} color="#a0a0ab" />
+                </View>
+            </View>
+        </TouchableOpacity>
+
         {/* RUNNER SYNC */}
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Runner Sync</Text></View>
-        {loadingStrava ? (
-          <Skeleton width="100%" height={180} borderRadius={28} />
-        ) : (
-          <LinearGradient colors={[`${colors.primary}26`, 'rgba(255, 255, 255, 0.02)']} style={[styles.stravaCard, { borderColor: `${colors.primary}4D` }]}>
-            {isStravaConnected && lastActivity ? (
-              <View>
-                <TouchableOpacity activeOpacity={0.9} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowBIB(true); }}>
-                  <View style={styles.stravaHeaderRow}>
-                    <View style={[styles.stravaIconBg, { backgroundColor: `${colors.primary}1A` }]}><Image source={{ uri: 'https://d3nn82uaxijpm6.cloudfront.net/apple-touch-icon-144x144.png' }} style={styles.stravaLogo} /></View>
-                    <View><Text style={styles.stravaTitle}>{lastActivity.name}</Text><Text style={styles.stravaSubtext}>Last Activity • Tap to Share</Text></View>
-                  </View>
-                  <View style={styles.stravaStatsRow}><Text style={[styles.recentRunText, { color: colors.primary }]}>{lastActivity.distance} km</Text><Text style={styles.recentRunPace}>{lastActivity.type}</Text></View>
-                </TouchableOpacity>
-                {lastActivity.fuelSync && (
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowFuelSync(true); }}>
-                    <View style={[styles.fuelSyncBox, { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}33` }]}>
-                      <View style={styles.fuelHeader}><Ionicons name="sparkles" size={14} color={colors.primary} /><Text style={[styles.fuelLabel, { color: colors.primary }]}>AI FUEL-SYNC • {lastActivity.fuelSync.intensity} INTENSITY</Text><Ionicons name="chevron-forward" size={12} color={colors.primary} style={{marginLeft: 'auto'}} /></View>
-                      <Text style={styles.fuelTip}>{lastActivity.fuelSync.tip}</Text>
+        <LinearGradient colors={[`${colors.primary}26`, 'rgba(255, 255, 255, 0.02)']} style={[styles.stravaCardNew, { borderColor: `${colors.primary}4D` }]}>
+            <View style={styles.stravaHeaderRowNew}>
+                <View style={styles.stravaDot} />
+                <Text style={styles.stravaLabelNew}>LAST ACTIVITY • STRAVA</Text>
+                <View style={{ flex: 1 }} />
+                <Text style={styles.stravaTimeNew}>2h ago</Text>
+            </View>
+            <View style={styles.stravaBodyNew}>
+                <Text style={styles.stravaTitleNew}>Cubbon Park morning loop 🌅</Text>
+                <Text style={styles.stravaSubtextNew}>Bengaluru • Easy run</Text>
+                <View style={styles.stravaStatsGridNew}>
+                    <View>
+                        <Text style={styles.stravaMiniLabel}>DISTANCE</Text>
+                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>5.2</Text><Text style={styles.stravaMiniUnit}>km</Text></View>
                     </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : (
-              <TouchableOpacity style={[styles.stravaButton, { backgroundColor: colors.primary }]} onPress={handleStravaConnect}><Text style={styles.stravaButtonText}>Connect Strava</Text></TouchableOpacity>
-            )}
-          </LinearGradient>
-        )}
+                    <View>
+                        <Text style={styles.stravaMiniLabel}>PACE</Text>
+                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>5'42"</Text><Text style={styles.stravaMiniUnit}>/km</Text></View>
+                    </View>
+                    <View>
+                        <Text style={styles.stravaMiniLabel}>TIME</Text>
+                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>29:48</Text></View>
+                    </View>
+                    <View>
+                        <Text style={styles.stravaMiniLabel}>HEART</Text>
+                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>142</Text><Text style={styles.stravaMiniUnit}>bpm</Text></View>
+                    </View>
+                </View>
+                {/* Elevation Graph Mock */}
+                <Svg height="50" width="100%" style={{ marginTop: 15 }} viewBox="0 0 300 50" preserveAspectRatio="none">
+                    <Defs>
+                        <SvgGradient id="elev" x1="0" y1="0" x2="0" y2="1">
+                            <Stop offset="0" stopColor={colors.primary} stopOpacity="0.4" />
+                            <Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
+                        </SvgGradient>
+                    </Defs>
+                    <Path d="M0,40 L20,32 L40,28 L60,30 L90,18 L120,22 L150,12 L180,18 L210,8 L240,16 L270,24 L300,30 L300,50 L0,50 Z" fill="url(#elev)" />
+                    <Path d="M0,40 L20,32 L40,28 L60,30 L90,18 L120,22 L150,12 L180,18 L210,8 L240,16 L270,24 L300,30" fill="none" stroke={colors.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+            </View>
+        </LinearGradient>
 
         {/* CHALLENGES */}
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>My Challenges</Text></View>
@@ -320,51 +433,95 @@ export default function HomeScreen() {
           <Skeleton width="100%" height={120} borderRadius={28} />
         ) : activeChallenges.length > 0 ? activeChallenges.map((challenge, idx) => (
           <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => handleChallengePress(challenge)}>
-            <LinearGradient colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)']} style={styles.eventCard}>
-              <View style={styles.eventRowLine}><Text style={styles.eventCardTitle}>🎖 {challenge.name}</Text><Text style={[styles.eventPercent, { color: colors.primary }]}>{challenge.progress || 0}%</Text></View>
-              <View style={styles.progressBarBG}><LinearGradient colors={[colors.primary, colors.secondary]} style={[styles.progressBarFill, { width: `${challenge.progress || 0}%` }]} start={{x:0, y:0}} end={{x:1, y:1}} /></View>
-              <Text style={styles.eventSubtext}>{challenge.description}</Text>
+            <LinearGradient 
+                colors={challenge.status === 'suggestion' ? ['rgba(255, 122, 0, 0.12)', 'rgba(255, 122, 0, 0.02)'] : ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)']} 
+                style={[styles.eventCard, challenge.status === 'suggestion' && { borderColor: 'rgba(255, 122, 0, 0.3)' }]}
+            >
+              <View style={styles.eventRowLine}>
+                <View>
+                    <Text style={styles.eventCardTitle}>{challenge.status === 'suggestion' ? '🎯' : '🎖'} {challenge.name}</Text>
+                    {challenge.isRecommended && <View style={styles.recBadge}><Text style={styles.recBadgeText}>RECOMMENDED MISSION</Text></View>}
+                </View>
+                <Text style={[styles.eventPercent, { color: challenge.status === 'completed' ? '#4ade80' : (challenge.status === 'suggestion' ? '#ff7a00' : colors.primary) }]}>
+                  {challenge.status === 'completed' ? 'DONE' : (challenge.status === 'suggestion' ? 'NEW' : `${challenge.progress || 0}%`)}
+                </Text>
+              </View>
+              <View style={styles.progressBarBG}>
+                  <LinearGradient 
+                    colors={challenge.status === 'completed' ? ['#4ade80', '#22c55e'] : (challenge.status === 'suggestion' ? ['#ff7a00', '#ffb347'] : [colors.primary, colors.secondary])} 
+                    style={[styles.progressBarFill, { width: `${challenge.progress || 0}%` }]} 
+                    start={{x:0, y:0}} end={{x:1, y:1}} 
+                  />
+              </View>
+              <Text style={styles.eventSubtext}>{challenge.status === 'completed' ? 'Challenge Conquered! Tap to view glory.' : challenge.description}</Text>
             </LinearGradient>
           </TouchableOpacity>
-        )) : <Text style={styles.emptyText}>No active challenges.</Text>}
-
-        {/* SPONSOR BANNERS */}
-        {loadingBanners ? (
-          <View style={{ marginBottom: 35 }}><Skeleton width="100%" height={120} borderRadius={20} /></View>
-        ) : banners.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-            {banners.map((banner, idx) => (
-              <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => { Haptics.selectionAsync(); }}>
-                <View style={styles.bannerCard}>
-                  <Image source={{ uri: banner.imageUrl || 'https://via.placeholder.com/400x200?text=Sponsor' }} style={styles.bannerImage} />
-                  <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.bannerGradient}>
-                    <Text style={styles.bannerTitle}>{banner.title}</Text>
-                    <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                  </LinearGradient>
-                </View>
-              </TouchableOpacity>
-            ))}
-            <View style={{ width: 20 }} />
-          </ScrollView>
+        )) : (
+            <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/events')}>
+                <LinearGradient colors={['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.01)']} style={styles.emptyMissionCard}>
+                    <Ionicons name="trophy-outline" size={32} color="rgba(255,255,255,0.2)" />
+                    <Text style={styles.emptyMissionTitle}>No Active Missions</Text>
+                    <Text style={styles.emptyMissionDesc}>You haven't joined any challenges yet. Start your first mission to earn digital BIBs and glory!</Text>
+                    <View style={[styles.exploreBtn, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.exploreBtnText}>Explore Missions</Text>
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
         )}
 
         {/* UPCOMING EVENTS */}
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Upcoming</Text></View>
+        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Upcoming Events</Text></View>
         {loadingEvents ? (
           <View style={{ flexDirection: 'row', gap: 15 }}><Skeleton width={width * 0.7} height={180} borderRadius={28} /><Skeleton width={width * 0.7} height={180} borderRadius={28} /></View>
         ) : upcomingEvents.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
             {upcomingEvents.map((evt, idx) => (
-              <TouchableOpacity key={idx} activeOpacity={0.8} onPress={() => { Haptics.selectionAsync(); router.push('/events'); }}>
+              <TouchableOpacity 
+                key={idx} 
+                activeOpacity={0.8} 
+                onPress={() => { 
+                    Haptics.selectionAsync(); 
+                    router.push({ pathname: '/event-detail', params: { event: JSON.stringify(evt) } }); 
+                }}
+              >
                 <LinearGradient colors={[evt.color || `${colors.primary}26`, 'rgba(255, 255, 255, 0.03)']} style={styles.upcomingCard}>
-                  <Text style={[styles.upDate, { color: colors.primary }]}>{evt.date}</Text><Text style={styles.upTitle}>{evt.title}</Text><Text style={styles.upSubtitle}>{evt.subtitle}</Text>
-                  <View style={styles.joinBtn}><Text style={styles.joinBtnText}>Join Community</Text></View>
+                  <Text style={[styles.upDate, { color: colors.primary }]}>
+                    {evt.startDate ? new Date(evt.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : evt.date}
+                  </Text>
+                  <Text style={styles.upTitle} numberOfLines={1}>{evt.title}</Text>
+                  <Text style={styles.upSubtitle} numberOfLines={1}>{evt.subtitle}</Text>
+                  <View style={styles.joinBtn}><Text style={styles.joinBtnText}>View Details</Text></View>
                 </LinearGradient>
               </TouchableOpacity>
             ))}
             <View style={{ width: 20 }} />
           </ScrollView>
         )}
+
+        {/* EXCLUSIVE OFFERS (Sponsor Banners + Ads) */}
+        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Exclusive Offers</Text></View>
+        {loadingBanners ? (
+          <View style={{ marginBottom: 35 }}><Skeleton width="100%" height={120} borderRadius={20} /></View>
+        ) : banners.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+            {banners.map((banner, idx) => (
+              <React.Fragment key={idx}>
+                <TouchableOpacity activeOpacity={0.9} onPress={() => { Haptics.selectionAsync(); }}>
+                  <View style={styles.bannerCard}>
+                    <Image source={{ uri: banner.imageUrl || 'https://via.placeholder.com/400x200?text=Sponsor' }} style={styles.bannerImage} />
+                    <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.bannerGradient}>
+                      <Text style={styles.bannerTitle}>{banner.title}</Text>
+                      <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
+                    </LinearGradient>
+                  </View>
+                </TouchableOpacity>
+                {/* Interleave a Native Ad after the first Admin Banner */}
+                {idx === 0 && <AdCard />}
+              </React.Fragment>
+            ))}
+            <View style={{ width: 20 }} />
+          </ScrollView>
+        ) : <Text style={styles.emptyText}>No offers available right now.</Text>}
 
         {/* COMMUNITY HERO */}
         {loadingHero ? (
@@ -383,10 +540,10 @@ export default function HomeScreen() {
       {/* ZENITH INFO POPUP */}
       <Modal visible={showZenithInfo} transparent animationType="fade">
         <View style={styles.zenithModalOverlay}>
-          <Animated.View entering={FadeInDown} exiting={FadeOutUp} style={styles.zenithModalContent}>
+          <Animated.View entering={FadeInDown} style={styles.zenithModalContent}>
             <LinearGradient colors={[colors.background[0], '#0f0f13']} style={styles.zenithModalGradient}>
               <TouchableOpacity style={styles.closeModal} onPress={() => setShowZenithInfo(false)}><Ionicons name="close" size={24} color="#fff" /></TouchableOpacity>
-              <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/9440/9440938.png' }} style={styles.zenithModalAvatar} />
+              <MascotRenderer id={zenith?.mood} size={80} style={styles.zenithModalAvatar} theme={isZenithAchieved ? 'solar' : (zenith?.mood === 'Surge' ? 'nebula' : 'solar')} />
               <Text style={styles.zenithModalTitle}>ASTRA ZENITH AI</Text>
               <View style={[styles.moodBadge, { backgroundColor: `${colors.primary}1A`, borderColor: `${colors.primary}33` }]}><Text style={[styles.moodText, { color: colors.primary }]}>{zenith?.mood || 'Steady'} Mode</Text></View>
               <Text style={styles.zenithModalQuote}>"{zenith?.message}"</Text>
@@ -406,6 +563,20 @@ export default function HomeScreen() {
 
       {showBIB && lastActivity && userProfile && (
         <DigitalBIB userName={`${userProfile.firstName} ${userProfile.lastName}`} activityName={lastActivity.name} distance={lastActivity.distance.toString()} type={lastActivity.type} tagline={lastActivity.heroTagline || "Unstoppable force."} date={lastActivity.startDate} onClose={() => setShowBIB(false)} />
+      )}
+
+      {completedChallenge && userProfile && (
+        <DigitalBIB 
+          userName={`${userProfile.firstName} ${userProfile.lastName}`} 
+          activityName={completedChallenge.name} 
+          distance={completedChallenge.currentVal?.toLocaleString() || '100%'} 
+          type={completedChallenge.type || 'CHALLENGE'} 
+          tagline={completedChallenge.narrative || "The legend grows."} 
+          date={completedChallenge.completedAt || new Date().toISOString()} 
+          onClose={() => setCompletedChallenge(null)} 
+          isAchievement={true}
+          narrative={completedChallenge.narrative}
+        />
       )}
     </LinearGradient>
   );
@@ -452,7 +623,6 @@ const styles = StyleSheet.create({
   zenithActiveBadge: { backgroundColor: '#4ade80', borderColor: '#4ade80' },
   zenithStatusText: { fontSize: 11, fontWeight: '900' },
   zenithAvatarWrapper: { width: 20, height: 20, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' },
-  zenithAvatar: { width: '100%', height: '100%' },
   twoCardsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 40 },
   glassCard: { width: '47%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   cardHeader: { fontSize: 10, color: '#666677', fontWeight: '800', letterSpacing: 1, marginBottom: 10 },
@@ -505,6 +675,13 @@ const styles = StyleSheet.create({
   heroAchievement: { color: '#a0a0ab', fontSize: 12, fontWeight: '600' },
   heroMessage: { color: '#ffffff', fontSize: 14, lineHeight: 20, fontWeight: '500', opacity: 0.9 },
   emptyText: { color: 'rgba(255,255,255,0.2)', fontSize: 14, fontWeight: '600', textAlign: 'center', marginBottom: 30 },
+  emptyMissionCard: { padding: 30, borderRadius: 28, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 35 },
+  emptyMissionTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 15, marginBottom: 8 },
+  emptyMissionDesc: { color: '#8e8e9e', fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  exploreBtn: { paddingVertical: 12, paddingHorizontal: 25, borderRadius: 12 },
+  exploreBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
+  recBadge: { alignSelf: 'flex-start', backgroundColor: '#ff7a00', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 4 },
+  recBadgeText: { color: '#000', fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
   zenithModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   zenithModalContent: { width: '85%', borderRadius: 32, overflow: 'hidden' },
   zenithModalGradient: { padding: 35, alignItems: 'center' },
@@ -521,5 +698,35 @@ const styles = StyleSheet.create({
   zenithStatLabel: { color: '#666677', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 5 },
   zenithStatVal: { color: '#fff', fontSize: 20, fontWeight: '900' },
   zenithModalBtn: { width: '100%', paddingVertical: 18, borderRadius: 20, marginTop: 40, alignItems: 'center' },
-  zenithModalBtnText: { color: '#000', fontWeight: '900', fontSize: 16 }
+  zenithModalBtnText: { color: '#000', fontWeight: '900', fontSize: 16 },
+  metricsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  metricTile: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginHorizontal: 4 },
+  metricHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  metricLabel: { color: '#a0a0ab', fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
+  metricValRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  metricVal: { fontSize: 24, color: '#fff', fontWeight: '800' },
+  metricUnit: { fontSize: 13, color: '#a0a0ab', fontWeight: '600' },
+  historyBtn: { width: '100%', paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 40 },
+  historyBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  aiBanner: { width: '100%', padding: 16, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', flexDirection: 'row', gap: 12, marginBottom: 40 },
+  aiSpark: { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(200,168,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  aiBannerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  aiBannerTag: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: '#C8A8FF' },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#C8A8FF' },
+  aiBannerText: { fontSize: 14, fontWeight: '600', lineHeight: 20, color: '#fff' },
+  aiBannerFooter: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  aiBannerFooterText: { fontSize: 12, color: '#a0a0ab' },
+  stravaCardNew: { borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 35 },
+  stravaHeaderRowNew: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  stravaDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FC4C02' },
+  stravaLabelNew: { fontSize: 12, fontWeight: '600', color: '#a0a0ab', letterSpacing: 0.5 },
+  stravaTimeNew: { fontSize: 11, color: '#666677' },
+  stravaBodyNew: { padding: 16 },
+  stravaTitleNew: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  stravaSubtextNew: { fontSize: 12, color: '#a0a0ab', marginTop: 3 },
+  stravaStatsGridNew: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
+  stravaMiniLabel: { fontSize: 9, color: '#666677', fontWeight: '600', letterSpacing: 0.5, marginBottom: 3 },
+  stravaMiniValRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
+  stravaMiniVal: { fontSize: 16, color: '#fff', fontWeight: '800' },
+  stravaMiniUnit: { fontSize: 10, color: '#666677' }
 });

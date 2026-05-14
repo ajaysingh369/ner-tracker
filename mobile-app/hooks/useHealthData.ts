@@ -120,12 +120,16 @@ export function useHealthData() {
       });
 
       const athleteId = await AsyncStorage.getItem('athleteId');
+      const token = await AsyncStorage.getItem('authToken');
       if (!athleteId) return;
       
       const API_URL = process.env.EXPO_PUBLIC_API_URL; 
-      await fetch(`${API_URL}/api/mobile/sync`, {
+      await fetch(`${API_URL}/mobile/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ athleteId, records })
       }).catch(() => null);
 
@@ -160,7 +164,8 @@ export function useHealthData() {
           // Fallback for different SDK response formats
           const val = group.result?.count || 
                       group.result?.COUNT_TOTAL || 
-                      group.result?.steps?.count || 0;
+                      group.result?.steps?.count || 
+                      group.result?.steps || 0;
           return acc + val;
         }, 0);
       }
@@ -169,7 +174,8 @@ export function useHealthData() {
       setDailySteps(total);
       setDailyDistance(total * 0.000762);
       
-      if (total > 0) syncAndroidStepsHistory();
+      // Always attempt sync of history to catch missed days
+      syncAndroidStepsHistory();
     } catch (e: any) { 
         console.log('Fetch Error:', e);
         // Fallback: Try reading records directly if aggregation fails
@@ -181,7 +187,7 @@ export function useHealthData() {
                     endTime: endOfDay.toISOString(),
                 }
             });
-            const directTotal = records.reduce((acc, curr) => acc + (curr.count || 0), 0);
+            const directTotal = records.reduce((acc, curr) => acc + (curr.count || curr.steps || 0), 0);
             if (directTotal > 0) {
                 setDailySteps(directTotal);
                 setDailyDistance(directTotal * 0.000762);

@@ -89,8 +89,58 @@ async function handleGetUserChallenges(event) {
         return { ...uc, ...(details.Item || {}), challengeId };
     }));
 
+    // ── ASTRA ARCHITECT: Personalized Mission Suggestion ──────────────────
+    // 1. Fetch user's recent step history to determine tier
+    const now = new Date();
+    const startDate = new Date(now.setDate(now.getDate() - 7)).toISOString().split('T')[0];
+    const historyResult = await ddbDocClient.send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "PK = :pk AND SK BETWEEN :start AND :end",
+        ExpressionAttributeValues: { ":pk": `USER#${userId}`, ":start": `STEPS#${startDate}`, ":end": `STEPS#ZZZ` }
+    }));
+    
+    const history = historyResult.Items || [];
+    const avgSteps = history.length > 0 ? Math.round(history.reduce((acc, curr) => acc + (curr.steps || 0), 0) / history.length) : 0;
+
+    // 2. Progression Tier Logic
+    let tierGoal = 5000;
+    let tierName = "Foundation 5K";
+    let tierDesc = "The first step to elite fitness. Hit 5,000 steps daily for 7 days.";
+
+    if (avgSteps >= 15000) {
+        tierGoal = 20000;
+        tierName = "Zenith Overlord";
+        tierDesc = "You are in the top 1%. Push for the ultimate 20,000 step milestone.";
+    } else if (avgSteps >= 9000) {
+        tierGoal = 12000;
+        tierName = "Elite 12K";
+        tierDesc = "Break through the common ceiling. Elevate your baseline to 12,000.";
+    } else if (avgSteps >= 4000) {
+        tierGoal = 8000;
+        tierName = "Active 8K";
+        tierDesc = "Move from casual to active. Your target is the global health standard.";
+    }
+
+    // 3. Inject if not already joined a similar tier mission
+    const hasSimilar = enrichedChallenges.some(c => c.name === tierName);
+    if (!hasSimilar) {
+        enrichedChallenges.push({
+            challengeId: `ARCHITECT_${tierGoal}`,
+            name: tierName,
+            description: tierDesc,
+            goal: tierGoal * 7, // 7-day total goal
+            progress: Math.min(Math.round(((avgSteps * history.length) / (tierGoal * 7)) * 100), 99), // Preview progress
+            isRecommended: true,
+            type: 'STEPS',
+            status: 'suggestion'
+        });
+    }
+
     return { statusCode: 200, body: JSON.stringify({ status: "success", challenges: enrichedChallenges }) };
 }
+
+// Helper needed for history query
+const { QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
 async function handleGetChallenges() {
     const result = await ddbDocClient.send(new ScanCommand({

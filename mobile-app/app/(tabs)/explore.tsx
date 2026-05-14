@@ -11,24 +11,53 @@ export default function AICoachScreen() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userCity, setUserCity] = useState('your city');
 
   useEffect(() => {
     fetchAIPlan();
+    fetchUserCity();
   }, []);
+
+  const fetchUserCity = async () => {
+      try {
+          const token = await AsyncStorage.getItem('authToken');
+          const API_URL = process.env.EXPO_PUBLIC_API_URL;
+          const res = await fetch(`${API_URL}/auth/me`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+              const json = await res.json();
+              if (json.user?.city) setUserCity(json.user.city);
+          }
+      } catch (e) {}
+  };
 
   const fetchAIPlan = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+          console.warn('AI Coach: No auth token found');
+          setLoading(false);
+          return;
+      }
+
       const API_URL = process.env.EXPO_PUBLIC_API_URL;
+      console.log(`🤖 Fetching AI Plan from ${API_URL}/ai/coach/plan`);
+      
       const res = await fetch(`${API_URL}/ai/coach/plan`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
       if (res.ok) {
         const json = await res.json();
+        console.log('✅ AI Plan received:', json.status);
         setData(json);
+      } else {
+        const errorText = await res.text();
+        console.error(`❌ AI Coach Fetch Failed (${res.status}):`, errorText);
       }
     } catch (e) {
-      console.log('Error fetching AI data:', e);
+      console.error('❌ Error fetching AI data:', e);
     }
     setLoading(false);
     setRefreshing(false);
@@ -68,22 +97,28 @@ export default function AICoachScreen() {
           </View>
           <View>
             <Text style={styles.title}>Astra AI Coach</Text>
-            <Text style={styles.subtitle}>Professional Guidance for Abuja Runners</Text>
+            <Text style={styles.subtitle}>Professional Guidance for {userCity} Runners</Text>
           </View>
         </View>
 
         {/* ── FREE TIER: Daily AI Pulse ────────────────────────────── */}
-        <View style={styles.pulseCard}>
-           <View style={styles.cardHeader}>
-              <Ionicons name="flash" size={18} color="#ff7a00" />
-              <Text style={styles.cardTitle}>DAILY AI PULSE</Text>
-              <View style={styles.freeBadge}><Text style={styles.freeText}>FREE</Text></View>
-           </View>
-           <Text style={styles.pulseMessage}>{data?.dailyPulse?.message}</Text>
-           <View style={styles.insightBox}>
-              <Text style={styles.insightText}>💡 {data?.dailyPulse?.insight}</Text>
-           </View>
-        </View>
+        {data?.dailyPulse ? (
+            <View style={styles.pulseCard}>
+            <View style={styles.cardHeader}>
+                <Ionicons name="flash" size={18} color="#ff7a00" />
+                <Text style={styles.cardTitle}>DAILY AI PULSE</Text>
+                <View style={styles.freeBadge}><Text style={styles.freeText}>FREE</Text></View>
+            </View>
+            <Text style={styles.pulseMessage}>{data.dailyPulse.message}</Text>
+            <View style={styles.insightBox}>
+                <Text style={styles.insightText}>💡 {data.dailyPulse.insight}</Text>
+            </View>
+            </View>
+        ) : (
+            <View style={styles.pulseCard}>
+                <Text style={styles.pulseMessage}>Your AI Coach is gathering data. Sync your steps to get your first tactical pulse!</Text>
+            </View>
+        )}
 
         {/* ── PRO TIER SECTION ────────────────────────────────────── */}
         <View style={styles.sectionHeader}>

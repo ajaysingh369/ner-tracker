@@ -43,21 +43,29 @@ async function handleGlobalLeaderboard() {
     const now = new Date();
     const monthPrefix = now.toISOString().substring(0, 7); 
     
+    console.log(`🌍 Fetching Global Leaderboard for: ${monthPrefix}`);
+
     const result = await ddbDocClient.send(new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression: "begins_with(SK, :sk)",
         ExpressionAttributeValues: { ":sk": `STEPS#${monthPrefix}` }
     }));
 
+    const items = result.Items || [];
+    console.log(`📊 Found ${items.length} step records for this month`);
+
     const userTotals = {};
-    result.Items.forEach(item => {
-        if (!userTotals[item.userId]) userTotals[item.userId] = { userId: item.userId, steps: 0 };
-        userTotals[item.userId].steps += (item.steps || 0);
+    items.forEach(item => {
+        const uid = item.userId || item.PK.replace("USER#", "");
+        if (!userTotals[uid]) userTotals[uid] = { userId: uid, steps: 0 };
+        userTotals[uid].steps += (item.steps || 0);
     });
 
     const sorted = Object.values(userTotals)
         .sort((a, b) => b.steps - a.steps)
         .slice(0, 50);
+
+    console.log(`🔝 Top ${sorted.length} users aggregated`);
 
     if (sorted.length === 0) return { statusCode: 200, body: JSON.stringify({ status: "success", leaderboard: [] }) };
 
@@ -67,22 +75,50 @@ async function handleGlobalLeaderboard() {
 
 async function handleChallengeLeaderboard(event) {
     const { challengeId } = event.queryStringParameters || {};
-    if (!challengeId) return { statusCode: 400, body: "challengeId required" };
+    
+    if (!challengeId) {
+        console.log("🏆 No challengeId provided, fetching Global Challenge Rank");
+        // Fallback: Sum of progress across all challenges per user
+        const result = await ddbDocClient.send(new ScanCommand({
+            TableName: TABLE_NAME,
+            FilterExpression: "begins_with(SK, :sk)",
+            ExpressionAttributeValues: { ":sk": "CHALLENGE#" }
+        }));
 
+        const items = result.Items || [];
+        const userProgress = {};
+        items.forEach(item => {
+            if (item.PK.startsWith("USER#")) {
+                const uid = item.userId || item.PK.replace("USER#", "");
+                if (!userProgress[uid]) userProgress[uid] = { userId: uid, progress: 0, count: 0 };
+                userProgress[uid].progress += (item.progress || 0);
+                userProgress[uid].count += 1;
+            }
+        });
+
+        const sorted = Object.values(userProgress)
+            .map(u => ({ userId: u.userId, progress: Math.round(u.progress / (u.count || 1)) }))
+            .sort((a, b) => b.progress - a.progress)
+            .slice(0, 50);
+
+        if (sorted.length === 0) return { statusCode: 200, body: JSON.stringify({ status: "success", leaderboard: [] }) };
+        const enriched = await enrichWithProfiles(sorted);
+        return { statusCode: 200, body: JSON.stringify({ status: "success", leaderboard: enriched }) };
+    }
+
+    console.log(`🎖 Fetching Leaderboard for Challenge: ${challengeId}`);
     const result = await ddbDocClient.send(new ScanCommand({
         TableName: TABLE_NAME,
-        FilterExpression: "SK = :sk AND #st = :status",
+        FilterExpression: "SK = :sk",
         ExpressionAttributeValues: { 
-            ":sk": `CHALLENGE#${challengeId}`,
-            ":status": "approved"
-        },
-        ExpressionAttributeNames: { "#st": "status" }
+            ":sk": `CHALLENGE#${challengeId}`
+        }
     }));
 
-    const sorted = result.Items
+    const sorted = (result.Items || [])
         .sort((a, b) => (b.progress || 0) - (a.progress || 0))
         .map(item => ({
-            userId: item.userId,
+            userId: item.userId || item.PK.replace("USER#", ""),
             progress: item.progress || 0
         }));
 
@@ -93,7 +129,13 @@ async function handleChallengeLeaderboard(event) {
 }
 
 async function enrichWithProfiles(list) {
-    const keys = list.map(item => ({ PK: `USER#${item.userId}`, SK: "PROFILE" }));
+    if (list.length === 0) return [];
+    
+    // De-duplicate userIds
+    const uniqueUserIds = [...new Set(list.map(i => i.userId))];
+    const keys = uniqueUserIds.map(uid => ({ PK: `USER#${uid}`, SK: "PROFILE" }));
+
+    console.log(`👤 Enriching ${uniqueUserIds.length} profiles`);
 
     try {
         const profileData = await ddbDocClient.send(new BatchGetCommand({
@@ -102,7 +144,10 @@ async function enrichWithProfiles(list) {
 
         const profiles = profileData.Responses[TABLE_NAME] || [];
         const profileMap = {};
-        profiles.forEach(p => { profileMap[p.userId] = p; });
+        profiles.forEach(p => { 
+            const uid = p.userId || p.PK.replace("USER#", "");
+            profileMap[uid] = p; 
+        });
 
         return list.map(item => ({
             ...item,
@@ -110,7 +155,7 @@ async function enrichWithProfiles(list) {
             avatar: profileMap[item.userId]?.profileImage || null
         }));
     } catch (e) {
-        console.error("Profile Enrichment Failed:", e);
+        console.error("❌ Profile Enrichment Failed:", e);
         return list.map(item => ({ ...item, userName: "Astra Runner" }));
     }
 }

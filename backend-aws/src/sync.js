@@ -44,14 +44,20 @@ exports.handler = async (event) => {
 };
 
 async function handleSync(event) {
+    console.log("📥 Received Sync Request:", event.body);
     const body = JSON.parse(event.body || "{}");
     const { athleteId, records } = body;
 
     if (!athleteId || !Array.isArray(records)) {
+        console.warn("⚠️ Invalid Sync Payload:", { athleteId, recordsCount: records?.length });
         return {
             statusCode: 400,
             body: JSON.stringify({ error: "Invalid payload. 'athleteId' and 'records[]' required." }),
         };
+    }
+
+    if (records.length === 0) {
+        return { statusCode: 200, body: JSON.stringify({ success: true, syncedCount: 0, message: "No records to sync." }) };
     }
 
     // Design: PK: USER#<athleteId>, SK: STEPS#<date>
@@ -62,13 +68,15 @@ async function handleSync(event) {
                 SK: `STEPS#${record.date}`,
                 userId: athleteId,
                 date: record.date,
-                steps: record.steps || 0,
-                distanceKm: record.distanceKm || 0,
+                steps: parseInt(record.steps) || 0,
+                distanceKm: parseFloat(record.distanceKm) || 0,
                 source: record.source || 'health_connect',
                 lastSyncedAt: new Date().toISOString()
             }
         }
     }));
+
+    console.log(`📤 Preparing to batch write ${putRequests.length} records for user ${athleteId}`);
 
     // DynamoDB BatchWriteItem has a limit of 25 items
     const chunks = [];
@@ -76,13 +84,19 @@ async function handleSync(event) {
         chunks.push(putRequests.slice(i, i + 25));
     }
 
-    await Promise.all(chunks.map(chunk => 
-        ddbDocClient.send(new BatchWriteCommand({
-            RequestItems: {
-                [TABLE_NAME]: chunk
-            }
-        }))
-    ));
+    try {
+        await Promise.all(chunks.map(chunk => 
+            ddbDocClient.send(new BatchWriteCommand({
+                RequestItems: {
+                    [TABLE_NAME]: chunk
+                }
+            }))
+        ));
+        console.log("✅ Batch Write Successful");
+    } catch (dbErr) {
+        console.error("❌ DynamoDB Sync Error:", dbErr);
+        throw dbErr;
+    }
 
     // ── AUTOMATED PROGRESS TRIGGER ─────────────────────────────────────────
     updateChallengeProgress(athleteId).catch(e => console.error("Progress Trigger Error:", e));
@@ -95,6 +109,8 @@ async function handleSync(event) {
 
 async function handleHistory(event) {
     const { athleteId, range } = event.queryStringParameters || {};
+    console.log(`🔍 Fetching history for athleteId: ${athleteId}, range: ${range}`);
+    
     if (!athleteId) {
         return { statusCode: 400, body: JSON.stringify({ error: "athleteId is required" }) };
     }
@@ -112,6 +128,8 @@ async function handleHistory(event) {
         startDate = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0]; // Default 30 days
     }
 
+    console.log(`📅 History Query Range: ${startDate} to ZZZ`);
+
     const result = await ddbDocClient.send(new QueryCommand({
         TableName: TABLE_NAME,
         KeyConditionExpression: "PK = :pk AND SK BETWEEN :start AND :end",
@@ -122,7 +140,10 @@ async function handleHistory(event) {
         }
     }));
 
-    const data = result.Items.map(item => ({
+    const rawItems = result.Items || [];
+    console.log(`📊 Found ${rawItems.length} records in DynamoDB`);
+
+    const data = rawItems.map(item => ({
         date: item.date,
         steps: item.steps,
         distanceKm: item.distanceKm,

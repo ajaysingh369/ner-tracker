@@ -69,9 +69,9 @@ function App() {
   const handleSave = async () => {
     try {
       let endpoint = '';
-      if (modalType === 'challenge') endpoint = 'challenges';
-      else if (modalType === 'banner') endpoint = 'banners';
-      else if (modalType === 'event') endpoint = 'events';
+      if (modalType === 'challenge') endpoint = 'admin/challenges';
+      else if (modalType === 'banner') endpoint = 'admin/banners';
+      else if (modalType === 'event') endpoint = 'admin/events';
 
       await axios.post(`${API_URL}/${endpoint}`, formData);
       setShowModal(false);
@@ -92,7 +92,7 @@ function App() {
   const handleDelete = async (pk: string, sk: string) => {
     if (!confirm('Are you sure?')) return;
     try {
-      await axios.delete(`${API_URL}/item?pk=${pk}&sk=${sk}`);
+      await axios.delete(`${API_URL}/admin/item?pk=${pk}&sk=${sk}`);
       fetchData();
     } catch (e) { alert('Delete failed'); }
   };
@@ -101,6 +101,32 @@ function App() {
     setModalType(type);
     setFormData({});
     setShowModal(true);
+  };
+
+  const handleUpload = async (file: File, field: string) => {
+    try {
+      setLoading(true);
+      // 1. Get Presigned URL
+      const res = await axios.post(`${API_URL}/admin/generate-upload-url`, {
+        fileName: file.name,
+        contentType: file.type
+      });
+      
+      const { uploadUrl, publicUrl } = res.data;
+
+      // 2. Upload to S3
+      await axios.put(uploadUrl, file, {
+        headers: { 'Content-Type': file.type }
+      });
+
+      // 3. Update Form
+      setFormData((prev: any) => ({ ...prev, [field]: publicUrl }));
+      alert('Upload successful');
+    } catch (e) {
+      console.error('Upload error:', e);
+      alert('Upload failed');
+    }
+    setLoading(false);
   };
 
   return (
@@ -407,18 +433,31 @@ function App() {
                        </div>
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Image URL</label>
-                          <input 
-                            value={formData.imageUrl || ''} 
-                            onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
-                            placeholder="https://..."
-                          />
+                          <div className="flex gap-2">
+                            <input 
+                                value={formData.imageUrl || ''} 
+                                onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                                placeholder="https://..."
+                            />
+                            <label className="bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl cursor-pointer flex items-center gap-2 border border-white/10 transition-colors">
+                                <Camera size={16} />
+                                <span className="text-xs font-bold">Upload</span>
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*" 
+                                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 'imageUrl')}
+                                />
+                            </label>
+                          </div>
                        </div>
                     </>
                  )}
 
                  {modalType === 'event' && (
                     <>
+                       {/* ... rest of event fields ... */}
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Event Title</label>
                           <input 
@@ -428,14 +467,35 @@ function App() {
                             placeholder="e.g. Noida Monsoon Run"
                           />
                        </div>
+                       {/* ... existing event fields update ... */}
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Date Text</label>
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Subtitle / Tagline</label>
                           <input 
-                            value={formData.date || ''} 
-                            onChange={(e) => setFormData({...formData, date: e.target.value})}
+                            value={formData.subtitle || ''} 
+                            onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
-                            placeholder="August 24, 2026"
+                            placeholder="e.g. Run for a greener future"
                           />
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Start Date</label>
+                             <input 
+                                type="date"
+                                value={formData.startDate || ''} 
+                                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">End Date</label>
+                             <input 
+                                type="date"
+                                value={formData.endDate || ''} 
+                                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                             />
+                          </div>
                        </div>
                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -450,16 +510,26 @@ function App() {
                              </select>
                           </div>
                           <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Track Type</label>
+                             <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Event Category</label>
                              <select 
-                                value={formData.type || 'EXTERNAL'} 
-                                onChange={(e) => setFormData({...formData, type: e.target.value})}
+                                value={formData.eventType || 'on_ground'} 
+                                onChange={(e) => setFormData({...formData, eventType: e.target.value})}
                                 className="w-full bg-[#16161e] border border-white/10 rounded-xl px-4 py-3 text-white"
                              >
-                               <option value="EXTERNAL">External Link</option>
-                               <option value="INTERNAL">RunAstra Tracked</option>
+                               <option value="on_ground">On Ground</option>
+                               <option value="virtual">Virtual</option>
                              </select>
                           </div>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Description (HTML Supported)</label>
+                          <textarea 
+                            value={formData.description || ''} 
+                            onChange={(e) => setFormData({...formData, description: e.target.value})}
+                            rows={4}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors resize-none"
+                            placeholder="Detailed event information..."
+                          />
                        </div>
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Registration URL</label>
@@ -467,6 +537,36 @@ function App() {
                             value={formData.registrationUrl || ''} 
                             onChange={(e) => setFormData({...formData, registrationUrl: e.target.value})}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3"
+                            placeholder="https://..."
+                          />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Flyer Template URL</label>
+                          <div className="flex gap-2">
+                            <input 
+                                value={formData.flyerTemplateUrl || ''} 
+                                onChange={(e) => setFormData({...formData, flyerTemplateUrl: e.target.value})}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff7a00] transition-colors"
+                                placeholder="https://..."
+                            />
+                            <label className="bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl cursor-pointer flex items-center gap-2 border border-white/10 transition-colors">
+                                <FileImage size={16} />
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*" 
+                                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 'flyerTemplateUrl')}
+                                />
+                            </label>
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Photos Drive Link (for Past)</label>
+                          <input 
+                            value={formData.photosUrl || ''} 
+                            onChange={(e) => setFormData({...formData, photosUrl: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3"
+                            placeholder="https://drive.google.com/..."
                           />
                        </div>
                     </>

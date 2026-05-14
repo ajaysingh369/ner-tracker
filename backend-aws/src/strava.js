@@ -13,6 +13,7 @@ const CORS_HEADERS = {
 };
 
 exports.handler = async (event) => {
+    console.log("Strava Handler Event:", JSON.stringify(event));
     const path = event.rawPath || event.path;
     const method = event.requestContext?.http?.method || event.httpMethod;
 
@@ -22,14 +23,15 @@ exports.handler = async (event) => {
 
     try {
         let response;
-        if (path.endsWith("/auth/strava") && method === "GET") {
+        if (path.includes("/auth/strava") && method === "GET") {
             response = handleStravaRedirect(event);
-        } else if (path.endsWith("/strava/callback") && method === "GET") {
+        } else if (path.includes("/strava/callback") && method === "GET") {
             response = await handleStravaCallback(event);
-        } else if (path.endsWith("/strava/last-activity") && method === "GET") {
+        } else if (path.includes("/strava/last-activity") && method === "GET") {
             response = await handleGetLastActivity(event);
         } else {
-            response = { statusCode: 404, body: JSON.stringify({ error: "Not Found" }) };
+            console.log("No route matched for path:", path, "method:", method);
+            response = { statusCode: 404, body: JSON.stringify({ error: "Not Found", path, method }) };
         }
 
         return {
@@ -37,11 +39,15 @@ exports.handler = async (event) => {
             headers: { ...CORS_HEADERS, ...response.headers }
         };
     } catch (error) {
-        console.error("Strava Handler Error:", error);
+        console.error("Strava Handler Global Error:", error);
         return {
             statusCode: 500,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ error: "Internal Server Error" }),
+            body: JSON.stringify({ 
+                error: "Internal Server Error", 
+                message: error.message,
+                stack: error.stack 
+            }),
         };
     }
 };
@@ -63,7 +69,8 @@ function handleStravaRedirect(event) {
     const API_URL = getApiGatewayUrl(event);
     const REDIRECT_URI = `${API_URL}/strava/callback`;
     
-    const url = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all&state=${userId}`;
+    // Using mobile-optimized endpoint for app-to-app redirection
+    const url = `https://www.strava.com/oauth/mobile/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,profile:read_all&state=${userId}`;
     
     return {
         statusCode: 302,

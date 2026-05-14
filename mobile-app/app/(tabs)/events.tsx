@@ -75,39 +75,40 @@ export default function EventsScreen() {
     if (url) Linking.openURL(url);
   };
 
+  const openEventDetail = (evt: any) => {
+    Haptics.selectionAsync();
+    router.push({ pathname: '/event-detail', params: { event: JSON.stringify(evt) } });
+  };
+
   const renderEventCard = (evt: any, isPast: boolean) => (
-    <View key={evt.SK} style={styles.eventCardWrapper}>
+    <TouchableOpacity 
+        key={evt.SK} 
+        style={styles.eventCardWrapper}
+        activeOpacity={0.9}
+        onPress={() => openEventDetail(evt)}
+    >
       <LinearGradient 
         colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)']}
         style={styles.eventCard}
       >
         <View style={styles.cardHeaderRow}>
             <View style={[styles.dateBadge, isPast && { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
-                <Text style={[styles.dateText, isPast && { color: '#a0a0ab' }]}>{evt.date}</Text>
+                <Text style={[styles.dateText, isPast && { color: '#a0a0ab' }]}>
+                    {evt.startDate ? new Date(evt.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : evt.date}
+                </Text>
             </View>
             {isPast && <View style={styles.pastBadge}><Text style={styles.pastBadgeText}>PAST</Text></View>}
+            {evt.eventType === 'virtual' && <View style={[styles.typeBadge, { backgroundColor: '#3b82f622' }]}><Text style={[styles.typeBadgeText, { color: '#3b82f6' }]}>VIRTUAL</Text></View>}
         </View>
         
         <Text style={styles.eventTitle}>{evt.title}</Text>
-        <Text style={styles.eventSubtitle}>{evt.subtitle}</Text>
+        <Text style={styles.eventSubtitle} numberOfLines={2}>{evt.subtitle}</Text>
         
         <View style={styles.actionsRow}>
-            {evt.type === 'EXTERNAL' ? (
-                <TouchableOpacity style={[styles.actionBtn, styles.primaryBtn]} onPress={() => openLink(evt.registrationUrl)}>
-                    <Ionicons name="open-outline" size={16} color="#000" style={{marginRight: 6}} />
-                    <Text style={styles.primaryBtnText}>Register (External)</Text>
-                </TouchableOpacity>
-            ) : !isPast && (
-                <TouchableOpacity 
-                    style={[styles.actionBtn, evt.myStatus ? styles.disabledBtn : styles.primaryBtn]} 
-                    onPress={() => !evt.myStatus && handleJoin(evt.SK)}
-                >
-                    <Ionicons name={evt.myStatus === 'approved' ? 'checkmark-circle' : 'add-circle-outline'} size={16} color={evt.myStatus ? '#666' : '#000'} style={{marginRight: 6}} />
-                    <Text style={[styles.primaryBtnText, evt.myStatus && {color: '#666'}]}>
-                        {evt.myStatus === 'approved' ? 'Participant' : evt.myStatus === 'pending' ? 'Pending Approval' : 'Join Challenge'}
-                    </Text>
-                </TouchableOpacity>
-            )}
+            <View style={[styles.actionBtn, styles.primaryBtn]}>
+                <Text style={styles.primaryBtnText}>View Details</Text>
+                <Ionicons name="chevron-forward" size={16} color="#000" style={{marginLeft: 6}} />
+            </View>
             
             {evt.photosUrl && isPast && (
                 <TouchableOpacity style={styles.actionBtn} onPress={() => openLink(evt.photosUrl)}>
@@ -117,7 +118,7 @@ export default function EventsScreen() {
             )}
         </View>
       </LinearGradient>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -169,6 +170,8 @@ const styles = StyleSheet.create({
   dateText: { color: '#ff7a00', fontSize: 12, fontWeight: '900' },
   pastBadge: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   pastBadgeText: { color: '#666', fontSize: 10, fontWeight: '800' },
+  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginLeft: 8 },
+  typeBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   eventTitle: { color: '#fff', fontSize: 22, fontWeight: '900', marginBottom: 6 },
   eventSubtitle: { color: '#8e8e9e', fontSize: 14, fontWeight: '500', marginBottom: 25 },
   actionsRow: { flexDirection: 'row', gap: 12 },

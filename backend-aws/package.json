@@ -20,7 +20,9 @@
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1045.0",
+    "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/lib-dynamodb": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "axios": "^1.8.1",
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3"

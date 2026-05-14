@@ -19,7 +19,7 @@ export default ({ config }) => {
     android: {
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
-        foregroundImage: "./assets/images/android-icon-foreground.png",
+        foregroundImage: "./assets/images/icon.png",
         backgroundImage: "./assets/images/android-icon-background.png",
         monochromeImage: "./assets/images/android-icon-monochrome.png"
       },
@@ -72,7 +72,15 @@ export default ({ config }) => {
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-google-mobile-ads",
+        {
+          // PRODUCTION ANDROID APP ID: "ca-app-pub-7343438322975352~3537379775"
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ]
     ],
     experiments: {
       "typedRoutes": true,

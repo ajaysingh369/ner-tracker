@@ -87,13 +87,30 @@ export default function OnboardingScreen() {
           <View style={styles.stepView}>
             <Text style={styles.title}>When were you born?</Text>
             <Text style={styles.subtitle}>Used for metabolic calculations.</Text>
-            <TextInput 
+            <TouchableOpacity 
               style={styles.input} 
-              placeholder="YYYY-MM-DD" 
-              placeholderTextColor="#666"
-              value={formData.dob}
-              onChangeText={(v) => setFormData({ ...formData, dob: v })}
-            />
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={{ color: formData.dob ? '#fff' : '#666', fontSize: 18 }}>
+                {formData.dob || 'Select Date of Birth'}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={formData.dob ? new Date(formData.dob) : new Date(2000, 0, 1)}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const formattedDate = selectedDate.toISOString().split('T')[0];
+                    setFormData({ ...formData, dob: formattedDate });
+                  }
+                }}
+              />
+            )}
           </View>
         )}
 

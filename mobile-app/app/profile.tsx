@@ -50,7 +50,30 @@ export default function ProfileScreen() {
     setLoading(false);
   };
 
+  const validateForm = () => {
+    const height = parseFloat(formData.height);
+    const weight = parseFloat(formData.weight);
+    const stepGoal = parseInt(formData.dailyStepGoal);
+
+    if (isNaN(height) || height < 50 || height > 300) {
+      Alert.alert('Validation Error', 'Please enter a valid height between 50 and 300 cm.');
+      return false;
+    }
+    if (isNaN(weight) || weight < 20 || weight > 500) {
+      Alert.alert('Validation Error', 'Please enter a valid weight between 20 and 500 kg.');
+      return false;
+    }
+    if (isNaN(stepGoal) || stepGoal < 1000 || stepGoal > 100000) {
+      Alert.alert('Validation Error', 'Please enter a valid daily step goal between 1,000 and 100,000.');
+      return false;
+    }
+    return true;
+  };
+
   const handleUpdate = async () => {
+    if (!validateForm()) return;
+    
+    console.log('📤 Updating Profile with:', JSON.stringify(formData));
     setLoading(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
@@ -67,13 +90,16 @@ export default function ProfileScreen() {
       });
 
       if (response.ok) {
+        console.log('✅ Profile Update Successful');
         setIsEditing(false);
         fetchProfile();
       } else {
+        const errText = await response.text();
+        console.error('❌ Profile Update Failed:', errText);
         Alert.alert('Error', 'Failed to update profile.');
       }
     } catch (e) {
-      console.error(e);
+      console.error('❌ Profile Update Error:', e);
     }
     setLoading(false);
   };
@@ -120,17 +146,6 @@ export default function ProfileScreen() {
           />
           <Text style={styles.name}>{profile?.firstName} {profile?.lastName}</Text>
           <Text style={styles.email}>{profile?.email}</Text>
-          
-          <TouchableOpacity 
-            style={[styles.editToggle, { backgroundColor: `${colors.primary}1A` }]} 
-            onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                isEditing ? handleUpdate() : setIsEditing(true);
-            }}
-          >
-            <Ionicons name={isEditing ? "save" : "create-outline"} size={20} color={colors.primary} />
-            <Text style={[styles.editToggleText, { color: colors.primary }]}>{isEditing ? 'Save Profile' : 'Edit Physical Metrics'}</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Astra Themes Selection */}
@@ -157,7 +172,20 @@ export default function ProfileScreen() {
 
         {/* Health Data Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Physical Metrics</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Physical Metrics</Text>
+            <TouchableOpacity 
+                style={[styles.editInline, { backgroundColor: `${colors.primary}1A` }]} 
+                onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    isEditing ? handleUpdate() : setIsEditing(true);
+                }}
+            >
+                <Ionicons name={isEditing ? "save" : "create-outline"} size={16} color={colors.primary} />
+                <Text style={[styles.editInlineText, { color: colors.primary }]}>{isEditing ? 'Save' : 'Edit'}</Text>
+            </TouchableOpacity>
+          </View>
+          
           <View style={styles.infoGrid}>
             <TouchableOpacity 
                 disabled={!isEditing} 
@@ -168,14 +196,16 @@ export default function ProfileScreen() {
                 <Text style={[styles.infoValue, isEditing && { color: colors.primary }]}>{formData.gender || '--'}</Text>
             </TouchableOpacity>
 
-            <InfoItem 
-                colors={colors} 
-                label="Date of Birth" 
-                value={formData.dob} 
-                isEditing={isEditing} 
-                placeholder="YYYY-MM-DD"
-                onChange={(v: string) => setFormData({...formData, dob: v})} 
-            />
+            <TouchableOpacity 
+                disabled={!isEditing} 
+                style={styles.infoItem} 
+                onPress={() => setShowDatePicker(true)}
+            >
+                <Text style={styles.infoLabel}>Date of Birth</Text>
+                <Text style={[styles.infoValue, isEditing && { color: colors.primary }]}>{formData.dob || '--'}</Text>
+            </TouchableOpacity>
+
+            <InfoItem colors={colors} label="City" value={formData.city} isEditing={isEditing} onChange={(v: string) => setFormData({...formData, city: v})} placeholder="e.g. Delhi" />
             <InfoItem colors={colors} label="Height (cm)" value={formData.height} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, height: v})} />
             <InfoItem colors={colors} label="Weight (kg)" value={formData.weight} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, weight: v})} />
             <InfoItem colors={colors} label="Daily Step Goal" value={formData.dailyStepGoal} isEditing={isEditing} keyboardType="numeric" onChange={(v: string) => setFormData({...formData, dailyStepGoal: v})} />
@@ -190,7 +220,22 @@ export default function ProfileScreen() {
                     <Ionicons name="notifications" size={20} color="#fff" />
                     <Text style={styles.settingLabel}>AI Nudges</Text>
                 </View>
-                <Switch value={true} trackColor={{ false: "#333", true: colors.primary }} />
+                <Switch 
+                    value={formData.aiConsent !== false} 
+                    onValueChange={(val) => setFormData({...formData, aiConsent: val})}
+                    trackColor={{ false: "#333", true: colors.primary }} 
+                />
+            </View>
+            <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                    <Ionicons name="shield-checkmark" size={20} color="#fff" />
+                    <Text style={styles.settingLabel}>Data Sharing Consent</Text>
+                </View>
+                <Switch 
+                    value={formData.partnerSharingConsent === true} 
+                    onValueChange={(val) => setFormData({...formData, partnerSharingConsent: val})}
+                    trackColor={{ false: "#333", true: colors.primary }} 
+                />
             </View>
         </View>
 
@@ -293,7 +338,7 @@ function InfoItem({ label, value, isEditing, onChange, colors, keyboardType = 'd
       {isEditing ? (
         <TextInput 
           style={[styles.infoInput, { color: colors.primary }]} 
-          value={value?.toString()} 
+          value={value?.toString() || ''} 
           onChangeText={onChange} 
           keyboardType={keyboardType}
           placeholder={placeholder || `Enter ${label}`}
@@ -317,7 +362,10 @@ const styles = StyleSheet.create({
   editToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20 },
   editToggleText: { fontWeight: '700', fontSize: 14 },
   section: { marginBottom: 35 },
-  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 20, letterSpacing: 0.5 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
+  editInline: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 12 },
+  editInlineText: { fontWeight: '700', fontSize: 13 },
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15 },
   infoItem: { width: '47%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   infoLabel: { color: '#a0a0ab', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 },

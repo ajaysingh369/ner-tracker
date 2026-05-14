@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RunAstra Companions — Mascot Asset Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:#06070A;
+    color:#F5F4F2;
+    min-height:100vh;
+    background:
+      radial-gradient(900px 600px at 10% 10%, rgba(255,107,43,0.10), transparent 60%),
+      radial-gradient(800px 500px at 90% 90%, rgba(124,58,237,0.10), transparent 60%),
+      #06070A;
+  }
+  .container{max-width:1200px;margin:0 auto;padding:48px 32px 80px}
+  .display{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:600;letter-spacing:-0.02em}
+  .header{text-align:center;margin-bottom:56px}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
+    background:linear-gradient(135deg,#FFB347,#FF2E63);-webkit-background-clip:text;background-clip:text;color:transparent}
+  h1{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:700;font-size:56px;letter-spacing:-0.03em;line-height:1;margin-top:14px;
+    background:linear-gradient(180deg,#fff 0%,#FFC9A8 70%, #FF8FA9 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:rgba(245,244,242,0.55);font-size:16px;margin-top:14px;max-width:540px;margin-left:auto;margin-right:auto;line-height:1.5}
+
+  .section-label{display:flex;align-items:center;gap:14px;margin:48px 0 20px;padding:0 4px}
+  .section-label::before, .section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)}
+  .section-label span{font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:rgba(245,244,242,0.45)}
+
+  /* Hero grid (6 cards) */
+  .hero-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media (max-width:900px){.hero-grid{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:560px){.hero-grid{grid-template-columns:1fr}}
+  .hero-card{
+    padding:24px 20px 22px;border-radius:24px;
+    background:linear-gradient(180deg,rgba(22,24,36,0.6),rgba(22,24,36,0.95));
+    border:1px solid rgba(255,255,255,0.06);
+    text-align:center;
+    position:relative;overflow:hidden;
+    transition:transform 0.3s, border-color 0.3s;
+  }
+  .hero-card::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(120% 80% at 50% 0%, var(--tint, rgba(255,107,43,0.15)), transparent 60%);
+    pointer-events:none;
+  }
+  .hero-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.12)}
+  .hero-name{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.01em}
+  .hero-role{font-size:13px;color:rgba(245,244,242,0.5);margin-top:2px}
+  .hero-illu{position:relative;z-index:1;margin:8px 0 12px;display:flex;justify-content:center}
+  .hero-quote{font-size:13px;color:rgba(245,244,242,0.7);line-height:1.5;font-style:italic;min-height:54px;padding:0 4px}
+  .hero-tags{display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  .tag{font-size:10px;font-weight:600;letter-spacing:0.04em;padding:4px 8px;border-radius:8px;
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:rgba(245,244,242,0.7)}
+
+  /* Theme variant grid */
+  .theme-matrix{display:flex;flex-direction:column;gap:18px;margin-top:20px}
+  .theme-row{display:grid;grid-template-columns:120px repeat(6, 1fr);gap:12px;align-items:center}
+  @media (max-width:900px){.theme-row{grid-template-columns:repeat(3,1fr);gap:8px}.theme-label{grid-column:span 3}}
+  .theme-label{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+  .theme-dot{width:14px;height:14px;border-radius:50%}
+  .theme-cell{
+    aspect-ratio:1;border-radius:18px;
+    background:linear-gradient(180deg,rgba(22,24,36,0.4),rgba(22,24,36,0.9));
+    border:1px solid rgba(255,255,255,0.05);
+    display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;
+    cursor:pointer;transition:transform 0.2s, border-color 0.2s;
+  }
+  .theme-cell:hover{transform:scale(1.03);border-color:rgba(255,255,255,0.12)}
+  .theme-cell::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(80% 60% at 50% 30%, var(--tint), transparent 60%);
+    opacity:0.5;
+  }
+
+  /* Demo step ring */
+  .demo-wrap{
+    margin:40px auto 0;max-width:420px;
+    padding:40px 30px;border-radius:28px;
+    background:linear-gradient(180deg,rgba(22,24,36,0.4),rgba(22,24,36,0.95));
+    border:1px solid rgba(255,255,255,0.06);
+    position:relative;overflow:hidden;
+  }
+  .demo-wrap::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(80% 50% at 50% 0%, rgba(255,107,43,0.12), transparent 60%);
+    pointer-events:none;
+  }
+  .demo-title{text-align:center;font-size:13px;color:rgba(245,244,242,0.5);margin-bottom:6px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase}
+  .demo-headline{text-align:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:22px;margin-bottom:24px}
+
+  .ring-stage{position:relative;width:300px;height:300px;margin:0 auto;display:flex;align-items:center;justify-content:center}
+  .companion-spotlight{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    pointer-events:none;
+  }
+  .speech-bubble{
+    position:absolute;top:-30px;left:50%;transform:translateX(-50%);
+    background:#fff;color:#14120C;padding:12px 16px;border-radius:18px;
+    font-size:13px;font-weight:500;max-width:260px;text-align:center;
+    box-shadow:0 16px 40px -10px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.05);
+    white-space:nowrap;
+  }
+  .speech-bubble::after{
+    content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%) rotate(45deg);
+    width:14px;height:14px;background:#fff;
+  }
+
+  /* Controls */
+  .controls{margin-top:24px;display:flex;flex-direction:column;gap:14px;align-items:center}
+  .switch-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .switch-btn{
+    background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+    color:rgba(245,244,242,0.7);font-size:12px;font-weight:600;
+    padding:8px 14px;border-radius:10px;cursor:pointer;transition:all 0.2s;
+    font-family:inherit;
+  }
+  .switch-btn.active{background:linear-gradient(135deg,#FFB347,#FF6B2B,#FF2E63);color:#fff;border-color:transparent;box-shadow:0 6px 20px -6px rgba(255,107,43,0.5)}
+  .switch-btn:hover{color:#fff}
+  .pop-btn{
+    padding:14px 32px;border-radius:14px;border:0;
+    background:linear-gradient(135deg,#FFB347 0%,#FF6B2B 35%,#FF2E63 70%,#7C3AED 100%);
+    color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+    box-shadow:0 12px 30px -10px rgba(255,107,43,0.6);
+    font-family:inherit;
+  }
+  .pop-btn:active{transform:scale(0.97)}
+
+  /* Stage */
+  @keyframes popIn{
+    0%{transform:scale(0.3) translateY(40px);opacity:0}
+    60%{transform:scale(1.08) translateY(-8px);opacity:1}
+    100%{transform:scale(1) translateY(0);opacity:1}
+  }
+  @keyframes bobble{
+    0%,100%{transform:translateY(0) rotate(-1deg)}
+    50%{transform:translateY(-6px) rotate(1deg)}
+  }
+  @keyframes shrinkIn{
+    0%{transform:scale(1);opacity:1}
+    100%{transform:scale(0.18);opacity:0.9}
+  }
+  @keyframes bubbleIn{
+    0%{transform:translateX(-50%) scale(0);opacity:0}
+    60%{transform:translateX(-50%) scale(1.06);opacity:1}
+    100%{transform:translateX(-50%) scale(1);opacity:1}
+  }
+
+  /* Footer note */
+  .note{margin-top:48px;padding:20px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
+    font-size:13px;color:rgba(245,244,242,0.6);line-height:1.6}
+  .note b{color:#FFB991}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="eyebrow">Mascot System</div>
+    <h1>RunAstra<br/>Companions</h1>
+    <p class="sub">Six original SVG mascots. Three themed palettes each. They pop in with motivational quotes, then shrink back into your step ring.</p>
+  </div>
+
+  <div id="root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="env,react" src="companions.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useRef } = React;
+
+function HeroGrid({ theme }) {
+  return (
+    <div className="hero-grid">
+      {COMPANIONS.map(c => {
+        const tint = COMPANION_THEMES[theme].primary;
+        return (
+          <div key={c.id} className="hero-card" style={{'--tint': `${tint}25`}}>
+            <div className="hero-name" style={{color:tint}}>{c.name.toUpperCase()}</div>
+            <div className="hero-role">{c.role}</div>
+            <div className="hero-illu"><c.Comp theme={theme} size={180}/></div>
+            <div className="hero-quote">"{c.quotes[0]}"</div>
+            <div className="hero-tags">
+              {c.tags.map(t => <span key={t} className="tag">{t}</span>)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ThemeMatrix() {
+  const themes = [
+    { id:'solar', label:'Solar', color:'#FF6B2B', tint:'rgba(255,107,43,0.2)' },
+    { id:'lunar', label:'Lunar', color:'#5EA0FF', tint:'rgba(94,160,255,0.2)' },
+    { id:'nebula', label:'Nebula', color:'#A855F7', tint:'rgba(168,85,247,0.2)' },
+  ];
+  return (
+    <div className="theme-matrix">
+      {themes.map(t => (
+        <div key={t.id} className="theme-row">
+          <div className="theme-label">
+            <span className="theme-dot" style={{background:t.color, boxShadow:`0 0 12px ${t.color}`}}/>
+            <span>{t.label}</span>
+          </div>
+          {COMPANIONS.map(c => (
+            <div key={c.id} className="theme-cell" style={{'--tint': t.tint}}>
+              <c.Comp theme={t.id} size={120}/>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StepRingDemo() {
+  const [companion, setCompanion] = useState('zenith');
+  const [theme, setTheme] = useState('solar');
+  const [state, setState] = useState('idle'); // idle | popping | speaking | shrinking | inRing
+  const [quote, setQuote] = useState('');
+  const timeoutRef = useRef([]);
+
+  const current = COMPANIONS.find(c => c.id === companion);
+
+  const trigger = () => {
+    timeoutRef.current.forEach(clearTimeout);
+    timeoutRef.current = [];
+    const q = current.quotes[Math.floor(Math.random() * current.quotes.length)];
+    setQuote(q);
+    setState('popping');
+    timeoutRef.current.push(setTimeout(() => setState('speaking'), 600));
+    timeoutRef.current.push(setTimeout(() => setState('shrinking'), 3400));
+    timeoutRef.current.push(setTimeout(() => setState('inRing'), 4000));
+  };
+
+  useEffect(() => () => timeoutRef.current.forEach(clearTimeout), []);
+  useEffect(() => { setState('idle'); }, [companion, theme]);
+
+  const renderCompanion = () => {
+    const C = current.Comp;
+    if (state === 'idle') return null;
+    if (state === 'popping') {
+      return (
+        <div className="companion-spotlight" style={{animation:'popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'}}>
+          <C theme={theme} size={200}/>
+        </div>
+      );
+    }
+    if (state === 'speaking') {
+      return (
+        <>
+          <div className="companion-spotlight" style={{animation:'bobble 2s ease-in-out infinite'}}>
+            <C theme={theme} size={200}/>
+          </div>
+          <div className="speech-bubble" style={{animation:'bubbleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards', top: -20, whiteSpace:'normal'}}>
+            {quote}
+          </div>
+        </>
+      );
+    }
+    if (state === 'shrinking') {
+      return (
+        <div className="companion-spotlight" style={{animation:'shrinkIn 0.6s cubic-bezier(0.55, 0, 0.55, 1) forwards'}}>
+          <C theme={theme} size={200}/>
+        </div>
+      );
+    }
+    if (state === 'inRing') {
+      return (
+        <div className="companion-spotlight" style={{transform:'scale(0.18)'}}>
+          <C theme={theme} size={200}/>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="demo-wrap">
+      <div className="demo-title">Live Animation</div>
+      <div className="demo-headline">Pop · Quote · Shrink into ring</div>
+
+      <div className="ring-stage">
+        {/* Ring */}
+        <svg width="300" height="300" style={{position:'absolute',inset:0}}>
+          <defs>
+            <linearGradient id="ringg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor={COMPANION_THEMES[theme].secondary}/>
+              <stop offset="100%" stopColor={COMPANION_THEMES[theme].primary}/>
+            </linearGradient>
+          </defs>
+          <circle cx="150" cy="150" r="130" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="18"/>
+          <circle cx="150" cy="150" r="130" fill="none" stroke="url(#ringg)" strokeWidth="18"
+                  strokeDasharray={2*Math.PI*130} strokeDashoffset={(2*Math.PI*130)*(1-0.72)}
+                  strokeLinecap="round" transform="rotate(-90 150 150)"
+                  style={{filter:`drop-shadow(0 0 12px ${COMPANION_THEMES[theme].glow}88)`}}/>
+        </svg>
+        {/* Center text when idle/empty */}
+        {(state === 'idle' || state === 'inRing') && (
+          <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+            <div style={{fontSize:11,letterSpacing:0.16,fontWeight:600,color:'rgba(245,244,242,0.45)',textTransform:'uppercase'}}>Today</div>
+            <div className="display" style={{fontSize:54,lineHeight:1,marginTop:4,
+              background:'linear-gradient(180deg,#fff,#FFC9A8)',WebkitBackgroundClip:'text',color:'transparent',fontVariantNumeric:'tabular-nums'}}>
+              7,243
+            </div>
+            <div style={{fontSize:12,color:'rgba(245,244,242,0.55)',marginTop:6}}>steps · 72% of goal</div>
+          </div>
+        )}
+        {renderCompanion()}
+      </div>
+
+      <div className="controls">
+        <button className="pop-btn" onClick={trigger}>✨ Trigger Companion</button>
+
+        <div className="switch-row">
+          {COMPANIONS.map(c => (
+            <button key={c.id} className={`switch-btn ${companion === c.id ? 'active' : ''}`}
+                    onClick={() => setCompanion(c.id)}>{c.name}</button>
+          ))}
+        </div>
+
+        <div className="switch-row">
+          {['solar','lunar','nebula'].map(t => (
+            <button key={t} className={`switch-btn ${theme === t ? 'active' : ''}`}
+                    onClick={() => setTheme(t)} style={{textTransform:'capitalize'}}>{t}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <div>
+      <div className="section-label"><span>The Six Companions</span></div>
+      <HeroGrid theme="solar"/>
+
+      <div className="section-label"><span>Theme Variants — 18 Skins Total</span></div>
+      <ThemeMatrix/>
+
+      <div className="section-label"><span>How they live in your Step Ring</span></div>
+      <StepRingDemo/>
+
+      <div className="note">
+        <b>Asset notes:</b> All 6 mascots × 3 themes are pure inline SVG (no external image assets, no AI generation needed). Each <code>&lt;Comp theme="solar|lunar|nebula" size={'{N}'}/&gt;</code> renders at any size with crisp edges. To export as PNG for splash screens, snapshot the SVG. To add more themes, extend the <code>THEMES</code> object in <code>companions.jsx</code> — every mascot recolors automatically.
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

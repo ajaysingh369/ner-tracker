@@ -60,17 +60,37 @@ async function updateChallengeProgress(userId) {
             const progress = Math.min(Math.round((currentVal / goal) * 100), 100);
 
             if (progress !== participation.progress) {
+                const isNewlyCompleted = progress === 100 && participation.progress < 100;
+                let updateExpr = "SET progress = :p, currentVal = :v, lastUpdatedAt = :t";
+                let attrValues = {
+                    ":p": progress,
+                    ":v": currentVal,
+                    ":t": new Date().toISOString()
+                };
+
+                if (isNewlyCompleted) {
+                    const narratives = [
+                        "A journey of a thousand miles ends with a single step, and you just took the last one. Legendary.",
+                        "Through the sweat and the grind, you emerged victorious. This challenge wasn't ready for you.",
+                        "Consistency is the quiet fire that wins races. Today, you are the blaze.",
+                        "Challenge conquered. The leaderboard honors your name today."
+                    ];
+                    const selectedNarrative = narratives[Math.floor(Math.random() * narratives.length)];
+                    
+                    updateExpr += ", #status = :s, narrative = :n, completedAt = :ca";
+                    attrValues[":s"] = "completed";
+                    attrValues[":n"] = selectedNarrative;
+                    attrValues[":ca"] = new Date().toISOString();
+                }
+
                 await ddbDocClient.send(new UpdateCommand({
                     TableName: TABLE_NAME,
                     Key: { PK: `USER#${userId}`, SK: `CHALLENGE#${challengeId}` },
-                    UpdateExpression: "SET progress = :p, currentVal = :v, lastUpdatedAt = :t",
-                    ExpressionAttributeValues: {
-                        ":p": progress,
-                        ":v": currentVal,
-                        ":t": new Date().toISOString()
-                    }
+                    UpdateExpression: updateExpr,
+                    ExpressionAttributeNames: isNewlyCompleted ? { "#status": "status" } : undefined,
+                    ExpressionAttributeValues: attrValues
                 }));
-                console.log(`✅ Updated ${challengeId}: ${progress}%`);
+                console.log(`✅ Updated ${challengeId}: ${progress}% ${isNewlyCompleted ? '(COMPLETED)' : ''}`);
             }
         }
     } catch (e) {

@@ -15,9 +15,11 @@ interface DigitalBIBProps {
   tagline: string;
   date: string;
   onClose: () => void;
+  isAchievement?: boolean;
+  narrative?: string;
 }
 
-export default function DigitalBIB({ userName, activityName, distance, type, tagline, date, onClose }: DigitalBIBProps) {
+export default function DigitalBIB({ userName, activityName, distance, type, tagline, date, onClose, isAchievement, narrative }: DigitalBIBProps) {
   const viewShotRef = useRef<any>(null);
 
   const handleShare = async () => {
@@ -30,7 +32,7 @@ export default function DigitalBIB({ userName, activityName, distance, type, tag
       const uri = await viewShotRef.current.capture();
       await Sharing.shareAsync(uri, {
         mimeType: 'image/png',
-        dialogTitle: 'Share your RunAstra Achievement',
+        dialogTitle: isAchievement ? 'Share your RunAstra Glory' : 'Share your RunAstra Achievement',
         UTI: 'public.png',
       });
     } catch (e) {
@@ -42,25 +44,28 @@ export default function DigitalBIB({ userName, activityName, distance, type, tag
     <View style={styles.overlay}>
       <View style={styles.container}>
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          <LinearGradient colors={['#1c1c28', '#08080a']} style={styles.bibCard}>
+          <LinearGradient 
+            colors={isAchievement ? ['#2d1b00', '#08080a'] : ['#1c1c28', '#08080a']} 
+            style={[styles.bibCard, isAchievement && { borderColor: '#ff7a00' }]}
+          >
             
             {/* Header / Brand */}
             <View style={styles.bibHeader}>
               <View>
                 <Text style={styles.brandTitle}>Run<Text style={styles.highlight}>Astra</Text></Text>
-                <Text style={styles.achievementLabel}>OFFICIAL ACHIEVEMENT</Text>
+                <Text style={styles.achievementLabel}>{isAchievement ? 'CHALLENGE CONQUERED' : 'OFFICIAL ACHIEVEMENT'}</Text>
               </View>
-              <Ionicons name="trophy" size={32} color="#ff7a00" />
+              <Ionicons name={isAchievement ? "medal" : "trophy"} size={32} color="#ff7a00" />
             </View>
 
             {/* AI Hero Tagline */}
             <View style={styles.taglineBox}>
-              <Text style={styles.heroTagline}>"{tagline}"</Text>
+              <Text style={styles.heroTagline}>"{isAchievement ? narrative : tagline}"</Text>
             </View>
 
             {/* User Info */}
             <View style={styles.userRow}>
-              <View style={styles.avatarPlaceholder}>
+              <View style={[styles.avatarPlaceholder, isAchievement && { backgroundColor: '#4ade80' }]}>
                 <Text style={styles.avatarInitial}>{userName.charAt(0)}</Text>
               </View>
               <View>
@@ -70,25 +75,25 @@ export default function DigitalBIB({ userName, activityName, distance, type, tag
             </View>
 
             {/* Main Metric - The "BIB Number" Style */}
-            <View style={styles.metricContainer}>
-              <Text style={styles.metricValue}>{distance}</Text>
-              <Text style={styles.metricUnit}>KILOMETERS</Text>
-              <View style={styles.typeBadge}>
-                <Text style={styles.typeText}>{type.toUpperCase()} COMPLETED</Text>
+            <View style={[styles.metricContainer, isAchievement && { backgroundColor: 'rgba(74, 222, 128, 0.05)' }]}>
+              <Text style={[styles.metricValue, isAchievement && { color: '#4ade80' }]}>{distance}</Text>
+              <Text style={styles.metricUnit}>{type.includes('STEPS') ? 'TOTAL STEPS' : 'KILOMETERS'}</Text>
+              <View style={[styles.typeBadge, isAchievement && { backgroundColor: '#4ade80' }]}>
+                <Text style={styles.typeText}>{activityName.toUpperCase()}</Text>
               </View>
             </View>
 
             {/* Footer */}
             <View style={styles.bibFooter}>
-               <Text style={styles.footerNote}>Proud member of Noida Extension Runners</Text>
+               <Text style={styles.footerNote}>{isAchievement ? 'Ranked Elite in the RunAstra Community' : 'Proud member of Noida Extension Runners'}</Text>
                <View style={styles.qrPlaceholder}>
                   <Ionicons name="qr-code-outline" size={30} color="rgba(255,255,255,0.2)" />
                </View>
             </View>
 
             {/* Decorative Accents */}
-            <View style={[styles.accentBar, { top: 0, left: 0 }]} />
-            <View style={[styles.accentBar, { bottom: 0, right: 0 }]} />
+            <View style={[styles.accentBar, { top: 0, left: 0 }, isAchievement && { backgroundColor: '#4ade80' }]} />
+            <View style={[styles.accentBar, { bottom: 0, right: 0 }, isAchievement && { backgroundColor: '#4ade80' }]} />
 
           </LinearGradient>
         </ViewShot>
@@ -99,9 +104,9 @@ export default function DigitalBIB({ userName, activityName, distance, type, tag
             <Text style={styles.closeBtnText}>Close</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+          <TouchableOpacity style={[styles.shareBtn, isAchievement && { backgroundColor: '#4ade80' }]} onPress={handleShare}>
             <Ionicons name="share-social" size={20} color="#000" style={{marginRight: 8}} />
-            <Text style={styles.shareBtnText}>Share BIB</Text>
+            <Text style={styles.shareBtnText}>{isAchievement ? 'Share Glory' : 'Share BIB'}</Text>
           </TouchableOpacity>
         </View>
       </View>

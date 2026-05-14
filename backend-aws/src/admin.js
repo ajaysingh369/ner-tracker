@@ -1,8 +1,13 @@
 const { GetCommand, PutCommand, UpdateCommand, DeleteCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { ddbDocClient, TABLE_NAME } = require("./db");
 const crypto = require("crypto");
 
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET || "runastra_internal_sync_secret";
+const ASSETS_BUCKET = process.env.ASSETS_BUCKET || "runastra-media-assets";
+
+const s3Client = new S3Client({ region: "us-east-1" });
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -39,6 +44,8 @@ exports.handler = async (event) => {
             response = await handleUpsertBanner(event);
         } else if (path.endsWith("/events") && method === "POST") {
             response = await handleUpsertEvent(event);
+        } else if (path.endsWith("/generate-upload-url") && method === "POST") {
+            response = await handleGenerateUploadUrl(event);
         } else if (method === "DELETE") {
             response = await handleDeleteItem(event);
         } else {
@@ -58,6 +65,26 @@ exports.handler = async (event) => {
         };
     }
 };
+
+async function handleGenerateUploadUrl(event) {
+    const { fileName, contentType } = JSON.parse(event.body || "{}");
+    if (!fileName || !contentType) return { statusCode: 400, body: "fileName and contentType required" };
+
+    const fileKey = `uploads/${crypto.randomUUID()}-${fileName}`;
+    const command = new PutObjectCommand({
+        Bucket: ASSETS_BUCKET,
+        Key: fileKey,
+        ContentType: contentType
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
+    const publicUrl = `https://${ASSETS_BUCKET}.s3.amazonaws.com/${fileKey}`;
+
+    return { 
+        statusCode: 200, 
+        body: JSON.stringify({ status: "success", uploadUrl, publicUrl, fileKey }) 
+    };
+}
 
 async function handleGetRegistrations() {
     // In a real app, use a GSI. For now, Scan is used for MVP admin.

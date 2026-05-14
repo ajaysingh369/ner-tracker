@@ -178,7 +178,7 @@ async function handleUpdateProfile(event) {
         const decoded = jwt.verify(token, JWT_SECRET);
         const body = JSON.parse(event.body || "{}");
         
-        const allowedFields = ['gender', 'dob', 'height', 'weight', 'dailyStepGoal', 'onboardingComplete', 'aiConsent', 'partnerSharingConsent'];
+        const allowedFields = ['gender', 'dob', 'height', 'weight', 'dailyStepGoal', 'onboardingComplete', 'aiConsent', 'partnerSharingConsent', 'city'];
         let expressions = ["#u = :u"];
         let attrNames = { "#u": "updatedAt" };
         let attrValues = { ":u": new Date().toISOString() };

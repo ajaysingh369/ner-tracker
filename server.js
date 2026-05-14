@@ -24,14 +24,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Import and use separate routes for the Step Count feature (Fitbit Integration)
-const stepRoutes = require('./step_routes');
-app.use('/steps', stepRoutes);
-
-// Import and use V2 Mobile API (React Native Apps - Google SSO & Native Features)
-const mobileApiV2 = require('./api_v2/index');
-app.use('/api/v2', mobileApiV2);
-
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/strava/callback';
@@ -47,7 +39,7 @@ async function connectToDatabase(retryCount = 0) {
     console.log(`📡 Connecting to MongoDB (Attempt ${retryCount + 1})...`);
     cachedDb = await mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 5000, // Fail fast for mock fallback
-      family: 4 
+      family: 4
     });
     console.log('✅ MongoDB Connection established');
     return cachedDb;
@@ -74,7 +66,7 @@ const getMockAthletes = (category) => ({
 app.get('/athletesByEvent', async (req, res) => {
   const db = await connectToDatabase();
   if (!db) return res.json(getMockAthletes(req.query.category || "100"));
-  
+
   try {
     const { category, page = '1', pageSize = '200' } = req.query;
     if (!category) return res.status(400).json({ error: 'category is required' });
@@ -89,7 +81,7 @@ app.get('/athletesByEvent', async (req, res) => {
 app.get('/activitiesByEvent', async (req, res) => {
   const db = await connectToDatabase();
   if (!db) return res.json({ activities: [], medals: {} });
-  
+
   try {
     const { eventid, month } = req.query;
     const docs = await EventActivity.find({ eventId: eventid, month: parseInt(month) }).lean();
@@ -114,7 +106,7 @@ const athleteSchema = new mongoose.Schema({
   source: { type: String, default: "strava" },
   category: { type: String, default: "100" },
   status: { type: String, default: "pending" },
-    dummy: { type: Boolean, default: false }
+  dummy: { type: Boolean, default: false }
 });
 
 // New Schema: Universal Time-Series Step History
@@ -216,7 +208,7 @@ app.get('/auth/strava/callback', async (req, res) => {
     if (state && state.startsWith('runastra_')) {
       const awsUserId = state.replace('runastra_', '');
       console.log(`🔗 Bridge: Syncing Strava tokens to AWS for User: ${awsUserId}`);
-      
+
       const AWS_API_URL = 'https://dcf3ug0lfl.execute-api.us-east-1.amazonaws.com';
       const INTERNAL_SECRET = process.env.INTERNAL_SECRET || 'runastra_internal_sync_secret';
 
@@ -1316,7 +1308,7 @@ app.post("/api/mobile/sync", async (req, res) => {
   await connectToDatabase();
   try {
     const { athleteId, records } = req.body;
-    
+
     if (!athleteId || !Array.isArray(records)) {
       return res.status(400).json({ error: "Invalid payload. 'athleteId' and 'records[]' required." });
     }
@@ -1324,13 +1316,13 @@ app.post("/api/mobile/sync", async (req, res) => {
     const operations = records.map(record => ({
       updateOne: {
         filter: { athleteId, date: record.date },
-        update: { 
-          $set: { 
+        update: {
+          $set: {
             steps: record.steps,
             distanceKm: record.distanceKm || 0,
             source: record.source || 'health_connect',
             lastSyncedAt: new Date()
-          } 
+          }
         },
         upsert: true
       }
@@ -1365,18 +1357,18 @@ app.get("/api/mobile/history", async (req, res) => {
       const lastWeek = new Date();
       lastWeek.setDate(lastWeek.getDate() - 14);
       dateFilter = { $gte: lastWeek.toISOString().split('T')[0] };
-      groupBy = { date: "$date" }; 
-    } 
+      groupBy = { date: "$date" };
+    }
     else if (range === 'monthly') {
       // Last 12 months
       const lastYear = new Date();
       lastYear.setMonth(lastYear.getMonth() - 12);
       dateFilter = { $gte: lastYear.toISOString().split('T')[0] };
-      groupBy = { 
+      groupBy = {
         year: { $substr: ["$date", 0, 4] },
-        month: { $substr: ["$date", 5, 2] } 
+        month: { $substr: ["$date", 5, 2] }
       };
-    } 
+    }
     else if (range === 'yearly') {
       groupBy = { year: { $substr: ["$date", 0, 4] } };
     }
@@ -1392,7 +1384,7 @@ app.get("/api/mobile/history", async (req, res) => {
 
     const pipeline = [
       { $match: matchQuery },
-      { 
+      {
         $group: {
           _id: groupBy,
           totalSteps: { $sum: "$steps" }

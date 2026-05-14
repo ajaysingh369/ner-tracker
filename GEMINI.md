@@ -14,6 +14,9 @@ This file contains the core architectural decisions, conventions, and context fo
   - **Compute:** AWS Lambda (`backend-aws/src/`).
   - **API Routing:** Amazon API Gateway.
   - **Database:** Amazon DynamoDB.
+- **Web Presence:** AWS S3 + CloudFront static hosting for `athleon.co.in` (landing page, legal docs).
+- **AI & LLMs:** Amazon Bedrock. Use ultra-cheap models (Amazon Nova Micro / Llama 3.2) for high-volume free tier features (Mascot taunts). Use premium models (Claude 3.5 Sonnet) exclusively for paid "Astra Pro" features (Architect weekly plans).
+- **Monetization:** Google AdMob Native Advanced Ads + Meta Audience Network (via mediation). Real IDs are documented in code but test IDs MUST be active during development to prevent account strikes.
 - **Legacy Backend (Vercel):** The Express.js server in the root (`server.js`) is strictly for the legacy NER Tracker web app and for handling the initial Strava OAuth redirect. It MUST NOT be modified to serve new mobile app endpoints.
 
 ## 3. Core Features (Phase 1)
