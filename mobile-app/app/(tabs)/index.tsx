@@ -124,7 +124,7 @@ export default function HomeScreen() {
     // ── Individual Data Fetches for granular loading ──────────────────────
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-    const safeFetch = (url: string) => fetch(url, { headers }).then(r => r.ok ? r.json() : null).catch(() => null);
+    const safeFetch = (url: string) => fetch(url, { headers: headers as any }).then(r => r.ok ? r.json() : null).catch(() => null);
 
     // 1. Profile & Goal
     safeFetch(`${API_URL}/auth/me`).then(data => {
@@ -254,7 +254,7 @@ export default function HomeScreen() {
   const caloriesKcal = Math.round(dailySteps * 0.04);
 
   return (
-    <LinearGradient colors={colors.background} style={styles.container}>
+    <LinearGradient colors={colors.background as any} style={styles.container}>
       <View style={[styles.auraGlow, { backgroundColor: `${colors.primary}0A` }]} />
 
       <ScrollView 
@@ -366,7 +366,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* AI COACH MOCK */}
-        <TouchableOpacity style={styles.aiBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/ai'); }}>
+        <TouchableOpacity style={styles.aiBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/explore'); }}>
             <View style={styles.aiSpark}><Ionicons name="sparkles" size={14} color="#C8A8FF" /></View>
             <View style={{flex: 1}}>
                 <View style={styles.aiBannerHeader}>

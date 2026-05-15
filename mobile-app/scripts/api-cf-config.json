@@ -1,0 +1,74 @@
+{
+    "CallerReference": "athleon-api-accel-1",
+    "Aliases": {
+        "Quantity": 1,
+        "Items": [
+            "api.athleon.co.in"
+        ]
+    },
+    "DefaultRootObject": "",
+    "Origins": {
+        "Quantity": 1,
+        "Items": [
+            {
+                "Id": "APIGateway-RunAstra",
+                "DomainName": "dcf3ug0lfl.execute-api.us-east-1.amazonaws.com",
+                "CustomOriginConfig": {
+                    "HTTPPort": 80,
+                    "HTTPSPort": 443,
+                    "OriginProtocolPolicy": "https-only",
+                    "OriginSslProtocols": {
+                        "Quantity": 1,
+                        "Items": [
+                            "TLSv1.2"
+                        ]
+                    }
+                }
+            }
+        ]
+    },
+    "DefaultCacheBehavior": {
+        "TargetOriginId": "APIGateway-RunAstra",
+        "TrustedSigners": {
+            "Enabled": false,
+            "Quantity": 0
+        },
+        "ViewerProtocolPolicy": "https-only",
+        "AllowedMethods": {
+            "Quantity": 7,
+            "Items": [
+                "GET",
+                "HEAD",
+                "POST",
+                "PUT",
+                "PATCH",
+                "OPTIONS",
+                "DELETE"
+            ]
+        },
+        "ForwardedValues": {
+            "QueryString": true,
+            "Cookies": {
+                "Forward": "all"
+            },
+            "Headers": {
+                "Quantity": 1,
+                "Items": [
+                    "Authorization"
+                ]
+            }
+        },
+        "MinTTL": 0,
+        "DefaultTTL": 0,
+        "MaxTTL": 31536000,
+        "Compress": true
+    },
+    "Comment": "API Acceleration for RunAstra",
+    "Enabled": true,
+    "ViewerCertificate": {
+        "ACMCertificateArn": "arn:aws:acm:us-east-1:736786103826:certificate/6b4875ff-ecc9-44f3-9732-6dbb54747c86",
+        "SSLSupportMethod": "sni-only",
+        "MinimumProtocolVersion": "TLSv1.2_2021",
+        "CertificateSource": "acm"
+    }
+}

@@ -29,8 +29,7 @@ export default function Skeleton({ width, height, borderRadius = 16 }: SkeletonP
   }, []);
 
   return (
-    <Animated.View style={[{ width, height, borderRadius, opacity, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
-  );
+    <Animated.View style={[{ width: width as any, height, borderRadius, opacity, backgroundColor: 'rgba(255,255,255,0.08)' }]} />  );
 }
 
 const styles = StyleSheet.create({});

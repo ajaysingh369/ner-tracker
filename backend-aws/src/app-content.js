@@ -17,7 +17,9 @@ exports.handler = async (event) => {
 
     try {
         let response;
-        if (path.endsWith("/banners") && method === "GET") {
+        if (path.includes("/ai/coach")) {
+            return await require("./ai-coach").handler(event);
+        } else if (path.endsWith("/banners") && method === "GET") {
             response = await handleGetBanners();
         } else if (path.endsWith("/community/hero") && method === "GET") {
             response = await handleGetCommunityHero();

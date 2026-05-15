@@ -5,13 +5,14 @@ const { ddbDocClient, TABLE_NAME } = require("./db");
 const crypto = require("crypto");
 
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET || "runastra_internal_sync_secret";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "runastra@2026"; // Default for dev, override in Lambda ENV
 const ASSETS_BUCKET = process.env.ASSETS_BUCKET || "runastra-media-assets";
 
 const s3Client = new S3Client({ region: "us-east-1" });
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,x-internal-secret",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,x-internal-secret,x-admin-secret",
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
 };
 
@@ -23,12 +24,20 @@ exports.handler = async (event) => {
         return { statusCode: 204, headers: CORS_HEADERS, body: "" };
     }
 
+    // 1. Check Internal Secret (Legacy/Internal)
     const secret = event.headers["x-internal-secret"] || event.headers["X-Internal-Secret"];
-    if (secret !== INTERNAL_SECRET) {
+    
+    // 2. Check Admin Master Password (New Security Layer)
+    const adminSecret = event.headers["x-admin-secret"] || event.headers["X-Admin-Secret"];
+
+    // Validate: Must have either valid internal secret or valid admin password
+    const isAuthorized = (secret === INTERNAL_SECRET) || (adminSecret === ADMIN_PASSWORD);
+
+    if (!isAuthorized) {
         return { 
             statusCode: 401, 
             headers: CORS_HEADERS, 
-            body: JSON.stringify({ error: "Unauthorized" }) 
+            body: JSON.stringify({ error: "Unauthorized", message: "Invalid master key" }) 
         };
     }
 
@@ -38,15 +47,15 @@ exports.handler = async (event) => {
             response = await handleGetRegistrations();
         } else if (path.endsWith("/admin/registrations/approve") && method === "POST") {
             response = await handleApproveRegistration(event);
-        } else if (path.endsWith("/challenges") && method === "POST") {
+        } else if (path.endsWith("/admin/challenges") && method === "POST") {
             response = await handleUpsertChallenge(event);
-        } else if (path.endsWith("/banners") && method === "POST") {
+        } else if (path.endsWith("/admin/banners") && method === "POST") {
             response = await handleUpsertBanner(event);
-        } else if (path.endsWith("/events") && method === "POST") {
+        } else if (path.endsWith("/admin/events") && method === "POST") {
             response = await handleUpsertEvent(event);
-        } else if (path.endsWith("/generate-upload-url") && method === "POST") {
+        } else if (path.endsWith("/admin/generate-upload-url") && method === "POST") {
             response = await handleGenerateUploadUrl(event);
-        } else if (method === "DELETE") {
+        } else if (path.endsWith("/admin/item") && method === "DELETE") {
             response = await handleDeleteItem(event);
         } else {
             response = { statusCode: 404, body: JSON.stringify({ error: "Not Found" }) };
@@ -87,7 +96,6 @@ async function handleGenerateUploadUrl(event) {
 }
 
 async function handleGetRegistrations() {
-    // In a real app, use a GSI. For now, Scan is used for MVP admin.
     const result = await ddbDocClient.send(new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression: "begins_with(SK, :sk) AND #s = :status",
@@ -114,11 +122,11 @@ async function handleApproveRegistration(event) {
 
 async function handleUpsertChallenge(event) {
     const data = JSON.parse(event.body || "{}");
-    const id = data.id || crypto.randomUUID();
+    const id = data.id || data.SK || crypto.randomUUID();
     const item = {
         PK: "CHALLENGE",
-        SK: id,
         ...data,
+        SK: id,
         id,
         updatedAt: new Date().toISOString()
     };
@@ -128,11 +136,11 @@ async function handleUpsertChallenge(event) {
 
 async function handleUpsertBanner(event) {
     const data = JSON.parse(event.body || "{}");
-    const id = data.id || crypto.randomUUID();
+    const id = data.id || data.SK || crypto.randomUUID();
     const item = {
         PK: "BANNER",
-        SK: id,
         ...data,
+        SK: id,
         id,
         updatedAt: new Date().toISOString()
     };
@@ -142,11 +150,11 @@ async function handleUpsertBanner(event) {
 
 async function handleUpsertEvent(event) {
     const data = JSON.parse(event.body || "{}");
-    const id = data.id || crypto.randomUUID();
+    const id = data.id || data.SK || crypto.randomUUID();
     const item = {
         PK: "EVENT",
-        SK: id,
         ...data,
+        SK: id,
         id,
         updatedAt: new Date().toISOString()
     };

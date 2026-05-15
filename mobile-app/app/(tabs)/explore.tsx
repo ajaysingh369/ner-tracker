@@ -153,7 +153,7 @@ export default function AICoachScreen() {
   );
 }
 
-const markdownStyles = {
+const markdownStyles: any = {
   body: { color: '#e0e0e0', fontSize: 16, lineHeight: 24 },
   heading3: { color: '#ff7a00', fontWeight: '900', marginTop: 10, marginBottom: 15, fontSize: 22, textTransform: 'uppercase' },
   heading4: { color: '#fff', fontWeight: '800', marginTop: 20, marginBottom: 10, fontSize: 18 },

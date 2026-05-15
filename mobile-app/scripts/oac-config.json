@@ -1,0 +1,7 @@
+{
+  "Name": "athleon-oac",
+  "Description": "OAC for athleon.co.in",
+  "SigningProtocol": "sigv4",
+  "SigningBehavior": "always",
+  "OriginAccessControlOriginType": "s3"
+}

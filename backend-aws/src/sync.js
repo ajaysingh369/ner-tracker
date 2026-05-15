@@ -143,12 +143,28 @@ async function handleHistory(event) {
     const rawItems = result.Items || [];
     console.log(`📊 Found ${rawItems.length} records in DynamoDB`);
 
-    const data = rawItems.map(item => ({
-        date: item.date,
-        steps: item.steps,
-        distanceKm: item.distanceKm,
-        source: item.source
-    }));
+    let data = [];
+    if (range === 'yearly') {
+        // Aggregate steps by month for yearly view
+        const monthlyAggregation = rawItems.reduce((acc, item) => {
+            const month = item.date.substring(0, 7); // YYYY-MM
+            if (!acc[month]) {
+                acc[month] = { date: `${month}-01`, steps: 0, distanceKm: 0, source: 'aggregated' };
+            }
+            acc[month].steps += (item.steps || 0);
+            acc[month].distanceKm += (item.distanceKm || 0);
+            return acc;
+        }, {});
+        
+        data = Object.values(monthlyAggregation).sort((a, b) => a.date.localeCompare(b.date));
+    } else {
+        data = rawItems.map(item => ({
+            date: item.date,
+            steps: item.steps,
+            distanceKm: item.distanceKm,
+            source: item.source
+        }));
+    }
 
     // ── Astra Zenith Logic (AI/Curiosity Driven) ──────────────────────────
     let zenithTarget = 8000; 

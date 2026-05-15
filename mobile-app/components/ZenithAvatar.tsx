@@ -7,7 +7,8 @@ import Animated, {
   withSequence, 
   withTiming,
   withRepeat,
-  interpolate
+  interpolate,
+  SharedValue
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MascotRenderer } from './Mascots';
@@ -22,7 +23,7 @@ interface ZenithAvatarProps {
   target: number;
   forceTrigger?: number;
   onStateChange?: (state: 'idle' | 'popping' | 'speaking' | 'shrinking' | 'perched') => void;
-  ringUiOpacity?: Animated.SharedValue<number>;
+  ringUiOpacity?: SharedValue<number>;
 }
 
 export default function ZenithAvatar({ mood, isAchieved, steps, target, forceTrigger, onStateChange, ringUiOpacity }: ZenithAvatarProps) {

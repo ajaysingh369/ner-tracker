@@ -93,7 +93,7 @@ export default function HistoryScreen() {
   }, [historyData]);
 
   return (
-    <LinearGradient colors={colors.background} style={styles.container}>
+    <LinearGradient colors={colors.background as any} style={styles.container}>
       <Stack.Screen options={{ 
         headerShown: true, 
         title: 'Activity History',

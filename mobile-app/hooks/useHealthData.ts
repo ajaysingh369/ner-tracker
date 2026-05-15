@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Platform, AppState, AppStateStatus, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Accelerometer } from 'expo-sensors';
+import { useTensorflowModel } from 'react-native-fast-tflite';
+
+// ─── AI Configuration Flag ──────────────────────────────────────────────────
+// Set to true to run inference locally via TFLite (zero server cost, better privacy)
+// Set to false to send accelerometer samples to the cloud via Bedrock/Lambda
+export const USE_ON_DEVICE_AI = false;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type HealthConnectAPI = {
@@ -65,6 +72,108 @@ export function useHealthData() {
   const [needsPermission, setNeedsPermission] = useState<boolean>(false);
   const appState = useRef(AppState.currentState);
   const initAttempted = useRef(false);
+
+  // ─── TFLite Model State (Phase 2 On-Device AI) ─────────────────────────
+  const [model, setModel] = useState<any>(null);
+  const accelerometerData = useRef<number[]>([]);
+  const isSampling = useRef(false);
+
+  // ─── Anomaly Detection Sampling Engine (Optimized) ───────────────────────
+  const runAnomalyDetection = useCallback(async (samples: number[]) => {
+      try {
+          if (USE_ON_DEVICE_AI) {
+              // LOCAL TFLite INFERENCE (Zero Latency, Private)
+              if (model) {
+                  const inputData = Float32Array.from(samples);
+                  const result = await model.run([inputData as any]);
+                  const anomalyScore = result ? (new Float32Array(result[0] as any))[0] : 0; 
+                  
+                  if (anomalyScore > 0.8) {
+                      console.warn('🚨 LOCAL AI: Rhythmic anomaly detected.');
+                  }
+              } else {
+                  console.log('⏳ Local TFLite model is not yet loaded. Skipping local check.');
+              }
+          } else {
+              // CLOUD AI INFERENCE (Batched to save battery)
+              // Instead of sending immediately, we queue it.
+              const existingQueueStr = await AsyncStorage.getItem('cloud_ai_queue');
+              const queue = existingQueueStr ? JSON.parse(existingQueueStr) : [];
+              queue.push({ timestamp: new Date().toISOString(), samples });
+              
+              console.log(`📦 Cloud AI: Added sample to batch queue. Total batches: ${queue.length}`);
+              
+              // Only send to cloud if we have 5+ batches or at the end of the day
+              if (queue.length >= 5) {
+                  const token = await AsyncStorage.getItem('authToken');
+                  const API_URL = process.env.EXPO_PUBLIC_API_URL;
+                  
+                  if (token && API_URL) {
+                      console.log(`☁️ Cloud AI: Transmitting batch of 5 to backend...`);
+                      const res = await fetch(`${API_URL}/ai/verify-steps`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ batches: queue })
+                      });
+                      
+                      if (res.ok) {
+                          // Clear queue after successful transmission
+                          await AsyncStorage.setItem('cloud_ai_queue', JSON.stringify([]));
+                      }
+                  }
+              } else {
+                  await AsyncStorage.setItem('cloud_ai_queue', JSON.stringify(queue));
+              }
+          }
+      } catch (e) {
+          console.error("❌ Anomaly Detection Engine Failed:", e);
+      }
+  }, [model]);
+
+  // Start background accelerometer sampling ONLY when user is active
+  useEffect(() => {
+      if (!isAuthorized || Platform.OS !== 'android') return;
+
+      const startSamplingWindow = () => {
+          if (isSampling.current) return;
+          isSampling.current = true;
+          accelerometerData.current = [];
+          
+          Accelerometer.setUpdateInterval(100); // 10Hz sampling
+          const subscription = Accelerometer.addListener(data => {
+              const magnitude = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
+              accelerometerData.current.push(magnitude);
+
+              if (accelerometerData.current.length >= 100) {
+                  subscription.remove();
+                  isSampling.current = false;
+                  runAnomalyDetection([...accelerometerData.current]);
+              }
+          });
+
+          setTimeout(() => {
+              subscription.remove();
+              isSampling.current = false;
+          }, 15000); // Fail-safe shutoff
+      };
+
+      const samplingTimer = setInterval(async () => {
+          // OPTIMIZATION: Check Activity Recognition before turning on the Accelerometer.
+          // Note: In a production app, use 'expo-location' or 'react-native-activity-recognition'
+          // to check if the user is literally walking right now. 
+          // For now, we simulate this check:
+          const isUserWalking = true; // Replace with actual OS Activity Recognition state
+          
+          if (isUserWalking) {
+              startSamplingWindow();
+          } else {
+              console.log('💤 User is stationary. Skipping accelerometer sampling to save battery.');
+          }
+      }, 5 * 60 * 1000);
+
+      return () => clearInterval(samplingTimer);
+  }, [isAuthorized, runAnomalyDetection]);
+
 
   // ── Background Sync Step History ─────────────────────────────────────────
   const syncAndroidStepsHistory = useCallback(async () => {
@@ -139,13 +248,13 @@ export function useHealthData() {
   // ── Android step fetch ─────────────────────────────────────────────────
   const fetchAndroidSteps = useCallback(async () => {
     if (!HealthConnect) return;
-    try {
-      const now = new Date();
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(now);
-      endOfDay.setHours(23, 59, 59, 999);
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
 
+    try {
       const result = await HealthConnect.aggregateGroupByDuration({
         recordType: 'Steps',
         timeRangeFilter: {
@@ -253,9 +362,12 @@ export function useHealthData() {
 
       const initialized = await HealthConnect.initialize();
       if (!initialized) { 
-        Alert.alert("Debug", "Health Connect init failed."); 
+        Alert.alert("Health Connect", "Failed to initialize fitness sync. Please ensure Health Connect is updated."); 
         return; 
       }
+
+      // Give the native side a moment to settle (helps with New Architecture stability)
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const alreadyGranted = await checkPermissions();
       if (alreadyGranted) {
@@ -268,22 +380,36 @@ export function useHealthData() {
 
       // Explicit Permission Dialog
       console.log('🔑 Triggering native permission dialog...');
-      const granted = await HealthConnect.requestPermission([
-        { recordType: 'Steps', accessType: 'read' },
-        { recordType: 'Distance', accessType: 'read' }
-      ]);
-
-      console.log('✅ Granted array:', JSON.stringify(granted));
-
-      if (granted && granted.length > 0) {
-        setIsAuthorized(true);
-        setNeedsPermission(false);
-        fetchAndroidSteps();
-      } else {
-        setNeedsPermission(true);
-        Alert.alert("Permission Required", "RunAstra needs step access to work correctly. Please enable 'Steps' and 'Distance' in the next screen.", [
-            { text: "Open Settings", onPress: openHealthConnectForPermission }
+      try {
+        const granted = await HealthConnect.requestPermission([
+          { recordType: 'Steps', accessType: 'read' },
+          { recordType: 'Distance', accessType: 'read' }
         ]);
+
+        console.log('✅ Granted array:', JSON.stringify(granted));
+
+        if (granted && granted.length > 0) {
+          setIsAuthorized(true);
+          setNeedsPermission(false);
+          fetchAndroidSteps();
+        } else {
+          setNeedsPermission(true);
+          Alert.alert("Permission Required", "RunAstra needs step access to work correctly. Please enable 'Steps' and 'Distance' in the next screen.", [
+              { text: "Open Settings", onPress: openHealthConnectForPermission },
+              { text: "Cancel", style: "cancel" }
+          ]);
+        }
+      } catch (permissionError: any) {
+        console.error('Permission Request Error:', permissionError);
+        // Fallback for New Architecture crash (UninitializedPropertyAccessException)
+        Alert.alert(
+          "Sync Setup", 
+          "We encountered an issue opening the permission dialog. You can enable permissions manually in Health Connect settings.",
+          [
+            { text: "Open Settings", onPress: openHealthConnectForPermission },
+            { text: "Maybe Later", style: "cancel" }
+          ]
+        );
       }
     } catch (e: any) { 
         console.log('Auth Error:', e);

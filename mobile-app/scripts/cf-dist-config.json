@@ -1,0 +1,54 @@
+{
+  "CallerReference": "athleon-landing-page-1",
+  "Aliases": {
+    "Quantity": 0
+  },
+  "DefaultRootObject": "index.html",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "S3-athleon.co.in",
+        "DomainName": "athleon.co.in.s3.us-east-1.amazonaws.com",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        },
+        "OriginAccessControlId": "E2SJSUEN0AE13R"
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-athleon.co.in",
+    "ForwardedValues": {
+      "QueryString": false,
+      "Cookies": {
+        "Forward": "none"
+      }
+    },
+    "TrustedSigners": {
+      "Enabled": false,
+      "Quantity": 0
+    },
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "MinTTL": 0,
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": [
+        "GET",
+        "HEAD"
+      ],
+      "CachedMethods": {
+        "Quantity": 2,
+        "Items": [
+          "GET",
+          "HEAD"
+        ]
+      }
+    }
+  },
+  "CacheBehaviors": {
+    "Quantity": 0
+  },
+  "Comment": "Athleon Landing Page",
+  "Enabled": true
+}

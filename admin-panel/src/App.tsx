@@ -15,18 +15,22 @@ import {
   FileImage,
   Camera,
   CheckCircle,
-  X
+  X,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 
 // --- Configuration ---
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.athleon.co.in';
 const INTERNAL_SECRET = import.meta.env.VITE_INTERNAL_SECRET || 'runastra_internal_sync_secret';
 
 // Configure Axios Defaults
 axios.defaults.headers.common['x-internal-secret'] = INTERNAL_SECRET;
 
 function App() {
+  const [isAuthenticated, setIsAuthorized] = useState(false);
+  const [password, setPassword] = useState('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'challenges' | 'banners' | 'events' | 'registrations'>('dashboard');
   const [challenges, setChallenges] = useState<any[]>([]);
   const [banners, setBanners] = useState<any[]>([]);
@@ -38,8 +42,34 @@ function App() {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    fetchData();
-  }, [activeTab]);
+    const savedPass = localStorage.getItem('admin_secret');
+    if (savedPass) {
+        axios.defaults.headers.common['x-admin-secret'] = savedPass;
+        setIsAuthorized(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+        fetchData();
+    }
+  }, [activeTab, isAuthenticated]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length > 3) {
+        localStorage.setItem('admin_secret', password);
+        axios.defaults.headers.common['x-admin-secret'] = password;
+        setIsAuthorized(true);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_secret');
+    delete axios.defaults.headers.common['x-admin-secret'];
+    setIsAuthorized(false);
+    setPassword('');
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -60,8 +90,11 @@ function App() {
         const res = await axios.get(`${API_URL}/admin/registrations`);
         setRegistrations(res.data.registrations || []);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Fetch error:', e);
+      if (e.response?.status === 401 || e.response?.status === 403) {
+          handleLogout();
+      }
     }
     setLoading(false);
   };
@@ -77,8 +110,8 @@ function App() {
       setShowModal(false);
       setFormData({});
       fetchData();
-    } catch (e) {
-      alert('Save failed');
+    } catch (e: any) {
+      alert('Save failed: ' + (e.response?.data?.message || 'Unauthorized'));
     }
   };
 
@@ -106,20 +139,12 @@ function App() {
   const handleUpload = async (file: File, field: string) => {
     try {
       setLoading(true);
-      // 1. Get Presigned URL
       const res = await axios.post(`${API_URL}/admin/generate-upload-url`, {
         fileName: file.name,
         contentType: file.type
       });
-      
       const { uploadUrl, publicUrl } = res.data;
-
-      // 2. Upload to S3
-      await axios.put(uploadUrl, file, {
-        headers: { 'Content-Type': file.type }
-      });
-
-      // 3. Update Form
+      await axios.put(uploadUrl, file, { headers: { 'Content-Type': file.type } });
       setFormData((prev: any) => ({ ...prev, [field]: publicUrl }));
       alert('Upload successful');
     } catch (e) {
@@ -128,6 +153,41 @@ function App() {
     }
     setLoading(false);
   };
+
+  if (!isAuthenticated) {
+    return (
+        <div className="min-h-screen bg-[#0f0f13] text-white flex items-center justify-center font-sans p-6">
+            <div className="w-full max-w-md space-y-8 text-center">
+                <div className="inline-flex w-20 h-20 bg-[#ff7a00]/10 rounded-3xl items-center justify-center mb-4 border border-[#ff7a00]/20">
+                    <Lock size={32} className="text-[#ff7a00]" />
+                </div>
+                <div>
+                    <h1 className="text-4xl font-black tracking-tighter text-white">RunAstra <span className="text-[#ff7a00]">Admin</span></h1>
+                    <p className="text-white/40 mt-2 font-medium tracking-wide">Enter master key to access mission control.</p>
+                </div>
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="relative group">
+                        <input 
+                            type="password"
+                            autoFocus
+                            placeholder="Master Admin Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-[#16161e] border border-white/10 rounded-2xl px-6 py-5 text-center text-xl font-bold tracking-[0.3em] focus:outline-none focus:border-[#ff7a00] focus:ring-4 focus:ring-[#ff7a00]/10 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:font-normal placeholder:text-white/20"
+                        />
+                    </div>
+                    <button 
+                        type="submit"
+                        className="w-full bg-[#ff7a00] hover:bg-[#ff8c20] text-black h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-[0.98] shadow-xl shadow-[#ff7a00]/20 group"
+                    >
+                        Initialize Session <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                </form>
+                <p className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-black">Authorized Access Only • System v1.0.4</p>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0f0f13] text-white flex font-sans">
@@ -173,17 +233,17 @@ function App() {
              <div className="h-px bg-white w-full mb-4" />
           </div>
           <NavItem active={false} icon={<Users size={20} />} label="Users" />
-          <NavItem active={false} icon={<Settings size={20} />} label="Settings" />
+          <NavItem active={false} icon={<Settings size={20} />} label="Settings" onClick={handleLogout} />
         </nav>
 
         <div className="p-4 mt-auto">
-          <div className="bg-[#1c1c28] p-4 rounded-xl border border-white/5 flex items-center gap-3">
-             <div className="w-8 h-8 rounded-full bg-[#ff7a00] flex items-center justify-center font-bold text-xs">A</div>
-             <div>
+          <button onClick={handleLogout} className="w-full bg-[#1c1c28] p-4 rounded-xl border border-white/5 flex items-center gap-3 hover:bg-white/5 transition-colors">
+             <div className="w-8 h-8 rounded-full bg-[#ff7a00] flex items-center justify-center font-bold text-xs text-black">A</div>
+             <div className="text-left">
                 <p className="text-sm font-bold">Admin</p>
                 <p className="text-[10px] text-white/40">Solution Architect</p>
              </div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -457,7 +517,6 @@ function App() {
 
                  {modalType === 'event' && (
                     <>
-                       {/* ... rest of event fields ... */}
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Event Title</label>
                           <input 
@@ -467,7 +526,6 @@ function App() {
                             placeholder="e.g. Noida Monsoon Run"
                           />
                        </div>
-                       {/* ... existing event fields update ... */}
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/40 tracking-widest">Subtitle / Tagline</label>
                           <input 

@@ -1,9 +1,12 @@
 const { GetCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
 const { ddbDocClient, TABLE_NAME } = require("./db");
+const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
 const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET || "runastra_secret_key";
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+
+const bedrockClient = new BedrockRuntimeClient({ region: "us-east-1" });
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -52,6 +55,48 @@ const getWeather = async (city) => {
     return null;
 };
 
+async function generateMascotInsight(firstName, dailySteps, zenithTarget, avgSteps, daysSinceSync, weather, isPro) {
+    const weatherText = weather ? `${weather.condition}, ${weather.temp}°C` : 'Unknown';
+    const prompt = `You are Astra, the AI fitness mascot for RunAstra. Your tone is energetic, witty, and encouraging.
+User Name: ${firstName}
+Today's Steps: ${dailySteps}
+Daily Target: ${zenithTarget}
+7-Day Average: ${avgSteps}
+Days Since Last Sync: ${daysSinceSync}
+Weather: ${weatherText}
+
+Provide a personalized greeting and insight based on the user's data.
+Respond ONLY with a valid JSON object in this exact format:
+{
+  "message": "A short, punchy 1-2 sentence greeting.",
+  "insight": "A single sentence advice based on weather or their step progress."
+}`;
+
+    try {
+        console.log(`🤖 Invoking Amazon Nova Micro for ${firstName}`);
+        const command = new InvokeModelCommand({
+            modelId: "amazon.nova-micro-v1:0",
+            contentType: "application/json",
+            accept: "application/json",
+            body: JSON.stringify({
+                messages: [{ role: "user", content: [{ text: prompt }] }],
+                inferenceConfig: { max_new_tokens: 200, temperature: 0.7 }
+            })
+        });
+        const response = await bedrockClient.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const text = responseBody.output.message.content[0].text;
+        
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+    } catch (e) {
+        console.error("Bedrock Error:", e);
+    }
+    return null; // Return null to fallback to static logic
+}
+
 exports.handler = async (event) => {
     const path = event.rawPath || event.path;
     const method = event.requestContext?.http?.method || event.httpMethod;
@@ -73,6 +118,31 @@ exports.handler = async (event) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const userId = decoded.id;
         console.log(`👤 AI Coach for User: ${userId}`);
+
+        if (path.includes("/ai/verify-steps") && method === "POST") {
+            const body = JSON.parse(event.body || "{}");
+            const samples = body.accelerometerSamples || [];
+            
+            console.log(`🔍 Cloud AI: Verifying ${samples.length} samples for user ${userId}`);
+            
+            // Cloud AI Anomaly Detection Logic (e.g., Bedrock Claude 3 Haiku or SageMaker)
+            // For now, we simulate the anomaly detection: 
+            // highly rhythmic or low variance samples might indicate fake shaking.
+            let isAnomaly = false;
+            if (samples.length > 50) {
+                const variance = Math.max(...samples) - Math.min(...samples);
+                // Fake shaking often has extreme repetitive variance compared to natural walking
+                if (variance > 10.0 || variance < 0.5) {
+                    isAnomaly = true;
+                }
+            }
+
+            return {
+                statusCode: 200,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ status: "success", isAnomaly, method: "Cloud AI" })
+            };
+        }
 
         if (!path.includes("/ai/coach")) {
             return { statusCode: 404, headers: CORS_HEADERS, body: "Not Found" };
@@ -130,29 +200,38 @@ exports.handler = async (event) => {
         console.log(`🌤 Weather Check for ${profile.city || 'Unknown'}`);
         const weather = await getWeather(profile.city);
 
-        let pulseMessage = `Namaste ${firstName}! You're crushing it. Your consistency is in the top 15% of the community.`;
-        let pulseInsight = "Peak performance detected on weekend mornings. Try to replicate that today!";
+        // Try AI generation first
+        let dailyPulse = await generateMascotInsight(firstName, dailySteps, zenithTarget, avgSteps, daysSinceSync, weather, isPro);
 
-        if (weather) {
-            pulseInsight = weather.advice;
-            if (weather.temp > 38 || weather.condition.includes("Rain")) {
-                pulseMessage = `Heads up ${firstName}! ${weather.condition} in ${profile.city} might slow you down, but let's keep the streak alive indoors.`;
+        // Static Fallback logic if AI generation fails or times out
+        if (!dailyPulse) {
+            let pulseMessage = `Namaste ${firstName}! You're crushing it. Your consistency is in the top 15% of the community.`;
+            let pulseInsight = "Peak performance detected on weekend mornings. Try to replicate that today!";
+
+            if (weather) {
+                pulseInsight = weather.advice;
+                if (weather.temp > 38 || weather.condition.includes("Rain")) {
+                    pulseMessage = `Heads up ${firstName}! ${weather.condition} in ${profile.city} might slow you down, but let's keep the streak alive indoors.`;
+                }
             }
-        }
 
-        if (daysSinceSync >= 5) {
-            pulseMessage = `Welcome back, ${firstName}! We've missed your energy. The roads in ${profile.city || 'the city'} have been quiet without you. Let's start with a light 5k today?`;
-            pulseInsight = weather ? weather.advice : "It's been over 5 days since your last sync. A fresh start is just one step away.";
-        } else if (dailySteps > zenithTarget) {
-            pulseMessage = `UNSTOPPABLE! You've just smashed your Zenith target of ${zenithTarget.toLocaleString()} steps. You're operating at an elite level today, ${firstName}!`;
-            pulseInsight = weather ? `Even with the ${weather.condition} in ${profile.city}, you surged! Hydrate well.` : "You are currently in 'Surge' mode. Ensure you hydrate well after this massive effort.";
-        }
+            if (daysSinceSync >= 5) {
+                pulseMessage = `Welcome back, ${firstName}! We've missed your energy. Let's start with a light 5k today?`;
+                pulseInsight = weather ? weather.advice : "It's been over 5 days since your last sync. A fresh start is just one step away.";
+            } else if (dailySteps > zenithTarget) {
+                pulseMessage = `UNSTOPPABLE! You've smashed your Zenith target of ${zenithTarget.toLocaleString()} steps. You're operating at an elite level today, ${firstName}!`;
+                pulseInsight = weather ? `Even with the ${weather.condition} in ${profile.city}, you surged! Hydrate well.` : "You are in 'Surge' mode. Ensure you hydrate well after this massive effort.";
+            }
 
-        const dailyPulse = {
-            title: "Daily AI Pulse",
-            message: pulseMessage,
-            insight: pulseInsight
-        };
+            dailyPulse = {
+                title: "Daily AI Pulse",
+                message: pulseMessage,
+                insight: pulseInsight
+            };
+        } else {
+            // Ensure title exists on AI generated response
+            dailyPulse.title = "Astra AI Insight";
+        }
 
         let tacticalPlan = `### 🎯 Weekly Tactical Masterplan\n\nHello **${firstName}**, based on your average of **${avgSteps.toLocaleString()} steps**, here is your strategy:\n\n`;
 

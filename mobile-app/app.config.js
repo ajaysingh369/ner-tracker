@@ -12,7 +12,7 @@ export default ({ config }) => {
     icon: "./assets/images/icon.png",
     scheme: "mobileapp",
     userInterfaceStyle: "automatic",
-    newArchEnabled: false,
+    newArchEnabled: true,
     ios: {
       supportsTablet: true
     },
@@ -40,6 +40,9 @@ export default ({ config }) => {
     },
     plugins: [
       "expo-router",
+      "./scripts/withHealthConnectDelegate.js",
+      "./scripts/withHealthConnectManifest.js",
+      "./scripts/withMicrophonePermission.js",
       [
         "expo-splash-screen",
         {
@@ -65,7 +68,9 @@ export default ({ config }) => {
         {
           "android": {
             "kotlinVersion": "2.0.0",
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
           },
           "ios": {
             "useFrameworks": "static"

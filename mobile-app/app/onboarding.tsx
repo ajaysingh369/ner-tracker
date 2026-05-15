@@ -4,9 +4,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(1);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [formData, setFormData] = useState({
     gender: '',
     dob: '',
@@ -204,7 +206,7 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  progressContainer: { flexDirection: 'row', paddingTop: 60, px: 20, gap: 8, marginHorizontal: 20 },
+  progressContainer: { flexDirection: 'row', paddingTop: 60, paddingHorizontal: 20, gap: 8, marginHorizontal: 20 },
   progressBar: { flex: 1, height: 4, borderRadius: 2 },
   content: { padding: 30, paddingTop: 40 },
   stepView: { flex: 1 },

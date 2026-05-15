@@ -127,7 +127,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <LinearGradient colors={colors.background} style={styles.container}>
+    <LinearGradient colors={colors.background as any} style={styles.container}>
       <Stack.Screen options={{ 
         title: 'Settings', 
         headerShown: true,
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
                             setTheme(t.name);
                         }}
                     >
-                        <LinearGradient colors={t.colors} style={styles.themeCircle}>
+                        <LinearGradient colors={t.colors as any} style={styles.themeCircle}>
                             <Ionicons name={t.icon as any} size={16} color="#000" />
                         </LinearGradient>
                         <Text style={[styles.themeLabel, activeTheme === t.name && { color: t.colors[0], fontWeight: '900' }]}>{t.name}</Text>
@@ -265,12 +265,16 @@ export default function ProfileScreen() {
         {/* Legal & Info */}
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>Information</Text>
-            <TouchableOpacity style={styles.infoRow} onPress={() => Alert.alert('Privacy Policy', 'Standard RunAstra Privacy Policy v1.0')}>
+            <TouchableOpacity style={styles.infoRow} onPress={() => Linking.openURL('https://www.athleon.co.in/privacy.html')}>
                 <Text style={styles.infoRowText}>Privacy Policy</Text>
                 <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.infoRow} onPress={() => Alert.alert('Terms', 'Standard RunAstra Terms of Service')}>
+            <TouchableOpacity style={styles.infoRow} onPress={() => Linking.openURL('https://www.athleon.co.in/terms.html')}>
                 <Text style={styles.infoRowText}>Terms of Service</Text>
+                <Ionicons name="chevron-forward" size={16} color="#444" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.infoRow} onPress={() => Linking.openURL('https://www.athleon.co.in')}>
+                <Text style={styles.infoRowText}>Visit Website</Text>
                 <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>
         </View>

@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FeatureFlags } from '../../constants/FeatureFlags';
+import ZenithVoiceModule from '../../components/ZenithVoiceModule';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -45,6 +47,16 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={28} name="fitness" color={color} />,
         }}
       />
+
+      {/* Conditionally render the Zenith Voice Custom Button in the middle */}
+      <Tabs.Screen
+          name="zenith_voice"
+          options={{
+              title: '',
+              tabBarButton: () => FeatureFlags.ENABLE_ZENITH_VOICE ? <ZenithVoiceModule /> : <View style={{ width: 0 }} />,
+          }}
+      />
+
       <Tabs.Screen
         name="events"
         options={{
@@ -59,7 +71,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={28} name="trophy" color={color} />,
         }}
       />
-      {/* Profile tab removed and moved to Header Avatar */}
     </Tabs>
   );
 }
