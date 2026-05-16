@@ -1,4 +1,4 @@
-const { GetCommand, UpdateCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
+const { GetCommand, UpdateCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
 const { ddbDocClient, TABLE_NAME } = require("./db");
 const axios = require("axios");
 const { updateChallengeProgress } = require("./progress-engine");
@@ -39,13 +39,15 @@ exports.handler = async (event) => {
             console.log(`🏃 New Activity Detected: ${object_id} for Strava User: ${owner_id}`);
             
             try {
-                // Find our Internal User from Strava owner_id
-                // Note: In production, use a GSI on stravaId. 
-                // For now, we'll scan the STRAVA_AUTH records (small dataset).
-                const userResult = await ddbDocClient.send(new ScanCommand({
+                // Optimized Lookup: Using Global Secondary Index (GSI)
+                // Index Name: stravaId-index
+                // Partition Key: stravaId
+                // Projection: ALL or INCLUDE (PK, SK)
+                const userResult = await ddbDocClient.send(new QueryCommand({
                     TableName: TABLE_NAME,
-                    FilterExpression: "SK = :sk AND stravaId = :sid",
-                    ExpressionAttributeValues: { ":sk": "STRAVA_AUTH", ":sid": owner_id.toString() }
+                    IndexName: "stravaId-index",
+                    KeyConditionExpression: "stravaId = :sid",
+                    ExpressionAttributeValues: { ":sid": owner_id.toString() }
                 }));
 
                 const auth = userResult.Items?.[0];

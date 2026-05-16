@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -39,8 +39,8 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (data.status === 'success') {
-        await AsyncStorage.setItem('athleteId', data.user.id);
-        await AsyncStorage.setItem('authToken', data.token);
+        await SecureStore.setItemAsync('athleteId', data.user.id);
+        await SecureStore.setItemAsync('authToken', data.token);
         router.replace('/(tabs)');
       } else {
         Alert.alert('Backend Error', data.error);

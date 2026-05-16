@@ -18,6 +18,7 @@
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#ai">Astra AI</a>
+                <a href="#organizers">Sponsors & Clubs</a>
                 <a href="privacy.html">Privacy</a>
             </div>
         </div>
@@ -28,15 +29,15 @@
             <div class="hero-text">
                 <div class="badge">Next Gen Fitness</div>
                 <h1>Beat your yesterday, <br><span class="highlight">every day.</span></h1>
-                <p>RunAstra isn't just a tracker; it's your personalized AI coach. Sync your steps securely with Health Connect, connect your Strava, and conquer dynamic challenges powered by Zenith AI.</p>
+                <p>RunAstra isn't just a tracker; it's your personalized AI coach. Sync your steps securely with Health Suit, connect your Strava, and conquer dynamic challenges powered by Zenith AI.</p>
                 <div class="cta-group">
-                    <a href="#download" class="btn btn-primary">Get it on Google Play</a>
-                    <a href="#features" class="btn btn-secondary">Explore Features</a>
+                    <a href="#download" class="btn btn-primary">Download App</a>
+                    <a href="mailto:dev@athleon.co.in?subject=Hosting%20an%20Event%20on%20RunAstra" class="btn btn-secondary">Host Your Event</a>
                 </div>
                 <div class="platform-support">
                     <p>Powered by</p>
                     <div class="platforms">
-                        <span>Android 16 Health Connect</span>
+                        <span>Android/iOS Health Suit</span>
                         <span class="dot">•</span>
                         <span>Strava Sync</span>
                         <span class="dot">•</span>
@@ -53,10 +54,10 @@
                     </div>
                     <div class="screen">
                         <div class="carousel">
-                            <img src="assets/home1.png" alt="RunAstra Home 1" class="active">
-                            <img src="assets/home2.png" alt="RunAstra Home 2">
-                            <img src="assets/home3.png" alt="RunAstra Home 3">
-                            <img src="assets/home4.png" alt="RunAstra Home 4">
+                            <img src="assets/home1.webp" alt="RunAstra Home 1" class="active">
+                            <img src="assets/home2.webp" alt="RunAstra Home 2">
+                            <img src="assets/home3.webp" alt="RunAstra Home 3">
+                            <img src="assets/home4.webp" alt="RunAstra Home 4">
                         </div>
                     </div>
                     <div class="phone-reflection"></div>
@@ -76,7 +77,7 @@
                 <div class="feature-card">
                     <div class="feature-icon">👟</div>
                     <h3>Seamless Sync</h3>
-                    <p>Integrates natively with Android Health Connect. Securely pulls your steps and distance without draining your battery.</p>
+                    <p>Integrates natively with Health Suit. Securely pulls your steps and distance without draining your battery.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🚴</div>
@@ -132,6 +133,33 @@
         </div>
     </section>
 
+    <section id="organizers" class="organizer-section">
+        <div class="container">
+            <div class="organizer-banner">
+                <div class="organizer-text">
+                    <div class="badge badge-secondary">Partnerships</div>
+                    <h2>Host Your Own <span class="highlight">Virtual Event</span></h2>
+                    <p>Empower your community with a professional-grade race experience. Our Omni-Engine handles complex rules, daily caps, and real-time leaderboards while you focus on your brand.</p>
+                    
+                    <div class="brand-showcase-box">
+                        <h3>Showcase Your Brand</h3>
+                        <p>Reach a dedicated audience of like-minded athletes. Feature your brand directly on our app's home screen via premium sponsor banners.</p>
+                    </div>
+
+                    <ul class="ai-list">
+                        <li><strong>Rule Automation:</strong> Enforce daily caps and min active days.</li>
+                        <li><strong>Omni-Sport:</strong> Support steps, runs, rides, and yoga.</li>
+                        <li><strong>Data Intelligence:</strong> Professional dashboard with CSV exports.</li>
+                    </ul>
+                    <div class="cta-group" style="margin-top: 30px;">
+                        <a href="mailto:dev@athleon.co.in?subject=Hosting%20an%20Event%20on%20RunAstra" class="btn btn-secondary">Host Your Event</a>
+                        <a href="mailto:dev@athleon.co.in?subject=Brand%20Banner%20Inquiry" class="btn btn-primary" style="background: transparent; border: 1px solid var(--primary); color: var(--primary);">Brand Banners</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section id="download" class="cta-section">
         <div class="container">
             <h2>Ready to transform your routine?</h2>
@@ -163,6 +191,25 @@
         </div>
     </footer>
     <script>
+        // Deep Link Handling for Shared Events
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('id');
+        if (eventId) {
+            const appUrl = `mobileapp://event/${eventId}`;
+            const playStoreUrl = "https://play.google.com/store/apps/details?id=com.runastra.mobileapp";
+            
+            // Try to open the app
+            window.location.href = appUrl;
+
+            // Fallback to Play Store after a short delay if app doesn't open
+            setTimeout(() => {
+                // If we are still on this page after 2.5s, app probably didn't open
+                if (document.visibilityState === 'visible') {
+                    window.location.href = playStoreUrl;
+                }
+            }, 2500);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const images = document.querySelectorAll('.carousel img');
             let current = 0;

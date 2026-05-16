@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 export interface UserProfile {
     id: string;
@@ -21,7 +21,7 @@ export function useUserProfile() {
 
     const fetchProfile = useCallback(async () => {
         try {
-            const token = await AsyncStorage.getItem('authToken');
+            const token = await SecureStore.getItemAsync('authToken');
             const API_URL = process.env.EXPO_PUBLIC_API_URL;
             
             if (!token) {

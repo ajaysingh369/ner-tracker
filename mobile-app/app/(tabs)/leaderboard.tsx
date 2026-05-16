@@ -121,7 +121,7 @@ export default function LeaderboardScreen() {
             {(activeTab === 'global' ? globalData : challengeData).length === 0 && (
                 <View style={styles.emptyContainer}>
                     <Ionicons name="medal-outline" size={64} color="rgba(255,255,255,0.05)" />
-                    <Text style={styles.emptyText}>The race is heating up. Be the first to rank!</Text>
+                    <Text style={styles.emptyText}>The race is heating up. Be the first to join the leaderboard!</Text>
                 </View>
             )}
           </View>

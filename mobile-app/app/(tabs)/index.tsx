@@ -16,6 +16,7 @@ import Animated, {
   useAnimatedStyle
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
 import { useHealthData } from '../../hooks/useHealthData';
 import { useAstraTheme } from '../../hooks/useAstraTheme';
 import DigitalBIB from '../../components/DigitalBIB';
@@ -120,8 +121,8 @@ export default function HomeScreen() {
   }, []);
 
   const fetchHomeData = async () => {
-    const token = await AsyncStorage.getItem('authToken');
-    const athleteId = await AsyncStorage.getItem('athleteId');
+    const token = await SecureStore.getItemAsync('authToken');
+    const athleteId = await SecureStore.getItemAsync('athleteId');
     if (!athleteId) return;
     const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -164,10 +165,10 @@ export default function HomeScreen() {
           const completed = data.challenges.find((c: any) => c.status === 'completed');
           if (completed) {
             const celebratedKey = `celebrated_${completed.challengeId}`;
-            const hasCelebrated = await AsyncStorage.getItem(celebratedKey);
+            const hasCelebrated = await SecureStore.getItemAsync(celebratedKey);
             if (!hasCelebrated) {
               setCompletedChallenge(completed);
-              await AsyncStorage.setItem(celebratedKey, 'true');
+              await SecureStore.setItemAsync(celebratedKey, 'true');
             }
           }
         }
@@ -224,7 +225,7 @@ export default function HomeScreen() {
                 { 
                     text: "Accept Mission", 
                     onPress: async () => {
-                        const token = await AsyncStorage.getItem('authToken');
+                        const token = await SecureStore.getItemAsync('authToken');
                         const API_URL = process.env.EXPO_PUBLIC_API_URL;
                         const res = await fetch(`${API_URL}/challenges/join`, {
                             method: 'POST',
@@ -404,49 +405,89 @@ export default function HomeScreen() {
                 </View>
                 </TouchableOpacity>
 
-                {/* RUNNER SYNC */}
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Runner Sync</Text></View>
-        <LinearGradient colors={[`${colors.primary}26`, 'rgba(255, 255, 255, 0.02)']} style={[styles.stravaCardNew, { borderColor: `${colors.primary}4D` }]}>
-            <View style={styles.stravaHeaderRowNew}>
-                <View style={styles.stravaDot} />
-                <Text style={styles.stravaLabelNew}>LAST ACTIVITY • STRAVA</Text>
-                <View style={{ flex: 1 }} />
-                <Text style={styles.stravaTimeNew}>2h ago</Text>
+        {/* RUNNER SYNC */}
+        <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Runner Sync</Text>
+            {isStravaConnected && (
+                <TouchableOpacity onPress={() => router.push('/strava-dashboard')}>
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>VIEW DASHBOARD</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+
+        {!isStravaConnected ? (
+            <TouchableOpacity 
+                style={[styles.stravaCardNew, { padding: 25, alignItems: 'center', borderStyle: 'dashed' }]}
+                onPress={handleStravaConnect}
+            >
+                <Ionicons name="logo-octocat" size={32} color="#FC4C02" style={{ marginBottom: 10 }} />
+                <Text style={styles.stravaTitleNew}>Connect Strava</Text>
+                <Text style={[styles.stravaSubtextNew, { textAlign: 'center' }]}>Sync your runs, rides and walks to earn extra Zenith points.</Text>
+            </TouchableOpacity>
+        ) : lastActivity ? (
+            <TouchableOpacity 
+                activeOpacity={0.9} 
+                onPress={() => { Haptics.selectionAsync(); router.push('/strava-dashboard'); }}
+            >
+                <LinearGradient colors={[`${colors.primary}26`, 'rgba(255, 255, 255, 0.02)']} style={[styles.stravaCardNew, { borderColor: `${colors.primary}4D` }]}>
+                    <View style={styles.stravaHeaderRowNew}>
+                        <View style={styles.stravaDot} />
+                        <Text style={styles.stravaLabelNew}>LAST ACTIVITY • {lastActivity.type.toUpperCase()}</Text>
+                        <View style={{ flex: 1 }} />
+                        <Text style={styles.stravaTimeNew}>Recently synced</Text>
+                    </View>
+                    <View style={styles.stravaBodyNew}>
+                        <Text style={styles.stravaTitleNew}>{lastActivity.name}</Text>
+                        <Text style={styles.stravaSubtextNew}>{new Date(lastActivity.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+                        <View style={styles.stravaStatsGridNew}>
+                            <View>
+                                <Text style={styles.stravaMiniLabel}>DISTANCE</Text>
+                                <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>{lastActivity.distance}</Text><Text style={styles.stravaMiniUnit}>km</Text></View>
+                            </View>
+                            <View>
+                                <Text style={styles.stravaMiniLabel}>TIME</Text>
+                                <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>{Math.floor(lastActivity.movingTime / 60)}:{(lastActivity.movingTime % 60).toString().padStart(2, '0')}</Text></View>
+                            </View>
+                            <View>
+                                <Text style={styles.stravaMiniLabel}>{lastActivity.hasHeartrate ? 'HEART RATE' : 'INTENSITY'}</Text>
+                                <View style={styles.stravaMiniValRow}>
+                                    <Text style={[styles.stravaMiniVal, { fontSize: lastActivity.hasHeartrate ? 16 : 14 }]}>
+                                        {lastActivity.hasHeartrate ? Math.round(lastActivity.averageHeartrate) : (lastActivity.fuelSync?.intensity || 'Normal')}
+                                    </Text>
+                                    {lastActivity.hasHeartrate && <Text style={styles.stravaMiniUnit}>bpm</Text>}
+                                </View>
+                            </View>
+                        </View>
+                        
+                        {/* Elevation/Pace Graph Variation */}
+                        <Svg height="30" width="100%" style={{ marginTop: 20 }} viewBox="0 0 300 30" preserveAspectRatio="none">
+                            <Defs>
+                                <SvgGradient id="elev" x1="0" y1="0" x2="0" y2="1">
+                                    <Stop offset="0" stopColor={colors.primary} stopOpacity="0.3" />
+                                    <Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
+                                </SvgGradient>
+                            </Defs>
+                            {lastActivity.type === 'Run' ? (
+                                <>
+                                    <Path d="M0,25 L30,18 L60,22 L90,10 L120,15 L150,5 L180,12 L210,3 L240,15 L270,18 L300,22 L300,30 L0,30 Z" fill="url(#elev)" />
+                                    <Path d="M0,25 L30,18 L60,22 L90,10 L120,15 L150,5 L180,12 L210,3 L240,15 L270,18 L300,22" fill="none" stroke={colors.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </>
+                            ) : (
+                                <>
+                                    <Path d="M0,20 Q75,5 150,20 T300,20 L300,30 L0,30 Z" fill="url(#elev)" />
+                                    <Path d="M0,20 Q75,5 150,20 T300,20" fill="none" stroke={colors.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </>
+                            )}
+                        </Svg>
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
+        ) : (
+            <View style={[styles.stravaCardNew, { padding: 30, alignItems: 'center' }]}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={[styles.stravaSubtextNew, { marginTop: 10 }]}>Fetching Strava data...</Text>
             </View>
-            <View style={styles.stravaBodyNew}>
-                <Text style={styles.stravaTitleNew}>Cubbon Park morning loop 🌅</Text>
-                <Text style={styles.stravaSubtextNew}>Bengaluru • Easy run</Text>
-                <View style={styles.stravaStatsGridNew}>
-                    <View>
-                        <Text style={styles.stravaMiniLabel}>DISTANCE</Text>
-                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>5.2</Text><Text style={styles.stravaMiniUnit}>km</Text></View>
-                    </View>
-                    <View>
-                        <Text style={styles.stravaMiniLabel}>PACE</Text>
-                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>5'42"</Text><Text style={styles.stravaMiniUnit}>/km</Text></View>
-                    </View>
-                    <View>
-                        <Text style={styles.stravaMiniLabel}>TIME</Text>
-                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>29:48</Text></View>
-                    </View>
-                    <View>
-                        <Text style={styles.stravaMiniLabel}>HEART</Text>
-                        <View style={styles.stravaMiniValRow}><Text style={styles.stravaMiniVal}>142</Text><Text style={styles.stravaMiniUnit}>bpm</Text></View>
-                    </View>
-                </View>
-                {/* Elevation Graph Mock */}
-                <Svg height="50" width="100%" style={{ marginTop: 15 }} viewBox="0 0 300 50" preserveAspectRatio="none">
-                    <Defs>
-                        <SvgGradient id="elev" x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={colors.primary} stopOpacity="0.4" />
-                            <Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
-                        </SvgGradient>
-                    </Defs>
-                    <Path d="M0,40 L20,32 L40,28 L60,30 L90,18 L120,22 L150,12 L180,18 L210,8 L240,16 L270,24 L300,30 L300,50 L0,50 Z" fill="url(#elev)" />
-                    <Path d="M0,40 L20,32 L40,28 L60,30 L90,18 L120,22 L150,12 L180,18 L210,8 L240,16 L270,24 L300,30" fill="none" stroke={colors.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-            </View>
-        </LinearGradient>
+        )}
 
         {/* CHALLENGES */}
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>My Challenges</Text></View>

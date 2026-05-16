@@ -18,5 +18,9 @@
     "ioredis": "^5.5.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.10.0"
+  },
+  "devDependencies": {
+    "imagemin": "^9.0.1",
+    "imagemin-webp": "^8.0.0"
   }
 }

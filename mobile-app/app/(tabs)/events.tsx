@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, Linking, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, Linking, Alert, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
 export default function EventsScreen() {
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
-  const [pastEvents, setPastEvents] = useState<any[]>([]);
+  const [allEvents, setAllEvents] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
@@ -21,8 +21,8 @@ export default function EventsScreen() {
   const fetchEvents = async () => {
     setRefreshing(true);
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      const athleteId = await AsyncStorage.getItem('athleteId');
+      const token = await SecureStore.getItemAsync('authToken');
+      const athleteId = await SecureStore.getItemAsync('athleteId');
       const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const [eRes, uRes] = await Promise.all([
@@ -31,29 +31,40 @@ export default function EventsScreen() {
       ]);
 
       if (eRes.ok) {
-        const eData = await eRes.ok ? await eRes.json() : { events: [] };
-        const uData = await uRes.ok ? await uRes.json() : { challenges: [] };
+        const eData = await eRes.json();
+        const uData = uRes.ok ? await uRes.json() : { challenges: [] };
         
-        const allEvents = eData.events || [];
+        const rawEvents = eData.events || [];
         const myChallenges = uData.challenges || [];
 
         // Map "pending" or "approved" status from user's challenges to the event list
-        const processedEvents = allEvents.map((evt: any) => {
+        const processedEvents = rawEvents.map((evt: any) => {
             const myMatch = myChallenges.find((c: any) => c.challengeId === evt.SK);
             return { ...evt, myStatus: myMatch ? myMatch.status : null };
         });
 
-        setUpcomingEvents(processedEvents.filter((e: any) => e.status !== 'past'));
-        setPastEvents(processedEvents.filter((e: any) => e.status === 'past'));
+        setAllEvents(processedEvents);
       }
     } catch (e) { console.log('Error fetching events:', e); }
     setRefreshing(false);
   };
 
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return allEvents;
+    const query = searchQuery.toLowerCase();
+    return allEvents.filter(e => 
+      e.title?.toLowerCase().includes(query) || 
+      e.subtitle?.toLowerCase().includes(query)
+    );
+  }, [allEvents, searchQuery]);
+
+  const upcomingEvents = useMemo(() => filteredEvents.filter(e => e.status !== 'past'), [filteredEvents]);
+  const pastEvents = useMemo(() => filteredEvents.filter(e => e.status === 'past'), [filteredEvents]);
+
   const handleJoin = async (challengeId: string) => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      const athleteId = await AsyncStorage.getItem('athleteId');
+      const token = await SecureStore.getItemAsync('authToken');
+      const athleteId = await SecureStore.getItemAsync('athleteId');
       const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       const res = await fetch(`${API_URL}/challenges/join`, {
@@ -132,14 +143,34 @@ export default function EventsScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Events Hub</Text>
           <Text style={styles.subtitle}>Community runs, challenges, and memories.</Text>
+          
+          {/* SEARCH BAR */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color="#666677" style={styles.searchIcon} />
+            <TextInput
+                style={styles.searchInput}
+                placeholder="Search events..."
+                placeholderTextColor="#666677"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color="#666677" />
+                </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        <Text style={styles.sectionHeading}>Upcoming</Text>
-        <View style={styles.eventsGrid}>
-          {upcomingEvents.length > 0 ? upcomingEvents.map(e => renderEventCard(e, false)) : (
-            <Text style={styles.emptyText}>No upcoming events scheduled.</Text>
-          )}
-        </View>
+        {upcomingEvents.length > 0 && (
+            <>
+                <Text style={styles.sectionHeading}>Upcoming</Text>
+                <View style={styles.eventsGrid}>
+                    {upcomingEvents.map(e => renderEventCard(e, false))}
+                </View>
+            </>
+        )}
 
         {pastEvents.length > 0 && (
             <>
@@ -148,6 +179,13 @@ export default function EventsScreen() {
                     {pastEvents.map(e => renderEventCard(e, true))}
                 </View>
             </>
+        )}
+
+        {filteredEvents.length === 0 && !refreshing && (
+            <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={48} color="rgba(255,255,255,0.1)" />
+                <Text style={styles.emptyText}>No events found matching &quot;{searchQuery}&quot;</Text>
+            </View>
         )}
 
         <View style={{ height: 120 }} />
@@ -162,6 +200,9 @@ const styles = StyleSheet.create({
   header: { marginBottom: 30 },
   title: { fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: -1 },
   subtitle: { fontSize: 16, color: '#a0a0ab', marginTop: 8 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 15, marginTop: 25, height: 50, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 15, fontWeight: '500' },
   sectionHeading: { color: '#ff7a00', fontSize: 14, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 20 },
   eventsGrid: { gap: 15 },
   eventCardWrapper: { width: '100%' },
@@ -181,5 +222,7 @@ const styles = StyleSheet.create({
   disabledBtn: { backgroundColor: 'rgba(255,255,255,0.05)' },
   primaryBtnText: { color: '#000', fontWeight: '800', fontSize: 13 },
   secondaryBtnText: { color: '#ff7a00', fontWeight: '800', fontSize: 13 },
+  emptyContainer: { alignItems: 'center', marginTop: 50 },
   emptyText: { color: 'rgba(255,255,255,0.2)', fontSize: 14, fontWeight: '600', textAlign: 'center', marginTop: 20 }
 });
+

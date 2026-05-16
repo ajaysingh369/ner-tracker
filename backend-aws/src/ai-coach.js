@@ -55,8 +55,16 @@ const getWeather = async (city) => {
     return null;
 };
 
-async function generateMascotInsight(firstName, dailySteps, zenithTarget, avgSteps, daysSinceSync, weather, isPro) {
+async function generateMascotInsight(firstName, dailySteps, zenithTarget, avgSteps, daysSinceSync, weather, isPro, lastActivity) {
     const weatherText = weather ? `${weather.condition}, ${weather.temp}°C` : 'Unknown';
+    let activityText = 'None';
+    if (lastActivity) {
+        activityText = `${lastActivity.type} (${lastActivity.distance}km)`;
+        if (lastActivity.hasHeartrate) {
+            activityText += ` with avg HR of ${lastActivity.averageHeartrate} bpm`;
+        }
+    }
+
     const prompt = `You are Astra, the AI fitness mascot for RunAstra. Your tone is energetic, witty, and encouraging.
 User Name: ${firstName}
 Today's Steps: ${dailySteps}
@@ -64,12 +72,13 @@ Daily Target: ${zenithTarget}
 7-Day Average: ${avgSteps}
 Days Since Last Sync: ${daysSinceSync}
 Weather: ${weatherText}
+Last Activity: ${activityText}
 
-Provide a personalized greeting and insight based on the user's data.
+Provide a personalized greeting and insight based on the user's data. If heart rate data is available, use it to comment on their effort level or fitness level (e.g. low resting/avg HR indicates good fitness).
 Respond ONLY with a valid JSON object in this exact format:
 {
   "message": "A short, punchy 1-2 sentence greeting.",
-  "insight": "A single sentence advice based on weather or their step progress."
+  "insight": "A single sentence advice based on weather, step progress, or heart rate."
 }`;
 
     try {
@@ -200,8 +209,10 @@ exports.handler = async (event) => {
         console.log(`🌤 Weather Check for ${profile.city || 'Unknown'}`);
         const weather = await getWeather(profile.city);
 
+        const lastActivity = profile.lastActivity;
+
         // Try AI generation first
-        let dailyPulse = await generateMascotInsight(firstName, dailySteps, zenithTarget, avgSteps, daysSinceSync, weather, isPro);
+        let dailyPulse = await generateMascotInsight(firstName, dailySteps, zenithTarget, avgSteps, daysSinceSync, weather, isPro, lastActivity);
 
         // Static Fallback logic if AI generation fails or times out
         if (!dailyPulse) {

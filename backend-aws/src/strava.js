@@ -27,6 +27,8 @@ exports.handler = async (event) => {
             response = handleStravaRedirect(event);
         } else if (path.includes("/strava/callback") && method === "GET") {
             response = await handleStravaCallback(event);
+        } else if (path.includes("/strava/activities") && method === "GET") {
+            response = await handleGetActivities(event);
         } else if (path.includes("/strava/last-activity") && method === "GET") {
             response = await handleGetLastActivity(event);
         } else {
@@ -128,6 +130,67 @@ async function handleStravaCallback(event) {
     }
 }
 
+async function handleGetActivities(event) {
+    const { userId, per_page = 30 } = event.queryStringParameters || {};
+    if (!userId) return { statusCode: 400, body: "userId required" };
+
+    const getAuth = await ddbDocClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `USER#${userId}`, SK: "STRAVA_AUTH" }
+    }));
+
+    if (!getAuth.Item) return { statusCode: 404, body: JSON.stringify({ status: "error", message: "Strava not linked" }) };
+
+    try {
+        const auth = getAuth.Item;
+        let accessToken = auth.accessToken;
+        const nowEpoch = Math.floor(Date.now() / 1000);
+
+        if (auth.expiresAt < nowEpoch + 300) {
+            const res = await axios.post("https://www.strava.com/oauth/token", {
+                client_id: STRAVA_CLIENT_ID,
+                client_secret: STRAVA_CLIENT_SECRET,
+                refresh_token: auth.refreshToken,
+                grant_type: "refresh_token"
+            });
+            accessToken = res.data.access_token;
+            await ddbDocClient.send(new UpdateCommand({
+                TableName: TABLE_NAME,
+                Key: { PK: `USER#${userId}`, SK: "STRAVA_AUTH" },
+                UpdateExpression: "SET accessToken = :a, refreshToken = :r, expiresAt = :e",
+                ExpressionAttributeValues: { ":a": accessToken, ":r": res.data.refresh_token, ":e": res.data.expires_at }
+            }));
+        }
+
+        const actRes = await axios.get("https://www.strava.com/api/v3/athlete/activities", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { per_page }
+        });
+
+        const activities = actRes.data.map(raw => {
+            const distKm = raw.distance / 1000;
+            return {
+                id: raw.id,
+                name: raw.name,
+                distance: parseFloat(distKm.toFixed(2)),
+                type: raw.type,
+                startDate: raw.start_date,
+                movingTime: raw.moving_time,
+                averageSpeed: raw.average_speed,
+                totalElevationGain: raw.total_elevation_gain,
+                hasHeartrate: raw.has_heartrate,
+                averageHeartrate: raw.average_heartrate,
+                maxHeartrate: raw.max_heartrate
+            };
+        });
+
+        return { statusCode: 200, body: JSON.stringify({ status: "success", activities }) };
+    } catch (e) {
+        console.error("Strava Activities Fetch Failed:", e);
+        return { statusCode: 500, body: JSON.stringify({ status: "error", message: e.message }) };
+    }
+}
+
 async function handleGetLastActivity(event) {
     const { userId } = event.queryStringParameters || {};
     if (!userId) return { statusCode: 400, body: "userId required" };
@@ -206,6 +269,9 @@ async function refreshAndCacheLastActivity(userId, auth) {
             const summary = {
                 id: raw.id, name: raw.name, distance: parseFloat(distKm.toFixed(2)),
                 type: raw.type, startDate: raw.start_date, movingTime: raw.moving_time,
+                hasHeartrate: raw.has_heartrate,
+                averageHeartrate: raw.average_heartrate,
+                maxHeartrate: raw.max_heartrate,
                 fuelSync: { intensity, tip: nutritionTip },
                 heroTagline
             };

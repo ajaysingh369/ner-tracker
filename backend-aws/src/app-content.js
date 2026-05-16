@@ -27,6 +27,8 @@ exports.handler = async (event) => {
             response = await handleGetUserChallenges(event);
         } else if (path.endsWith("/challenges") && method === "GET") {
             response = await handleGetChallenges();
+        } else if (path.includes("/events/") && method === "GET") {
+            response = await handleGetEventById(event);
         } else if (path.endsWith("/events") && method === "GET") {
             response = await handleGetEvents();
         } else if (path.endsWith("/challenges/join") && method === "POST") {
@@ -164,6 +166,20 @@ async function handleGetEvents() {
         ExpressionAttributeValues: { ":pk": "EVENT" }
     }));
     return { statusCode: 200, body: JSON.stringify({ status: "success", events: result.Items }) };
+}
+
+async function handleGetEventById(event) {
+    const path = event.rawPath || event.path;
+    const eventId = path.split('/').pop();
+    if (!eventId) return { statusCode: 400, body: "eventId required" };
+
+    const result = await ddbDocClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: "EVENT", SK: eventId }
+    }));
+
+    if (!result.Item) return { statusCode: 404, body: JSON.stringify({ error: "Event not found" }) };
+    return { statusCode: 200, body: JSON.stringify({ status: "success", event: result.Item }) };
 }
 
 async function handleJoinChallenge(event) {

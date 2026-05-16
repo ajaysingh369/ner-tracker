@@ -4,12 +4,13 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Linking from 'expo-linking';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import Animated, { FadeOut, ZoomIn, FadeInDown } from 'react-native-reanimated';
 import { View, Image, Text, StyleSheet, Platform } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ThemeProvider as AstraThemeProvider } from '@/hooks/useAstraTheme';
+import { SecurityService } from '@/services/SecurityService';
 
 // Keep native splash visible until root layout is ready.
 SplashScreen.preventAutoHideAsync();
@@ -90,12 +91,23 @@ function RootLayoutContent() {
       SplashScreen.hideAsync().catch(() => {});
     }
 
+    // 🛡️ [Security] Run production audit
+    SecurityService.performSecurityCheck();
+
     // ── Deep Linking Handling ───────────────
     const handleDeepLink = (event: { url: string }) => {
       const data = Linking.parse(event.url);
+      console.log('🔗 Received Deep Link:', data);
+
       if (data.path === 'strava-callback') {
-        console.log('🔗 Strava callback detected.');
         router.replace('/(tabs)');
+      } else if (data.path === 'event' || (data.path && data.path.startsWith('event/'))) {
+        const eventId = data.queryParams?.id || data.path.split('/')[1];
+        if (eventId) {
+          // If app is still loading auth, we might need a small delay or state 
+          // For now, push to detail (which will handle fetching by ID)
+          router.push(`/event-detail?id=${eventId}`);
+        }
       }
     };
     const sub = Linking.addEventListener('url', handleDeepLink);
@@ -111,7 +123,7 @@ function RootLayoutContent() {
 
   const checkAuthAndOnboarding = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
+      const token = await SecureStore.getItemAsync('authToken');
       if (token) {
         const API_URL = process.env.EXPO_PUBLIC_API_URL;
         const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });

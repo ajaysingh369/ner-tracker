@@ -70,7 +70,9 @@ export default ({ config }) => {
             "kotlinVersion": "2.0.0",
             "minSdkVersion": 26,
             "compileSdkVersion": 36,
-            "targetSdkVersion": 36
+            "targetSdkVersion": 36,
+            "enableMinifyInReleaseBuilds": !IS_DEV,
+            "enableShrinkResourcesInReleaseBuilds": !IS_DEV
           },
           "ios": {
             "useFrameworks": "static"
