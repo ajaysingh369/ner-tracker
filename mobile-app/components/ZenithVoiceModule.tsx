@@ -5,10 +5,12 @@ import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
+import { useUserProfile } from '../hooks/useUserProfile';
 
 const { width } = Dimensions.get('window');
 
 export default function ZenithVoiceModule() {
+    const { isPro, loading: profileLoading } = useUserProfile();
     const [modalVisible, setModalVisible] = useState(false);
     const [recording, setRecording] = useState<Audio.Recording | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -101,10 +103,18 @@ export default function ZenithVoiceModule() {
         // Simulate network/AI processing delay
         setTimeout(() => {
             setIsAnalyzing(false);
-            setResult({
-                readiness: 82,
-                insight: "Your vocal biomarkers show a 12% drop in respiratory readiness compared to yesterday. You are slightly under-recovered. Downgrading today's Zenith goal to a light 5K is recommended."
-            });
+            if (isPro) {
+                setResult({
+                    readiness: 82,
+                    insight: "Your vocal biomarkers show a 12% drop in respiratory readiness compared to yesterday. You are slightly under-recovered. Downgrading today's Zenith goal to a light 5K is recommended."
+                });
+            } else {
+                setResult({
+                    readiness: '??',
+                    insight: "Upgrade to RunAstra Pro to unlock full vocal biomarker analysis and recovery predictions.",
+                    isPreview: true
+                });
+            }
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }, 3000);
     };
@@ -132,6 +142,11 @@ export default function ZenithVoiceModule() {
             >
                 <LinearGradient colors={['#ff7a00', '#ff453a']} style={styles.tabButtonInner}>
                     <Ionicons name="sparkles" size={28} color="#fff" />
+                    {!isPro && !profileLoading && (
+                        <View style={styles.lockBadge}>
+                            <Ionicons name="lock-closed" size={10} color="#fff" />
+                        </View>
+                    )}
                 </LinearGradient>
             </TouchableOpacity>
 
@@ -149,7 +164,14 @@ export default function ZenithVoiceModule() {
                                 <Ionicons name="close-circle" size={32} color="rgba(255,255,255,0.5)" />
                             </TouchableOpacity>
 
-                            <Text style={styles.title}>Zenith Voice Scan</Text>
+                            <View style={styles.headerArea}>
+                                <Text style={styles.title}>Zenith Voice Scan</Text>
+                                {!isPro && !profileLoading && (
+                                    <View style={styles.proBadge}>
+                                        <Text style={styles.proBadgeText}>PRO PREVIEW</Text>
+                                    </View>
+                                )}
+                            </View>
                             <Text style={styles.subtitle}>Analyzing vocal biomarkers for fatigue & recovery</Text>
 
                             <View style={styles.orbContainer}>
@@ -181,12 +203,31 @@ export default function ZenithVoiceModule() {
                                     <View style={styles.resultCard}>
                                         <View style={styles.scoreRow}>
                                             <Text style={styles.scoreLabel}>Readiness Score</Text>
-                                            <Text style={[styles.scoreValue, { color: result.readiness > 80 ? '#4ade80' : '#fbbf24' }]}>
+                                            <Text style={[styles.scoreValue, { color: result.isPreview ? '#666' : (result.readiness > 80 ? '#4ade80' : '#fbbf24') }]}>
                                                 {result.readiness}%
                                             </Text>
                                         </View>
                                         <View style={styles.divider} />
-                                        <Text style={styles.insightText}>"{result.insight}"</Text>
+                                        <Text style={[styles.insightText, result.isPreview && styles.previewText]}>
+                                            {result.insight}
+                                        </Text>
+                                        
+                                        {result.isPreview && (
+                                            <TouchableOpacity 
+                                                style={styles.upgradeBtn}
+                                                onPress={() => { setModalVisible(false); Linking.openURL('https://www.athleon.co.in'); }}
+                                            >
+                                                <LinearGradient 
+                                                    colors={['#ff7a00', '#ff453a']} 
+                                                    start={{x: 0, y: 0}} 
+                                                    end={{x: 1, y: 0}}
+                                                    style={styles.upgradeBtnGradient}
+                                                >
+                                                    <Text style={styles.upgradeBtnText}>Unlock Pro Analytics</Text>
+                                                    <Ionicons name="arrow-forward" size={16} color="#fff" />
+                                                </LinearGradient>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
                                 )}
                             </View>
@@ -218,15 +259,45 @@ const styles = StyleSheet.create({
         borderWidth: 4,
         borderColor: '#0d0d16',
     },
+    lockBadge: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
     fullScreenOverlay: {
         flex: 1,
-        backgroundColor: '#0d0d16', // Solid dark background to hide underlying screen
+        backgroundColor: '#0d0d16', 
     },
     modalContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+    },
+    headerArea: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 5,
+    },
+    proBadge: {
+        backgroundColor: '#ff7a00',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    proBadgeText: {
+        color: '#000',
+        fontSize: 10,
+        fontWeight: '900',
     },
     closeBtn: {
         position: 'absolute',
@@ -238,7 +309,6 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: '900',
         color: '#fff',
-        marginBottom: 10,
         textAlign: 'center',
     },
     subtitle: {
@@ -283,7 +353,7 @@ const styles = StyleSheet.create({
         shadowColor: '#ff453a',
     },
     statusArea: {
-        height: 200,
+        height: 220,
         justifyContent: 'flex-start',
         alignItems: 'center',
         width: '100%',
@@ -333,5 +403,29 @@ const styles = StyleSheet.create({
         fontSize: 14,
         lineHeight: 22,
         fontStyle: 'italic',
+    },
+    previewText: {
+        color: '#fff',
+        textAlign: 'center',
+        fontWeight: '600',
+        fontStyle: 'normal',
+        marginBottom: 20,
+    },
+    upgradeBtn: {
+        marginTop: 5,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    upgradeBtnGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        gap: 8,
+    },
+    upgradeBtnText: {
+        color: '#fff',
+        fontWeight: '900',
+        fontSize: 14,
     }
 });

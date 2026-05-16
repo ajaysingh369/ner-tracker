@@ -77,14 +77,101 @@ a { text-decoration: none; color: inherit; }
 .dot { color: var(--primary); }
 
 .phone-mockup {
-    position: relative; max-width: 320px; margin: 0 auto;
-    border-radius: 40px; padding: 8px; background: #222;
-    box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 100px rgba(255, 122, 0, 0.15);
+    position: relative;
+    width: 290px;
+    height: 580px;
+    margin: 0 auto;
+    background: #000;
+    border-radius: 44px;
+    padding: 10px;
+    box-shadow: 
+        0 30px 60px rgba(0,0,0,0.8),
+        0 0 100px rgba(255, 122, 0, 0.15),
+        inset 0 0 2px 2px rgba(255,255,255,0.1);
     transform: perspective(1000px) rotateY(-15deg) rotateX(5deg);
-    transition: transform 0.5s ease;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    z-index: 1;
 }
-.phone-mockup:hover { transform: perspective(1000px) rotateY(0deg) rotateX(0deg); }
-.phone-mockup img { width: 100%; border-radius: 32px; display: block; }
+
+.phone-mockup:hover {
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg) scale(1.05);
+}
+
+.phone-hardware .camera {
+    position: absolute;
+    top: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 12px;
+    background: #111;
+    border-radius: 50%;
+    z-index: 10;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.volume-btn, .power-btn {
+    position: absolute;
+    background: #222;
+    border-radius: 2px 0 0 2px;
+    left: -2px;
+}
+
+.volume-btn {
+    top: 100px;
+    width: 3px;
+    height: 60px;
+}
+
+.power-btn {
+    top: 180px;
+    width: 3px;
+    height: 40px;
+}
+
+.screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    border-radius: 36px;
+    overflow: hidden;
+    z-index: 5;
+}
+
+.carousel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.carousel img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out;
+}
+
+.carousel img.active {
+    opacity: 1;
+    z-index: 6;
+}
+
+.phone-reflection {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    border-radius: 44px;
+    pointer-events: none;
+    z-index: 10;
+}
 
 /* --- Features --- */
 .features-section { padding: 6rem 5%; background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }

@@ -7,8 +7,11 @@ import { useRouter, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAstraTheme, AstraTheme } from '../hooks/useAstraTheme';
+import { useUserProfile } from '../hooks/useUserProfile';
+import BottomSheetNotice from '../components/BottomSheetNotice';
 
 export default function ProfileScreen() {
+  const { isPro, refreshProfile } = useUserProfile();
   const { theme: activeTheme, colors, setTheme } = useAstraTheme();
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -17,7 +20,54 @@ export default function ProfileScreen() {
   const [formData, setFormData] = useState<any>({});
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isUpdatingPro, setIsUpdatingPro] = useState(false);
+  const [notice, setNotice] = useState<{visible: boolean, title: string, message: string, type: 'error' | 'success' | 'info'}>({
+      visible: false, title: '', message: '', type: 'info'
+  });
   const router = useRouter();
+
+  // Developer Toggle Logic: Only show for specific emails
+  const isDeveloper = profile?.email === 'dev@athleon.co.in' || 
+                      profile?.email === 'ajaysingh369@gmail.com' ||
+                      profile?.email?.includes('@athleon.co.in');
+
+  const toggleProPlan = async (value: boolean) => {
+      setIsUpdatingPro(true);
+      try {
+          const token = await AsyncStorage.getItem('authToken');
+          const API_URL = process.env.EXPO_PUBLIC_API_URL;
+          const res = await fetch(`${API_URL}/auth/profile`, {
+              method: 'PUT',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ isProUser: value })
+          });
+          
+          if (res.ok) {
+              setNotice({
+                  visible: true,
+                  title: 'Plan Updated',
+                  message: `Astra Pro has been ${value ? 'enabled' : 'disabled'} for your developer account.`,
+                  type: 'success'
+              });
+              refreshProfile();
+              fetchProfile(); // Sync local profile state
+          } else {
+              throw new Error('Failed to update');
+          }
+      } catch (e) {
+          setNotice({
+              visible: true,
+              title: 'Sync Error',
+              message: 'Could not update Pro status on the backend. Check your connection.',
+              type: 'error'
+          });
+      } finally {
+          setIsUpdatingPro(false);
+      }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -283,10 +333,41 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
 
+        {/* Developer Override Section */}
+        {isDeveloper && (
+            <View style={styles.devSection}>
+                <View style={styles.divider} />
+                <Text style={styles.devTitle}>Developer Controls</Text>
+                <View style={styles.settingRow}>
+                    <View style={styles.settingInfo}>
+                        <Ionicons name="flash" size={20} color="#ff7a00" />
+                        <Text style={styles.settingLabel}>Pro Mode Override</Text>
+                    </View>
+                    {isUpdatingPro ? (
+                        <ActivityIndicator size="small" color="#ff7a00" />
+                    ) : (
+                        <Switch 
+                            value={isPro} 
+                            onValueChange={toggleProPlan}
+                            trackColor={{ false: "#333", true: "#ff7a00" }} 
+                        />
+                    )}
+                </View>
+            </View>
+        )}
+
         <Text style={styles.versionText}>RunAstra Build v1.0.0 (MVP)</Text>
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <BottomSheetNotice 
+        visible={notice.visible}
+        title={notice.title}
+        message={notice.message}
+        type={notice.type}
+        onClose={() => setNotice({ ...notice, visible: false })}
+      />
 
       {/* Gender Picker Modal */}
       <Modal visible={showGenderPicker} transparent animationType="slide">
@@ -400,6 +481,9 @@ const styles = StyleSheet.create({
   modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   modalItemText: { color: '#a0a0ab', fontSize: 16, fontWeight: '600' },
   modalClose: { marginTop: 20, paddingVertical: 15, alignItems: 'center' },
-  modalCloseText: { color: '#ff453a', fontSize: 16, fontWeight: '800' }
+  modalCloseText: { color: '#ff453a', fontSize: 16, fontWeight: '800' },
+  devSection: { marginTop: 30, marginBottom: 20 },
+  devTitle: { color: '#ff7a00', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 15, textAlign: 'center' },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', width: '100%', marginBottom: 20 }
 });
 

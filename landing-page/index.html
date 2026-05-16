@@ -46,7 +46,20 @@
             </div>
             <div class="hero-image">
                 <div class="phone-mockup">
-                    <img src="assets/app-mockup.png" alt="RunAstra App Screenshot" />
+                    <div class="phone-hardware">
+                        <div class="camera"></div>
+                        <div class="volume-btn"></div>
+                        <div class="power-btn"></div>
+                    </div>
+                    <div class="screen">
+                        <div class="carousel">
+                            <img src="assets/home1.png" alt="RunAstra Home 1" class="active">
+                            <img src="assets/home2.png" alt="RunAstra Home 2">
+                            <img src="assets/home3.png" alt="RunAstra Home 3">
+                            <img src="assets/home4.png" alt="RunAstra Home 4">
+                        </div>
+                    </div>
+                    <div class="phone-reflection"></div>
                 </div>
             </div>
         </div>
@@ -149,5 +162,19 @@
             <p>&copy; 2026 Athleon. All rights reserved.</p>
         </div>
     </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const images = document.querySelectorAll('.carousel img');
+            let current = 0;
+
+            function nextImage() {
+                images[current].classList.remove('active');
+                current = (current + 1) % images.length;
+                images[current].classList.add('active');
+            }
+
+            setInterval(nextImage, 4000); // Change image every 4 seconds
+        });
+    </script>
 </body>
 </html>

@@ -26,6 +26,9 @@ import Skeleton from '../../components/Skeleton';
 import { MascotRenderer } from '../../components/Mascots';
 import AdCard from '../../components/AdCard';
 
+import StrideGuardStatus from '../../components/StrideGuardStatus';
+import AIFormCoachModule from '../../components/AIFormCoachModule';
+
 const { width, height } = Dimensions.get('window');
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -64,6 +67,7 @@ export default function HomeScreen() {
   const [showZenithInfo, setShowZenithInfo] = useState(false);
   const [showFuelSync, setShowFuelSync] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showFormCoach, setShowFormCoach] = useState(false);
   const [greeting, setGreeting] = useState('Namaste');
   
   const { dailySteps, dailyDistance, isAuthorized, needsPermission, error, openHealthConnectForPermission, requestAuthorization } = useHealthData();
@@ -380,10 +384,27 @@ export default function HomeScreen() {
                     <Text style={styles.aiBannerFooterText}>See full plan</Text>
                     <Ionicons name="arrow-forward" size={12} color="#a0a0ab" />
                 </View>
-            </View>
-        </TouchableOpacity>
+                </View>
+                </TouchableOpacity>
 
-        {/* RUNNER SYNC */}
+                {/* AI FORM COACH PRO PREVIEW */}
+                <TouchableOpacity 
+                style={[styles.aiBanner, { borderColor: '#4ade8033', marginTop: -20 }]} 
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowFormCoach(true); }}
+                >
+                <View style={[styles.aiSpark, { backgroundColor: '#4ade801a' }]}><Ionicons name="body" size={14} color="#4ade80" /></View>
+                <View style={{flex: 1}}>
+                <View style={styles.aiBannerHeader}>
+                    <Text style={[styles.aiBannerTag, { color: '#4ade80' }]}>Form Coach</Text>
+                    <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>
+                </View>
+                <Text style={styles.aiBannerText}>
+                    Analyze your running gait using Astra Vision. <Text style={{color: '#4ade80'}}>Prevent knee &amp; ankle injuries.</Text>
+                </Text>
+                </View>
+                </TouchableOpacity>
+
+                {/* RUNNER SYNC */}
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Runner Sync</Text></View>
         <LinearGradient colors={[`${colors.primary}26`, 'rgba(255, 255, 255, 0.02)']} style={[styles.stravaCardNew, { borderColor: `${colors.primary}4D` }]}>
             <View style={styles.stravaHeaderRowNew}>
@@ -467,11 +488,13 @@ export default function HomeScreen() {
                     </View>
                 </LinearGradient>
             </TouchableOpacity>
-        )}
+            )}
 
-        {/* UPCOMING EVENTS */}
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Upcoming Events</Text></View>
-        {loadingEvents ? (
+            {/* AI STRIDE GUARD */}
+            <StrideGuardStatus />
+
+            {/* UPCOMING EVENTS */}
+            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Upcoming Events</Text></View>        {loadingEvents ? (
           <View style={{ flexDirection: 'row', gap: 15 }}><Skeleton width={width * 0.7} height={180} borderRadius={28} /><Skeleton width={width * 0.7} height={180} borderRadius={28} /></View>
         ) : upcomingEvents.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
@@ -517,7 +540,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
                 {/* Interleave a Native Ad after the first Admin Banner */}
                 {idx === 0 && <AdCard />}
-              </React.Fragment>
+                </React.Fragment>
             ))}
             <View style={{ width: 20 }} />
           </ScrollView>
@@ -564,6 +587,8 @@ export default function HomeScreen() {
       {showBIB && lastActivity && userProfile && (
         <DigitalBIB userName={`${userProfile.firstName} ${userProfile.lastName}`} activityName={lastActivity.name} distance={lastActivity.distance.toString()} type={lastActivity.type} tagline={lastActivity.heroTagline || "Unstoppable force."} date={lastActivity.startDate} onClose={() => setShowBIB(false)} />
       )}
+
+      <AIFormCoachModule visible={showFormCoach} onClose={() => setShowFormCoach(false)} />
 
       {completedChallenge && userProfile && (
         <DigitalBIB 
@@ -682,6 +707,8 @@ const styles = StyleSheet.create({
   exploreBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
   recBadge: { alignSelf: 'flex-start', backgroundColor: '#ff7a00', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 4 },
   recBadgeText: { color: '#000', fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  proBadgeMini: { backgroundColor: '#4ade80', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginLeft: 8 },
+  proBadgeMiniText: { color: '#000', fontSize: 8, fontWeight: '900' },
   zenithModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   zenithModalContent: { width: '85%', borderRadius: 32, overflow: 'hidden' },
   zenithModalGradient: { padding: 35, alignItems: 'center' },
