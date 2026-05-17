@@ -5,10 +5,13 @@ import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as SecureStore from 'expo-secure-store';
 
+import { Analytics } from '../../services/AnalyticsService';
+
 export default function LoginScreen() {
   const router = useRouter();
 
   useEffect(() => {
+    Analytics.logScreenView('Login');
     const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '711450684323-i0eipeflennfe9q6i9aldh9a2mhffk0r.apps.googleusercontent.com';
     GoogleSignin.configure({ 
       webClientId, 

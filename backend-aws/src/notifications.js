@@ -63,12 +63,16 @@ async function processUserPush(user) {
                 title: `Rise & Run, ${user.firstName}! 🚀`,
                 body: text,
             },
+            data: {
+                screen: "/explore" // Deep link to AI Coach tab
+            },
             token: user.fcmToken,
             android: {
                 priority: "high",
                 notification: {
                     color: "#ff7a00",
-                    sound: "default"
+                    sound: "default",
+                    clickAction: "FLUTTER_NOTIFICATION_CLICK" // Standard action for many wrappers
                 }
             }
         };

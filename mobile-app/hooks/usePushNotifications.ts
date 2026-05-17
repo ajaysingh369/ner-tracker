@@ -2,18 +2,46 @@ import { useEffect } from 'react';
 import { Platform, Alert } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import * as SecureStore from 'expo-secure-store';
+import { useRouter } from 'expo-router';
 
 export function usePushNotifications() {
+  const router = useRouter();
+
   useEffect(() => {
     requestUserPermission();
     
-    // Listen to foreground messages
+    // 1. Handle foreground messages
     const unsubscribe = messaging().onMessage(async remoteMessage => {
       Alert.alert(
         remoteMessage.notification?.title || 'RunAstra Insight',
-        remoteMessage.notification?.body
+        remoteMessage.notification?.body,
+        [
+          { text: 'View Coach', onPress: () => router.push('/explore') },
+          { text: 'Later', style: 'cancel' }
+        ]
       );
     });
+
+    // 2. Handle background message clicks
+    messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log('🔗 Notification caused app to open from background:', remoteMessage.data);
+      if (remoteMessage.data?.screen) {
+        router.push(remoteMessage.data.screen as any);
+      }
+    });
+
+    // 3. Handle quit-state (cold start) message clicks
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage) {
+          console.log('🔗 Notification caused app to open from quit state:', remoteMessage.data);
+          if (remoteMessage.data?.screen) {
+             // Small delay to ensure navigation is ready
+             setTimeout(() => router.push(remoteMessage.data?.screen as any), 1000);
+          }
+        }
+      });
 
     return unsubscribe;
   }, []);

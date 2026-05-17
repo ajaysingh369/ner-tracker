@@ -39,8 +39,12 @@ export default function ProfileScreen() {
   const toggleProPlan = async (value: boolean) => {
       setIsUpdatingPro(true);
       try {
-          const token = await AsyncStorage.getItem('authToken');
+          const token = await SecureStore.getItemAsync('authToken');
+          const athleteId = await SecureStore.getItemAsync('athleteId');
           const API_URL = process.env.EXPO_PUBLIC_API_URL;
+          
+          console.log(`🛡️ Developer Pro Toggle: Setting ${value} for ${athleteId}`);
+
           const res = await fetch(`${API_URL}/auth/profile`, {
               method: 'PUT',
               headers: { 
@@ -57,15 +61,17 @@ export default function ProfileScreen() {
                   message: `Astra Pro has been ${value ? 'enabled' : 'disabled'} for your developer account.`,
                   type: 'success'
               });
-              refreshProfile();
+              await refreshProfile();
           } else {
-              throw new Error('Failed to update');
+              const err = await res.json();
+              throw new Error(err.error || 'Failed to update');
           }
-      } catch (e) {
+      } catch (e: any) {
+          console.error('❌ Pro Toggle Error:', e);
           setNotice({
               visible: true,
               title: 'Sync Error',
-              message: 'Could not update Pro status on the backend. Check your connection.',
+              message: e.message || 'Could not update Pro status on the backend.',
               type: 'error'
           });
       } finally {

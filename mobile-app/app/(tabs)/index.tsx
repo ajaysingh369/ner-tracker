@@ -31,6 +31,8 @@ import StrideGuardStatus from '../../components/StrideGuardStatus';
 import AIFormCoachModule from '../../components/AIFormCoachModule';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
+import { Analytics } from '../../services/AnalyticsService';
+
 const { width, height } = Dimensions.get('window');
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 

@@ -4,9 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import BottomSheetNotice from '../../components/BottomSheetNotice';
-
-const { width } = Dimensions.get('window');
+import { Stack } from 'expo-router';
+import BuyProModal from '../../components/BuyProModal';
+import { Analytics } from '../../services/AnalyticsService';
 
 export default function AICoachScreen() {
   const [data, setData] = useState<any>(null);
@@ -16,6 +16,7 @@ export default function AICoachScreen() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
+    Analytics.logScreenView('AICoach');
     fetchAIPlan();
     fetchUserCity();
   }, []);
@@ -66,12 +67,13 @@ export default function AICoachScreen() {
   };
 
   const handleUpgrade = () => {
+    Analytics.logProInterest('AICoachMasterplan');
     setShowUpgradeModal(true);
   };
 
   if (loading && !data) {
     return (
-      <View style={styles.loadingBox}>
+      <View style={[styles.loadingBox, { backgroundColor: '#08080a' }]}>
         <ActivityIndicator size="large" color="#ff7a00" />
         <Text style={styles.loadingText}>Analyzing your profile...</Text>
       </View>
@@ -154,14 +156,8 @@ export default function AICoachScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      <BottomSheetNotice 
-        visible={showUpgradeModal}
-        title="🚀 Unlock Astra Pro"
-        message="Get deep tactical analysis, recovery predictions, and professional cross-training plans for the price of a coffee! Payments are currently being set up. Stay tuned!"
-        type="info"
-        onClose={() => setShowUpgradeModal(false)}
-      />
-    </LinearGradient>
+      <BuyProModal visible={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+    </View>
   );
 }
 
