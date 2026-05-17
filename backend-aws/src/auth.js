@@ -43,7 +43,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ error: "Internal Server Error" }),
+            body: JSON.stringify({ error: "Internal Server Error: " + error.message }),
         };
     }
 };
@@ -60,20 +60,28 @@ async function handleGoogleAuth(event) {
     }
 
     let payload;
-    if (idToken.startsWith("mock_")) {
-        payload = {
-            sub: `mock_${idToken.split("_")[1]}`,
-            email: "tester@runastra.com",
-            given_name: "Run",
-            family_name: "Tester",
-            picture: "",
+    try {
+        if (idToken.startsWith("mock_")) {
+            payload = {
+                sub: `mock_${idToken.split("_")[1]}`,
+                email: "tester@runastra.com",
+                given_name: "Run",
+                family_name: "Tester",
+                picture: "",
+            };
+        } else {
+            const ticket = await googleClient.verifyIdToken({
+                idToken: idToken,
+                audience: MOBILE_GOOGLE_CLIENT_ID,
+            });
+            payload = ticket.getPayload();
+        }
+    } catch (tokenErr) {
+        console.error("Token verification error:", tokenErr);
+        return {
+            statusCode: 401,
+            body: JSON.stringify({ status: "error", error: "Token verification failed: " + tokenErr.message }),
         };
-    } else {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: idToken,
-            audience: MOBILE_GOOGLE_CLIENT_ID,
-        });
-        payload = ticket.getPayload();
     }
 
     const { sub: googleId, email, given_name, family_name, picture } = payload;
@@ -178,7 +186,7 @@ async function handleUpdateProfile(event) {
         const decoded = jwt.verify(token, JWT_SECRET);
         const body = JSON.parse(event.body || "{}");
         
-        const allowedFields = ['gender', 'dob', 'height', 'weight', 'dailyStepGoal', 'onboardingComplete', 'aiConsent', 'partnerSharingConsent', 'city'];
+        const allowedFields = ['gender', 'dob', 'height', 'weight', 'dailyStepGoal', 'onboardingComplete', 'aiConsent', 'partnerSharingConsent', 'city', 'isProUser'];
         let expressions = ["#u = :u"];
         let attrNames = { "#u": "updatedAt" };
         let attrValues = { ":u": new Date().toISOString() };

@@ -241,12 +241,11 @@ export default function ZenithVoiceModule() {
 
 const styles = StyleSheet.create({
     tabButton: {
-        top: -20,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#ff7a00',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
         shadowRadius: 15,
         elevation: 10,
     },

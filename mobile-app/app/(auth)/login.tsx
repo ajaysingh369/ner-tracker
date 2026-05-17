@@ -1,7 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -11,8 +9,7 @@ export default function LoginScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '259225054743-ruepf7b9lprfdjqfih3o56a499p1r8dk.apps.googleusercontent.com';
-    console.log(`📱 Configuring Google Flow for Release...`);
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '711450684323-i0eipeflennfe9q6i9aldh9a2mhffk0r.apps.googleusercontent.com';
     GoogleSignin.configure({ 
       webClientId, 
       offlineAccess: true,
@@ -43,7 +40,7 @@ export default function LoginScreen() {
         await SecureStore.setItemAsync('authToken', data.token);
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Backend Error', data.error);
+        Alert.alert('Backend Error', data.error || 'Failed to authenticate on the server.');
       }
     } catch (error: any) {
       const errMsg = error?.message || String(error);
@@ -66,15 +63,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#1c1c28', '#08080a']} // Extremely deep premium obsidian
-      style={styles.container}
-    >
-      {/* Abstract Design Elements */}
-      <View style={[styles.abstractCircle, { top: -100, right: -50, backgroundColor: 'rgba(255, 122, 0, 0.4)' }]} />
-      <View style={[styles.abstractCircle, { bottom: -150, left: -100, backgroundColor: 'rgba(0, 176, 185, 0.3)' }]} />
-
-      <BlurView intensity={20} style={styles.content}>
+    <View style={styles.container}>
+      <View style={styles.content}>
         
         <View style={styles.header}>
           <Text style={styles.welcomeText}>Welcome to</Text>
@@ -97,8 +87,8 @@ export default function LoginScreen() {
           </Text>
         </View>
         
-      </BlurView>
-    </LinearGradient>
+      </View>
+    </View>
   );
 }
 
@@ -107,13 +97,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  abstractCircle: {
-    position: 'absolute',
-    width: 350,
-    height: 350,
-    borderRadius: 175,
-    opacity: 0.6,
+    backgroundColor: '#08080a', // Solid flat color, no gradients
   },
   content: {
     flex: 1,

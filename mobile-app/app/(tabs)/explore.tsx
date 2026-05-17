@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BottomSheetNotice from '../../components/BottomSheetNotice';
 
 const { width } = Dimensions.get('window');
 
@@ -12,6 +13,7 @@ export default function AICoachScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userCity, setUserCity] = useState('your city');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     fetchAIPlan();
@@ -64,14 +66,7 @@ export default function AICoachScreen() {
   };
 
   const handleUpgrade = () => {
-    Alert.alert(
-      "🚀 Unlock Astra Pro",
-      "Get deep tactical analysis, recovery predictions, and professional cross-training plans for the price of a coffee!",
-      [
-        { text: "Later", style: "cancel" },
-        { text: "Go Pro", onPress: () => Alert.alert("Coming Soon", "We are setting up secure payments. Stay tuned!") }
-      ]
-    );
+    setShowUpgradeModal(true);
   };
 
   if (loading && !data) {
@@ -84,9 +79,18 @@ export default function AICoachScreen() {
   }
 
   return (
-    <LinearGradient colors={['#1c1d2e', '#0d0d16']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#08080a' }]}>
+      <Stack.Screen options={{ 
+        title: 'Astra AI', 
+        headerShown: true,
+        headerStyle: { backgroundColor: '#08080a' },
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: '900' },
+        headerShadowVisible: false
+      }} />
+
       <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+        contentContainerStyle={[styles.scrollContent, { backgroundColor: '#08080a' }]} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAIPlan(); }} tintColor="#ff7a00" />}
       >
@@ -139,7 +143,7 @@ export default function AICoachScreen() {
                  <Ionicons name="sparkles" size={32} color="#ff7a00" />
               </View>
               <Text style={styles.proTeaserTitle}>Go Pro for Deep Insights</Text>
-              <Text style={styles.proTeaserDesc}>{data?.proTeaser}</Text>
+              <Text style={styles.proTeaserDesc}>{data?.proTeaser || "Unlock full 7-day tactical analysis and recovery predictions."}</Text>
               <View style={styles.upgradeBtn}>
                  <Text style={styles.upgradeBtnText}>Unlock Pro Masterplan</Text>
               </View>
@@ -149,6 +153,14 @@ export default function AICoachScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      <BottomSheetNotice 
+        visible={showUpgradeModal}
+        title="🚀 Unlock Astra Pro"
+        message="Get deep tactical analysis, recovery predictions, and professional cross-training plans for the price of a coffee! Payments are currently being set up. Stay tuned!"
+        type="info"
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </LinearGradient>
   );
 }

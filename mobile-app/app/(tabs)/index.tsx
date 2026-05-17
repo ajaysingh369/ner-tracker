@@ -29,6 +29,7 @@ import AdCard from '../../components/AdCard';
 
 import StrideGuardStatus from '../../components/StrideGuardStatus';
 import AIFormCoachModule from '../../components/AIFormCoachModule';
+import { useUserProfile } from '../../hooks/useUserProfile';
 
 const { width, height } = Dimensions.get('window');
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -42,6 +43,7 @@ const circumference = radius * 2 * Math.PI;
 
 export default function HomeScreen() {
   const { colors } = useAstraTheme();
+  const { profile: userProfile, loading: loadingProfile } = useUserProfile();
   
   // ── States with individual loading flags ──────────────────────────────
   const [isStravaConnected, setIsStravaConnected] = useState(false);
@@ -52,7 +54,6 @@ export default function HomeScreen() {
   const [communityHero, setCommunityHero] = useState<any>(null);
   const [stepGoal, setStepGoal] = useState(10000);
   const [zenith, setZenith] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const [completedChallenge, setCompletedChallenge] = useState<any>(null);
   const [forceZenithTrigger, setForceZenithTrigger] = useState(0);
   const lastTap = useRef(0);
@@ -75,27 +76,27 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
+  // Update stepGoal when profile changes
+  useEffect(() => {
+    if (!loadingStrava && !isStravaConnected && userProfile?.lastActivity) {
+       setLastActivity(userProfile.lastActivity);
+       setIsStravaConnected(true);
+    }
+  }, [userProfile, isStravaConnected, loadingStrava]);
+
   // Progress logic
   const isZenithAchieved = zenith && dailySteps >= zenith.target;
   const targetProgress = Math.min((dailySteps / stepGoal), 1);
   const strokeDashoffsetValue = circumference - (circumference * targetProgress);
 
-  // ── Reanimated Values ──────────────────────────────────────────────────
-  const zenithGlow = useSharedValue(0.3);
+  // ── Reanimated Values (Simplified for performance) ───────────────────────
   const pulseScale = useSharedValue(1);
-  const ringUiOpacity = useSharedValue(1); // Controls ring text visibility
+  const ringUiOpacity = useSharedValue(0); // Start hidden for smooth fade-in
 
   useEffect(() => {
-    zenithGlow.value = withRepeat(withSequence(withTiming(0.8, { duration: 1500 }), withTiming(0.3, { duration: 1500 })), -1, true);
     pulseScale.value = withRepeat(withSequence(withTiming(1.03, { duration: 2000 }), withTiming(1, { duration: 2000 })), -1, true);
+    ringUiOpacity.value = withTiming(1, { duration: 800 });
   }, []);
-
-  const animatedGlowProps = useAnimatedProps(() => ({
-    opacity: zenithGlow.value,
-    strokeWidth: strokeWidth + (20 * zenithGlow.value),
-    strokeDashoffset: strokeDashoffsetValue,
-    strokeDasharray: circumference
-  }));
 
   const animatedPulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }]
@@ -121,73 +122,62 @@ export default function HomeScreen() {
   }, []);
 
   const fetchHomeData = async () => {
-    const token = await SecureStore.getItemAsync('authToken');
     const athleteId = await SecureStore.getItemAsync('athleteId');
     if (!athleteId) return;
     const API_URL = process.env.EXPO_PUBLIC_API_URL;
+    const token = await SecureStore.getItemAsync('authToken');
 
-    // ── Individual Data Fetches for granular loading ──────────────────────
+    // ── Optimized Parallel Fetches ─────────────────────────────────────────
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
     const safeFetch = (url: string) => fetch(url, { headers: headers as any }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    // 1. Profile & Goal
-    safeFetch(`${API_URL}/auth/me`).then(data => {
-        if (data?.user) {
-            setUserProfile(data.user);
-            if (data.user.dailyStepGoal) setStepGoal(parseInt(data.user.dailyStepGoal));
-        }
-    });
-
-    // 2. Strava & FuelSync
-    safeFetch(`${API_URL}/strava/last-activity?userId=${athleteId}`).then(data => {
-        if (data?.status === 'success' && data.activity) {
-          setLastActivity(data.activity);
-          setIsStravaConnected(true);
+    // Run critical UI data in parallel to eliminate waterfall lag
+    Promise.all([
+        safeFetch(`${API_URL}/strava/last-activity?userId=${athleteId}`),
+        safeFetch(`${API_URL}/mobile/history?athleteId=${athleteId}&range=weekly`),
+        safeFetch(`${API_URL}/user/challenges?userId=${athleteId}`)
+    ]).then(([stravaData, historyData, challengesData]) => {
+        if (stravaData?.status === 'success' && stravaData.activity) {
+            setLastActivity(stravaData.activity);
+            setIsStravaConnected(true);
         } else {
-          setIsStravaConnected(false);
+            setIsStravaConnected(false);
         }
         setLoadingStrava(false);
-    });
 
-    // 3. History & Zenith
-    safeFetch(`${API_URL}/mobile/history?athleteId=${athleteId}&range=weekly`).then(data => {
-        if (data?.success && data.zenith) setZenith(data.zenith);
+        if (historyData?.success && historyData.zenith) setZenith(historyData.zenith);
         setLoadingHistory(false);
-    });
 
-    // 4. Active Challenges
-    safeFetch(`${API_URL}/user/challenges?userId=${athleteId}`).then(async data => {
-        if (data?.status === 'success') {
-          setActiveChallenges(data.challenges);
-          
-          // Check for newly completed challenges
-          const completed = data.challenges.find((c: any) => c.status === 'completed');
-          if (completed) {
-            const celebratedKey = `celebrated_${completed.challengeId}`;
-            const hasCelebrated = await SecureStore.getItemAsync(celebratedKey);
-            if (!hasCelebrated) {
-              setCompletedChallenge(completed);
-              await SecureStore.setItemAsync(celebratedKey, 'true');
+        if (challengesData?.status === 'success') {
+            setActiveChallenges(challengesData.challenges);
+            // Non-blocking celebration check
+            const completed = challengesData.challenges.find((c: any) => c.status === 'completed');
+            if (completed) {
+                const celebratedKey = `celebrated_${completed.challengeId}`;
+                SecureStore.getItemAsync(celebratedKey).then(hasCelebrated => {
+                    if (!hasCelebrated) {
+                        setCompletedChallenge(completed);
+                        SecureStore.setItemAsync(celebratedKey, 'true');
+                    }
+                });
             }
-          }
         }
         setLoadingChallenges(false);
     });
 
-    // 5. Upcoming Events
+    // 5. Upcoming Events (Secondary)
     safeFetch(`${API_URL}/events`).then(data => {
         if (data?.status === 'success') setUpcomingEvents(data.events.filter((e: any) => e.status !== 'past'));
         setLoadingEvents(false);
     });
 
-    // 6. Community Hero
+    // 6. Community Hero (Secondary)
     safeFetch(`${API_URL}/community/hero`).then(data => {
         if (data?.status === 'success') setCommunityHero(data.hero);
         setLoadingHero(false);
     });
 
-    // 7. Banners
+    // 7. Banners (Secondary)
     safeFetch(`${API_URL}/banners`).then(data => {
         if (data?.status === 'success') setBanners(data.banners);
         setLoadingBanners(false);

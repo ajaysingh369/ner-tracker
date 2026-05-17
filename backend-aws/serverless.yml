@@ -1,0 +1,92 @@
+service: runastra-backend
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  stage: prod
+  # Using the existing role to maintain permissions (DynamoDB, Bedrock, etc.)
+  iam:
+    role: arn:aws:iam::736786103826:role/RunAstraLambdaRole
+  httpApi:
+    id: dcf3ug0lfl # Attach to existing RunAstraAPI
+  environment:
+    DYNAMODB_TABLE: ${env:DYNAMODB_TABLE}
+    TABLE_NAME: ${env:TABLE_NAME}
+    JWT_SECRET: ${env:JWT_SECRET}
+    INTERNAL_SECRET: ${env:INTERNAL_SECRET}
+
+functions:
+  auth:
+    handler: src/auth.handler
+    environment:
+      MOBILE_GOOGLE_CLIENT_ID: ${env:MOBILE_GOOGLE_CLIENT_ID}
+      GOOGLE_WEB_CLIENT_ID: ${env:GOOGLE_WEB_CLIENT_ID}
+    events:
+      - httpApi: 'POST /auth/google'
+      - httpApi: 'GET /auth/me'
+      - httpApi: 'PUT /auth/profile'
+
+  sync:
+    handler: src/sync.handler
+    events:
+      - httpApi: 'POST /mobile/sync'
+      - httpApi: 'GET /mobile/history'
+
+  content:
+    handler: src/app-content.handler
+    environment:
+      OPENWEATHER_API_KEY: ${env:OPENWEATHER_API_KEY}
+      ADMIN_PASSWORD: ${env:ADMIN_PASSWORD}
+    events:
+      - httpApi: 'GET /ai/coach'
+      - httpApi: 'GET /banners'
+      - httpApi: 'GET /community/hero'
+      - httpApi: 'GET /user/challenges'
+      - httpApi: 'GET /challenges'
+      - httpApi: 'GET /events'
+      - httpApi: 'GET /events/{eventId}'
+      - httpApi: 'POST /challenges/join'
+
+  strava:
+    handler: src/strava.handler
+    environment:
+      STRAVA_CLIENT_ID: ${env:STRAVA_CLIENT_ID}
+      STRAVA_CLIENT_SECRET: ${env:STRAVA_CLIENT_SECRET}
+    events:
+      - httpApi: 'GET /strava/last-activity'
+      - httpApi: 'GET /auth/strava'
+      - httpApi: 'GET /strava/callback'
+      - httpApi: 'GET /strava/activities'
+
+  admin:
+    handler: src/admin.handler
+    environment:
+      ADMIN_PASSWORD: ${env:ADMIN_PASSWORD}
+      ASSETS_BUCKET: ${env:ASSETS_BUCKET}
+    events:
+      - httpApi: 'POST /admin/login'
+      - httpApi: 'POST /admin/banners'
+      - httpApi: 'GET /admin/challenge/participants'
+      - httpApi: 'POST /admin/events'
+      - httpApi: 'GET /admin/registrations'
+      - httpApi: 'DELETE /admin/item'
+      - httpApi: 'POST /admin/users'
+      - httpApi: 'GET /admin/challenge/export'
+      - httpApi: 'GET /admin/users'
+      - httpApi: 'POST /admin/challenges'
+      - httpApi: 'POST /admin/registrations/approve'
+
+  social:
+    handler: src/leaderboard.handler
+    events:
+      - httpApi: 'GET /leaderboard/global'
+      - httpApi: 'GET /leaderboard/challenge'
+
+package:
+  individually: false # Zip all together for shared helpers (db.js, progress-engine.js)
+  patterns:
+    - src/**
+    - "!test/**"
+    - "!.git/**"
+    - "!.env"

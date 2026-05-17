@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { Audio } from 'expo-av';
 import { Alert } from 'react-native';
 import { STRIDE_GUARD_TASK } from '../scripts/StrideGuardTask';
 import { useUserProfile } from './useUserProfile';
@@ -35,6 +36,12 @@ export function useStrideGuard() {
         const { status: background } = await Location.requestBackgroundPermissionsAsync();
         if (background !== 'granted') {
             Alert.alert("Background Access Required", "Stride Guard needs background location access to monitor your form even when the screen is off.");
+            return;
+        }
+
+        const { status: mic } = await Audio.requestPermissionsAsync();
+        if (mic !== 'granted') {
+            Alert.alert("Microphone Access Required", "Stride Guard needs microphone access to analyze your running acoustics for injury prevention.");
             return;
         }
 

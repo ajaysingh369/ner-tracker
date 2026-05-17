@@ -5,14 +5,16 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "zip": "powershell.exe -Command \"Compress-Archive -Path src/*, node_modules -DestinationPath lambda.zip -Force\"",
-    "deploy-auth": "npm run zip && aws lambda update-function-code --function-name RunAstraAuth --zip-file fileb://lambda.zip",
-    "deploy-sync": "npm run zip && aws lambda update-function-code --function-name RunAstraSync --zip-file fileb://lambda.zip",
-    "deploy-content": "npm run zip && aws lambda update-function-code --function-name RunAstraContent --zip-file fileb://lambda.zip",
-    "deploy-strava": "npm run zip && aws lambda update-function-code --function-name RunAstraStrava --zip-file fileb://lambda.zip",
-    "deploy-social": "npm run zip && aws lambda update-function-code --function-name RunAstraSocial --zip-file fileb://lambda.zip",
-    "deploy-admin": "npm run zip && aws lambda update-function-code --function-name RunAstraAdmin --zip-file fileb://lambda.zip",
-    "deploy-all": "npm run zip && npm run deploy-auth && npm run deploy-sync && npm run deploy-content && npm run deploy-strava && npm run deploy-social && npm run deploy-admin"
+    "zip": "powershell.exe -Command \"Remove-Item lambda.zip -ErrorAction SilentlyContinue; Compress-Archive -Path src/*, node_modules -DestinationPath lambda.zip\"",
+    "deploy-auth": "aws lambda update-function-code --no-cli-pager --function-name RunAstraAuth --zip-file fileb://lambda.zip",
+    "deploy-sync": "aws lambda update-function-code --no-cli-pager --function-name RunAstraSync --zip-file fileb://lambda.zip",
+    "deploy-content": "aws lambda update-function-code --no-cli-pager --function-name RunAstraContent --zip-file fileb://lambda.zip",
+    "deploy-strava": "aws lambda update-function-code --no-cli-pager --function-name RunAstraStrava --zip-file fileb://lambda.zip",
+    "deploy-social": "aws lambda update-function-code --no-cli-pager --function-name RunAstraSocial --zip-file fileb://lambda.zip",
+    "deploy-admin": "aws lambda update-function-code --no-cli-pager --function-name RunAstraAdmin --zip-file fileb://lambda.zip",
+    "deploy-all": "npm run zip && npm run deploy-auth && npm run deploy-sync && npm run deploy-content && npm run deploy-strava && npm run deploy-social && npm run deploy-admin",
+    "deploy": "npx serverless deploy",
+    "offline": "npx serverless offline"
   },
   "keywords": [],
   "author": "",
@@ -27,5 +29,9 @@
     "axios": "^1.8.1",
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "serverless": "^3.39.0",
+    "serverless-offline": "^13.3.3"
   }
 }

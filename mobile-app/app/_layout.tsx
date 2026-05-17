@@ -39,11 +39,15 @@ function CustomSplash({ onFinish }: { onFinish: () => void }) {
         style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1a1a24', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }]}
       >
         <Image 
-          source={require('../assets/images/splash-icon-light.png')} 
-          style={{ width: 180, height: 180 }} 
+          source={require('../assets/images/icon.png')} 
+          style={{ width: 140, height: 140 }} 
           resizeMode="contain" 
         />
-        <Text style={{ color: '#a0a0ab', fontSize: 15, fontWeight: '800', marginTop: 25, letterSpacing: 3, textTransform: 'uppercase' }}>
+        <View style={{ alignItems: 'center', marginTop: 20 }}>
+          <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: -1 }}>RunAstra</Text>
+          <Text style={{ color: '#ff7a00', fontSize: 10, fontWeight: '800', letterSpacing: 2, marginTop: -2, opacity: 0.8 }}>BY ATHLEON</Text>
+        </View>
+        <Text style={{ color: '#a0a0ab', fontSize: 14, fontWeight: '700', marginTop: 40, letterSpacing: 3, textTransform: 'uppercase', opacity: 0.6 }}>
           Move. Improve. Repeat.
         </Text>
       </Animated.View>
@@ -57,13 +61,22 @@ function CustomSplash({ onFinish }: { onFinish: () => void }) {
     >
         <Animated.Image 
            entering={ZoomIn.duration(800).springify().damping(14)} 
-           source={require('../assets/images/splash-icon-light.png')} 
-           style={{ width: 180, height: 180 }} 
+           source={require('../assets/images/icon.png')} 
+           style={{ width: 140, height: 140 }} 
            resizeMode="contain" 
         />
+        
+        <Animated.View 
+           entering={FadeInDown.delay(300).duration(800)}
+           style={{ alignItems: 'center', marginTop: 20 }}
+        >
+          <Text style={{ color: '#fff', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>RunAstra</Text>
+          <Text style={{ color: '#ff7a00', fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: -4, opacity: 0.9 }}>BY ATHLEON</Text>
+        </Animated.View>
+
         <Animated.Text 
-           entering={FadeInDown.delay(500).duration(800)} 
-           style={{ color: '#a0a0ab', fontSize: 15, fontWeight: '800', marginTop: 25, letterSpacing: 3, textTransform: 'uppercase' }}
+           entering={FadeInDown.delay(700).duration(800)} 
+           style={{ color: '#a0a0ab', fontSize: 13, fontWeight: '700', marginTop: 60, letterSpacing: 4, textTransform: 'uppercase', opacity: 0.5 }}
         >
           Move. Improve. Repeat.
         </Animated.Text>
@@ -152,6 +165,7 @@ function RootLayoutContent() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="profile" options={{ headerShown: true }} />
           <Stack.Screen name="webview" options={{ headerShown: true }} />
+          <Stack.Screen name="stride-guard" options={{ headerShown: true }} />
           <Stack.Screen name="event-detail" options={{ headerShown: true }} />
         </Stack>
         {showSplash && <CustomSplash onFinish={() => setShowSplash(false)} />}

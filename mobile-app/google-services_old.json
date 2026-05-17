@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "711450684323",
+    "project_id": "runastra-68ead",
+    "storage_bucket": "runastra-68ead.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711450684323:android:4ddf6ad1a6ea6098188816",
+        "android_client_info": {
+          "package_name": "com.runastra.mobileapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6Sn5_26YtzDEWIhbAzRQ3l3tzMmAx_Pc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

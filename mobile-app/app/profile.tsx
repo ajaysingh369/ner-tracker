@@ -11,12 +11,11 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import BottomSheetNotice from '../components/BottomSheetNotice';
 
 export default function ProfileScreen() {
-  const { isPro, refreshProfile } = useUserProfile();
+  const { profile, isPro, refreshProfile } = useUserProfile();
   const { theme: activeTheme, colors, setTheme } = useAstraTheme();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isStravaConnected, setIsStravaConnected] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -30,6 +29,12 @@ export default function ProfileScreen() {
   const isDeveloper = profile?.email === 'dev@athleon.co.in' || 
                       profile?.email === 'ajaysingh369@gmail.com' ||
                       profile?.email?.includes('@athleon.co.in');
+
+  useEffect(() => {
+    if (profile) {
+      setFormData(profile);
+    }
+  }, [profile]);
 
   const toggleProPlan = async (value: boolean) => {
       setIsUpdatingPro(true);
@@ -53,7 +58,6 @@ export default function ProfileScreen() {
                   type: 'success'
               });
               refreshProfile();
-              fetchProfile(); // Sync local profile state
           } else {
               throw new Error('Failed to update');
           }
@@ -70,26 +74,14 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => {
-    fetchProfile();
+    fetchStravaStatus();
   }, []);
 
-  const fetchProfile = async () => {
+  const fetchStravaStatus = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
       const athleteId = await AsyncStorage.getItem('athleteId');
       const API_URL = process.env.EXPO_PUBLIC_API_URL;
-      
-      const [pRes, sRes] = await Promise.all([
-        fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/strava/last-activity?userId=${athleteId}`)
-      ]);
-
-      if (pRes.ok) {
-        const data = await pRes.json();
-        setProfile(data.user);
-        setFormData(data.user);
-      }
-      
+      const sRes = await fetch(`${API_URL}/strava/last-activity?userId=${athleteId}`);
       if (sRes.ok) {
         const sData = await sRes.json();
         if (sData.status === 'success') setIsStravaConnected(true);
@@ -97,7 +89,6 @@ export default function ProfileScreen() {
     } catch (e) {
       console.error(e);
     }
-    setLoading(false);
   };
 
   const validateForm = () => {
@@ -170,23 +161,24 @@ export default function ProfileScreen() {
 
   if (loading && !profile) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background[1] }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: '#08080a' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <LinearGradient colors={colors.background as any} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#08080a' }]}>
       <Stack.Screen options={{ 
         title: 'Settings', 
         headerShown: true,
-        headerStyle: { backgroundColor: colors.background[0] },
+        headerStyle: { backgroundColor: '#08080a' },
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '800' }
+        headerTitleStyle: { fontWeight: '800' },
+        headerShadowVisible: false
       }} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { backgroundColor: '#08080a' }]} showsVerticalScrollIndicator={false}>
         
         {/* Profile Header */}
         <View style={styles.header}>
@@ -412,7 +404,7 @@ export default function ProfileScreen() {
           }}
         />
       )}
-    </LinearGradient>
+    </View>
   );
 }
 

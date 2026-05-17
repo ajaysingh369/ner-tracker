@@ -1,11 +1,7 @@
 export default ({ config }) => {
-  // Detection: Check if we are in a dev environment
-  const IS_DEV = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' || 
-                 process.env.NODE_ENV === 'development' || 
-                 !process.env.NODE_ENV;
   return {
     ...config,
-    name: IS_DEV ? "[DEV] RunAstra" : "RunAstra",
+    name: "RunAstra",
     slug: "runastra",
     version: "1.0.0",
     orientation: "portrait",
@@ -18,14 +14,14 @@ export default ({ config }) => {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
+        backgroundColor: "#1a1a24",
         foregroundImage: "./assets/images/icon.png",
-        backgroundImage: "./assets/images/android-icon-background.png",
         monochromeImage: "./assets/images/android-icon-monochrome.png"
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.runastra.mobileapp",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       permissions: [
         "android.permission.health.READ_STEPS",
         "android.permission.health.WRITE_STEPS",
@@ -43,11 +39,17 @@ export default ({ config }) => {
       "./scripts/withHealthConnectDelegate.js",
       "./scripts/withHealthConnectManifest.js",
       "./scripts/withMicrophonePermission.js",
+      "./scripts/withProguardRules.js",
+      "./scripts/withAndroidSigning.js",
+      "./scripts/withAndroidCredentials.js",
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
+      "@react-native-firebase/messaging",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 400,
+          "image": "./assets/images/icon.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#1a1a24",
           "dark": {
@@ -71,8 +73,8 @@ export default ({ config }) => {
             "minSdkVersion": 26,
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
-            "enableMinifyInReleaseBuilds": !IS_DEV,
-            "enableShrinkResourcesInReleaseBuilds": !IS_DEV
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           },
           "ios": {
             "useFrameworks": "static"

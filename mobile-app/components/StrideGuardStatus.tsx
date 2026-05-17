@@ -4,9 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStrideGuard } from '../hooks/useStrideGuard';
 import { FeatureFlags } from '../constants/FeatureFlags';
+import { useRouter } from 'expo-router';
 
 export default function StrideGuardStatus() {
-    const { isActive, isSupported, startStrideGuard, stopStrideGuard, isPro } = useStrideGuard();
+    const { isActive, isSupported, isPro } = useStrideGuard();
+    const router = useRouter();
 
     if (!isSupported) return null;
 
@@ -26,7 +28,7 @@ export default function StrideGuardStatus() {
 
             <TouchableOpacity 
                 activeOpacity={0.8}
-                onPress={isActive ? stopStrideGuard : startStrideGuard}
+                onPress={() => router.push('/stride-guard')}
                 style={[styles.card, isActive && styles.cardActive]}
             >
                 <View style={styles.info}>
@@ -40,16 +42,8 @@ export default function StrideGuardStatus() {
                     </Text>
                 </View>
                 
-                <View style={[styles.toggle, isActive && styles.toggleActive]}>
-                    <View style={[styles.knob, isActive && styles.toggleActiveKnob]} />
-                </View>
+                <Ionicons name="chevron-forward" size={20} color="#444" />
             </TouchableOpacity>
-
-            {!isPro && !isActive && (
-                <Text style={styles.previewNote}>
-                    Free users get a live preview during the first 1km.
-                </Text>
-            )}
         </View>
     );
 }

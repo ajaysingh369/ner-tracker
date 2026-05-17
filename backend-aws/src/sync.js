@@ -145,16 +145,28 @@ async function handleHistory(event) {
 
     let data = [];
     if (range === 'yearly') {
-        // Aggregate steps by month for yearly view
-        const monthlyAggregation = rawItems.reduce((acc, item) => {
-            const month = item.date.substring(0, 7); // YYYY-MM
-            if (!acc[month]) {
-                acc[month] = { date: `${month}-01`, steps: 0, distanceKm: 0, source: 'aggregated' };
+        // 1. Initialize all 12 months with 0s to ensure a full chart
+        const monthlyAggregation = {};
+        for (let i = 0; i < 12; i++) {
+            const d = new Date();
+            d.setMonth(now.getMonth() - i);
+            const monthStr = d.toISOString().substring(0, 7); // YYYY-MM
+            monthlyAggregation[monthStr] = { 
+                date: `${monthStr}-01`, 
+                steps: 0, 
+                distanceKm: 0, 
+                source: 'aggregated' 
+            };
+        }
+
+        // 2. Fill in the actual data
+        rawItems.forEach(item => {
+            const month = item.date.substring(0, 7);
+            if (monthlyAggregation[month]) {
+                monthlyAggregation[month].steps += (item.steps || 0);
+                monthlyAggregation[month].distanceKm += (item.distanceKm || 0);
             }
-            acc[month].steps += (item.steps || 0);
-            acc[month].distanceKm += (item.distanceKm || 0);
-            return acc;
-        }, {});
+        });
         
         data = Object.values(monthlyAggregation).sort((a, b) => a.date.localeCompare(b.date));
     } else {
@@ -166,17 +178,22 @@ async function handleHistory(event) {
         }));
     }
 
-    // ── Astra Zenith Logic (AI/Curiosity Driven) ──────────────────────────
+    // ── Astra Zenith Logic (Always based on last 7 RAW days) ────────────────
     let zenithTarget = 8000; 
     let zenithMood = "Steady";
     let zenithMessage = "Move more to set your Zenith!";
 
-    if (data.length > 0) {
-        const last7 = data.slice(-7);
-        const avg = Math.round(last7.reduce((acc, curr) => acc + (curr.steps || 0), 0) / last7.length);
+    // To calculate a valid daily Zenith, we need the last 7 days of RAW data
+    // Even if the user requested 'yearly', we want the DAILY average for Zenith.
+    // If we already have the raw items (weekly/monthly/default), we use them.
+    // If it's yearly, rawItems contains many more days, so we slice the tail.
+    const zenithSourceData = rawItems.length > 0 ? rawItems.slice(-7) : [];
+
+    if (zenithSourceData.length > 0) {
+        const avg = Math.round(zenithSourceData.reduce((acc, curr) => acc + (curr.steps || 0), 0) / zenithSourceData.length);
         
         // ── Lull Detection (Contextual Intelligence) ──────────────────────
-        const last3 = data.slice(-3);
+        const last3 = zenithSourceData.slice(-3);
         const isLull = last3.length === 3 && last3.every(d => (d.steps || 0) < (avg * 0.6)); 
 
         if (isLull) {
@@ -191,8 +208,10 @@ async function handleHistory(event) {
                 { type: "Zenith Overdrive", boost: 1.15, msg: "Zenith is in OVERDRIVE! Today is for record-breaking. Let's go!", weight: 10 }
             ];
 
-            const daySeed = new Date().getDate() + new Date().getMonth();
-            const rand = (daySeed * 13) % 100;
+            const now = new Date();
+            const daysSinceEpoch = Math.floor(now.getTime() / (1000 * 3600 * 24));
+            // Multiplying by a prime number and taking modulo ensures a wider spread of days
+            const rand = (daysSinceEpoch * 37) % 100;
 
             let selectedMood = moods[0];
             let cumulativeWeight = 0;
@@ -205,6 +224,7 @@ async function handleHistory(event) {
             }
 
             zenithTarget = Math.round(avg * selectedMood.boost);
+            if (zenithTarget < 1000) zenithTarget = 3000; // Minimum baseline
             zenithMood = selectedMood.type;
             zenithMessage = selectedMood.msg;
         }

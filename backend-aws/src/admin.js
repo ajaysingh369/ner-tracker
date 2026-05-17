@@ -24,11 +24,17 @@ exports.handler = async (event) => {
         return { statusCode: 204, headers: CORS_HEADERS, body: "" };
     }
 
+    // 0. Normalize Headers (Case-Insensitive)
+    const headers = Object.keys(event.headers || {}).reduce((acc, key) => {
+        acc[key.toLowerCase()] = event.headers[key];
+        return acc;
+    }, {});
+
     // 1. Check Internal Secret (Legacy/Internal)
-    const secret = event.headers["x-internal-secret"] || event.headers["X-Internal-Secret"];
+    const secret = headers["x-internal-secret"];
     
     // 2. Check Admin Master Password (New Security Layer)
-    const adminSecret = event.headers["x-admin-secret"] || event.headers["X-Admin-Secret"];
+    const adminSecret = headers["x-admin-secret"];
 
     // 3. New: Role-Based Access Check
     let adminRole = 'ORGANIZER';

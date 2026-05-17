@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Alert, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-// import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import * as VisionCamera from 'react-native-vision-camera';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system';
@@ -10,9 +10,11 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const { Camera, useCameraDevice } = VisionCamera;
+
 const { width } = Dimensions.get('window');
 
-const MODEL_URL = 'https://assets.athleon.co.in/models/blazepose_3d.tflite'; 
+const MODEL_URL = 'https://tfhub.dev/google/lite-model/movenet/singlepose/lightning/tflite/float16/4?lite-format=tflite'; 
 const MODEL_PATH = `${(FileSystem as any).documentDirectory}blazepose_3d.tflite`;
 
 export default function AIFormCoachModule({ visible, onClose }: { visible: boolean, onClose: () => void }) {
@@ -21,13 +23,10 @@ export default function AIFormCoachModule({ visible, onClose }: { visible: boole
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [modelReady, setModelReady] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     
-    const device = useCameraDevice('back');
-
-    // Load model from local file once downloaded
-    const model = useTensorflowModel(modelReady ? { url: `file://${MODEL_PATH}` } : (null as any), 'default' as any);
-
     useEffect(() => {
+        if (!visible) return;
         (async () => {
             const status = await (Camera as any).requestCameraPermission();
             setHasPermission(status === 'granted');
@@ -37,16 +36,26 @@ export default function AIFormCoachModule({ visible, onClose }: { visible: boole
                 setModelReady(true);
             }
         })();
-    }, []);
+    }, [visible]);
 
     const downloadModel = async () => {
+        if (!isPro) {
+            setShowUpgradeModal(true);
+            return;
+        }
+
         setIsDownloading(true);
         const downloadResumable = FileSystem.createDownloadResumable(
             MODEL_URL,
             MODEL_PATH,
             {},
             (dp) => {
-                const progress = dp.totalBytesWritten / dp.totalBytesExpectedToWrite;
+                let progress = 0;
+                if (dp.totalBytesExpectedToWrite > 0) {
+                    progress = dp.totalBytesWritten / dp.totalBytesExpectedToWrite;
+                } else {
+                    progress = Math.min(dp.totalBytesWritten / 25000000, 1);
+                }
                 setDownloadProgress(progress);
             }
         );
@@ -72,81 +81,137 @@ export default function AIFormCoachModule({ visible, onClose }: { visible: boole
             <View style={styles.container}>
                 {!modelReady ? (
                     <View style={styles.setupContainer}>
-                        <LinearGradient colors={['#1a1a24', '#0f0f13']} style={StyleSheet.absoluteFill} />
-                        <Ionicons name="body" size={80} color="#ff7a00" style={{ marginBottom: 20 }} />
-                        <Text style={styles.title}>AI Form Coach</Text>
-                        <Text style={styles.desc}>
-                            Unlock pro-grade biomechanical analysis using our on-device neural engine.
-                        </Text>
+                        <LinearGradient colors={['#1a1a24', '#08080a']} style={StyleSheet.absoluteFill} />
                         
-                        {isDownloading ? (
-                            <View style={styles.progressBox}>
-                                <Text style={styles.progressText}>Initializing Neural Engine... {Math.round(downloadProgress * 100)}%</Text>
-                                <View style={styles.progressBar}>
-                                    <View style={[styles.progressFill, { width: `${downloadProgress * 100}%` }]} />
-                                </View>
-                            </View>
-                        ) : (
-                            <TouchableOpacity style={styles.downloadBtn} onPress={downloadModel}>
-                                <LinearGradient colors={['#ff7a00', '#ff453a']} style={styles.btnGradient}>
-                                    <Text style={styles.btnText}>Download AI Assets (25MB)</Text>
-                                </LinearGradient>
+                        <SafeAreaView style={styles.setupHeader}>
+                            <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+                                <Ionicons name="arrow-back" size={28} color="#fff" />
                             </TouchableOpacity>
-                        )}
+                            <Text style={styles.headerTitle}>Vision AI Coach</Text>
+                        </SafeAreaView>
+
+                        <View style={styles.heroContent}>
+                            <View style={styles.iconCircleLarge}>
+                                <Ionicons name="body" size={60} color="#ff7a00" />
+                            </View>
+                            <Text style={styles.title}>Biomechanical Analysis</Text>
+                            <Text style={styles.desc}>
+                                Use your camera to get real-time feedback on your running form. 
+                                Our AI detects posture, knee drive, and striking patterns to keep you efficient.
+                            </Text>
+
+                            <View style={styles.featureList}>
+                                <View style={styles.featureSmall}><Ionicons name="checkmark-circle" size={18} color="#ff7a00" /><Text style={styles.featureSmallText}>Real-time Gait Tracking</Text></View>
+                                <View style={styles.featureSmall}><Ionicons name="checkmark-circle" size={18} color="#ff7a00" /><Text style={styles.featureSmallText}>Joint Angle Analysis</Text></View>
+                                <View style={styles.featureSmall}><Ionicons name="checkmark-circle" size={18} color="#ff7a00" /><Text style={styles.featureSmallText}>On-Device Processing</Text></View>
+                            </View>
+                        </View>
                         
-                        <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-                            <Text style={styles.cancelText}>Maybe Later</Text>
-                        </TouchableOpacity>
+                        <View style={styles.footerAction}>
+                            {isDownloading ? (
+                                <View style={styles.progressBox}>
+                                    <Text style={styles.progressText}>INITIALIZING NEURAL ENGINE... {Math.round(downloadProgress * 100)}%</Text>
+                                    <View style={styles.progressBar}>
+                                        <View style={[styles.progressFill, { width: `${downloadProgress * 100}%` }]} />
+                                    </View>
+                                </View>
+                            ) : isPro ? (
+                                <TouchableOpacity style={styles.downloadBtn} onPress={downloadModel}>
+                                    <LinearGradient colors={['#ff7a00', '#ff453a']} style={styles.btnGradient}>
+                                        <Text style={styles.btnText}>Download AI Assets (25MB)</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity style={styles.downloadBtn} onPress={() => setShowUpgradeModal(true)}>
+                                    <LinearGradient colors={['#ff7a00', '#ff453a']} style={styles.btnGradient}>
+                                        <Text style={styles.btnText}>Unlock with Astra Pro</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
                 ) : (
-                    <View style={styles.cameraContainer}>
-                        {device && hasPermission ? (
-                            <Camera
-                                style={StyleSheet.absoluteFill}
-                                device={device}
-                                isActive={visible}
-                            />
-                        ) : (
-                            <View style={styles.errorContainer}>
-                                <Text style={styles.errorText}>Camera not available or permission denied</Text>
-                            </View>
-                        )}
-                        
-                        {/* Overlay UI */}
-                        <SafeAreaView style={styles.overlay}>
-                            <View style={styles.topBar}>
-                                <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-                                    <Ionicons name="close" size={28} color="#fff" />
-                                </TouchableOpacity>
-                                <View style={styles.aiBadge}>
-                                    <Text style={styles.aiBadgeText}>ASTRA VISION ACTIVE</Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.guideFrame}>
-                                <View style={styles.cornerTL} />
-                                <View style={styles.cornerTR} />
-                                <View style={styles.cornerBL} />
-                                <View style={styles.cornerBR} />
-                                <Text style={styles.guideText}>Position runner within frame</Text>
-                            </View>
-
-                            <View style={styles.bottomControls}>
-                                {!isPro && (
-                                    <BlurView intensity={80} tint="dark" style={styles.proTeaser}>
-                                        <Ionicons name="lock-closed" size={16} color="#ff7a00" />
-                                        <Text style={styles.proTeaserText}>PRO PREVIEW: Gait analysis limited to 3 seconds.</Text>
-                                    </BlurView>
-                                )}
-                                <TouchableOpacity style={styles.recordBtn}>
-                                    <View style={styles.recordBtnInner} />
-                                </TouchableOpacity>
-                            </View>
-                        </SafeAreaView>
-                    </View>
+                    <VisionCoach visible={visible} hasPermission={hasPermission} isPro={isPro} onClose={onClose} />
                 )}
             </View>
+
+            <BottomSheetNotice 
+                visible={showUpgradeModal}
+                title="🚀 Astra Pro Required"
+                message="Advanced Vision AI biomechanical analysis is a Pro feature. Unlock it now to improve your form and prevent injuries."
+                type="info"
+                onClose={() => setShowUpgradeModal(false)}
+            />
         </Modal>
+    );
+}
+
+// ── VISION COACH SUB-COMPONENT ───────────────────────────────────────────
+// This component only mounts once modelReady is true, ensuring clean lazy-loading.
+function VisionCoach({ visible, hasPermission, isPro, onClose }: any) {
+    const device = useCameraDevice('back');
+    const model = useTensorflowModel({ url: `file://${MODEL_PATH}` }, 'default' as any);
+    const [modelLoading, setModelLoading] = useState(true);
+
+    useEffect(() => {
+        if (model) setModelLoading(false);
+    }, [model]);
+
+    return (
+        <View style={styles.cameraContainer}>
+            {device && hasPermission ? (
+                <Camera
+                    style={StyleSheet.absoluteFill}
+                    device={device}
+                    isActive={visible && !modelLoading}
+                />
+            ) : (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Camera not available or permission denied</Text>
+                </View>
+            )}
+
+            {modelLoading && (
+                <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill}>
+                    <View style={styles.loaderCenter}>
+                        <ActivityIndicator size="large" color="#ff7a00" />
+                        <Text style={styles.loaderText}>Waking up Astra Vision...</Text>
+                    </View>
+                </BlurView>
+            )}
+            
+            {/* Overlay UI */}
+            <SafeAreaView style={styles.overlay}>
+                <View style={styles.topBar}>
+                    <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+                        <Ionicons name="close" size={28} color="#fff" />
+                    </TouchableOpacity>
+                    <View style={styles.aiBadge}>
+                        <Text style={styles.aiBadgeText}>ASTRA VISION ACTIVE</Text>
+                    </View>
+                </View>
+
+                <View style={styles.guideFrame}>
+                    <View style={styles.cornerTL} />
+                    <View style={styles.cornerTR} />
+                    <View style={styles.cornerBL} />
+                    <View style={styles.cornerBR} />
+                    <Text style={styles.guideText}>Position runner within frame</Text>
+                </View>
+
+                <View style={styles.bottomControls}>
+                    {!isPro && (
+                        <BlurView intensity={80} tint="dark" style={styles.proTeaser}>
+                            <Ionicons name="lock-closed" size={16} color="#ff7a00" />
+                            <Text style={styles.proTeaserText}>PRO PREVIEW: Gait analysis limited to 3 seconds.</Text>
+                        </BlurView>
+                    )}
+                    <TouchableOpacity style={styles.recordBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}>
+                        <View style={styles.recordBtnInner} />
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        </View>
     );
 }
 
@@ -182,5 +247,16 @@ const styles = StyleSheet.create({
     proTeaser: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, overflow: 'hidden' },
     proTeaserText: { color: '#fff', fontSize: 12, fontWeight: '600' },
     recordBtn: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#fff', padding: 4, justifyContent: 'center', alignItems: 'center' },
-    recordBtnInner: { width: '100%', height: '100%', borderRadius: 40, backgroundColor: '#ff453a' }
+    recordBtnInner: { width: '100%', height: '100%', borderRadius: 40, backgroundColor: '#ff453a' },
+    loaderCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 20 },
+    loaderText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+    setupHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 40 : 10, height: 100, zIndex: 10 },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+    headerTitle: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+    heroContent: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
+    iconCircleLarge: { width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,122,0,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 30, borderWidth: 1, borderColor: 'rgba(255,122,0,0.2)' },
+    featureList: { width: '100%', gap: 12, marginTop: 20 },
+    featureSmall: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.03)', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 12 },
+    featureSmallText: { color: '#a0a0ab', fontSize: 14, fontWeight: '600' },
+    footerAction: { width: '100%', paddingBottom: 20 }
 });

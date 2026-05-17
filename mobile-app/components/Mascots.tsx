@@ -1028,6 +1028,15 @@ interface MascotRendererProps extends MascotProps {
  * Supports both SVG components and future PNG image assets.
  * Implements the finalized mood -> persona mapping.
  */
+const PNG_MAP: Record<string, any> = {
+  'zenith': require('../assets/images/zenith.png'),
+  'monk': require('../assets/images/monk.png'),
+  'beast': require('../assets/images/beast.png'),
+  'furious': require('../assets/images/furious_boy.png'),
+  'buddy': require('../assets/images/buddy.png'),
+  'sage': require('../assets/images/cosmic_sage.png'),
+};
+
 export function MascotRenderer({ id, theme = 'solar', size = 200, useImage = false, style }: MascotRendererProps) {
   // Plan-mandated mapping: Mood -> Mascot
   const moodMap: Record<string, MascotId> = {
@@ -1035,24 +1044,16 @@ export function MascotRenderer({ id, theme = 'solar', size = 200, useImage = fal
     'Surge': 'furious',
     'Growth': 'beast',
     'Zenith Overdrive': 'zenith',
+    'Recovery': 'buddy',
+    'Maintain': 'sage'
   };
 
-  const effectiveId = moodMap[id] || id;
+  const effectiveId = moodMap[id] || id || 'monk';
+  const asset = PNG_MAP[effectiveId] || PNG_MAP['monk'];
 
-  if (useImage) {
-    // Placeholder for future PNG integration
-    // const asset = GET_MASCOT_PNG(effectiveId);
-    // return <Image source={asset} style={[{ width: size, height: size }, style]} resizeMode="contain" />;
-    return null;
-  }
-
-  const mascot = MASCOTS.find(m => m.id === effectiveId);
-  if (!mascot) return null;
-
-  const Comp = mascot.Comp;
   return (
     <View style={style}>
-      <Comp theme={theme} size={size} />
+      <Image source={asset} style={{ width: size, height: size }} resizeMode="contain" />
     </View>
   );
 }

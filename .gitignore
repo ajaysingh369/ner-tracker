@@ -22,3 +22,8 @@ scripts/check_dummy_emails.js
 scripts/mimic_server.js
 scripts/inspect_db.js
 scripts/inspect_db_v2.js
+
+# Keystores
+*.keystore
+*.jks
+
