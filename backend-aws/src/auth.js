@@ -26,6 +26,8 @@ exports.handler = async (event) => {
         let response;
         if (path.endsWith("/auth/google") && method === "POST") {
             response = await handleGoogleAuth(event);
+        } else if (path.endsWith("/auth/fcm-token") && method === "PUT") {
+            response = await handleSyncFCMToken(event);
         } else if (path.endsWith("/auth/me") && method === "GET") {
             response = await handleGetMe(event);
         } else if (path.endsWith("/auth/profile") && (method === "POST" || method === "PUT")) {
@@ -211,5 +213,32 @@ async function handleUpdateProfile(event) {
     } catch (err) {
         console.error("Profile Update Error:", err);
         return { statusCode: 401, body: JSON.stringify({ error: "Invalid Token or Update Failed" }) };
+    }
+}
+
+async function handleSyncFCMToken(event) {
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return { statusCode: 401, body: "Unauthorized" };
+
+    const token = authHeader.split(" ")[1];
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const { fcmToken } = JSON.parse(event.body || "{}");
+
+        if (!fcmToken) return { statusCode: 400, body: JSON.stringify({ error: "FCM Token required" }) };
+
+        await ddbDocClient.send(new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: `USER#${decoded.id}`, SK: "PROFILE" },
+            UpdateExpression: "SET fcmToken = :t, updatedAt = :u",
+            ExpressionAttributeValues: {
+                ":t": fcmToken,
+                ":u": new Date().toISOString()
+            }
+        }));
+
+        return { statusCode: 200, body: JSON.stringify({ status: "success" }) };
+    } catch (err) {
+        return { statusCode: 401, body: JSON.stringify({ error: "Invalid Token" }) };
     }
 }

@@ -7,8 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeatureFlags } from '../../constants/FeatureFlags';
 import ZenithVoiceModule from '../../components/ZenithVoiceModule';
 
+import { usePushNotifications } from '../../hooks/usePushNotifications';
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  usePushNotifications(); // Initialize Push Notifications
 
   return (
     <Tabs
