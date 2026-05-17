@@ -7,6 +7,8 @@ import * as SecureStore from 'expo-secure-store';
 
 import { Analytics } from '../../services/AnalyticsService';
 
+import * as AppleAuthentication from 'expo-apple-authentication';
+
 export default function LoginScreen() {
   const router = useRouter();
 
@@ -19,6 +21,26 @@ export default function LoginScreen() {
       forceCodeForRefreshToken: true 
     });
   }, []);
+
+  const handleAppleSignIn = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      // TODO: Logic to send identityToken to backend
+      console.log('🍎 Apple Auth Success:', credential.user);
+      Alert.alert('Apple Auth Success', 'Identity Token received. Backend linking coming soon!');
+    } catch (e: any) {
+      if (e.code === 'ERR_CANCELED') {
+        // handle cancel
+      } else {
+        console.error(e);
+      }
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     try {
@@ -84,6 +106,16 @@ export default function LoginScreen() {
             <Ionicons name="logo-google" size={24} color="#000" style={styles.btnIcon} />
             <Text style={styles.googleBtnText}>Continue with Google</Text>
           </TouchableOpacity>
+
+          {Platform.OS === 'ios' && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={30}
+              style={styles.appleButton}
+              onPress={handleAppleSignIn}
+            />
+          )}
 
           <Text style={styles.disclosureText}>
             By signing in, you agree to our Terms of Service and Privacy Policy. RunAstra securely requests permission to view your device's local pedometer data.
@@ -163,6 +195,12 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 18,
     fontWeight: '700',
+  },
+  appleButton: {
+    width: '100%',
+    height: 55,
+    marginTop: 10,
+    marginBottom: 20,
   },
   disclosureText: {
     color: '#666677',

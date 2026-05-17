@@ -10,7 +10,19 @@ export default ({ config }) => {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      bundleIdentifier: "com.runastra.mobileapp",
+      entitlements: {
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      infoPlist: {
+        NSHealthShareUsageDescription: "RunAstra needs to read your steps and distance to calculate your Zenith and sync your fitness journey.",
+        NSHealthUpdateUsageDescription: "RunAstra needs to log your daily activity to help you achieve your fitness goals.",
+        NSLocationWhenInUseUsageDescription: "RunAstra uses your location to track distance and pace during your runs.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Stride Guard needs background location access to monitor your form even when the screen is off.",
+        NSMicrophoneUsageDescription: "Stride Guard uses the microphone to analyze your running acoustics for injury prevention.",
+        UIBackgroundModes: ["location", "audio", "fetch", "remote-notification"]
+      }
     },
     android: {
       adaptiveIcon: {
